@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Aluminium - Reports</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dashboard-page">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>SK ALUMINIUM</h2>
+            <p id="userRole">CEO</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="icon">📦</span>
+                <span>Inventory</span>
+            </a>
+            <a href="projects.html" class="nav-item">
+                <span class="icon">🏗️</span>
+                <span>Projects</span>
+            </a>
+            <a href="quotation.html" class="nav-item">
+                <span class="icon">📄</span>
+                <span>Quotation</span>
+            </a>
+            <a href="customers.html" class="nav-item ceo-only">
+                <span class="icon">👥</span>
+                <span>Customers</span>
+            </a>
+            <a href="attendance.html" class="nav-item">
+                <span class="icon">⏰</span>
+                <span>Attendance</span>
+            </a>
+            <a href="media.html" class="nav-item">
+                <span class="icon">🖼️</span>
+                <span>Media</span>
+            </a>
+            <a href="reports.html" class="nav-item active ceo-only">
+                <span class="icon">📈</span>
+                <span>Reports</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <button id="logoutBtn" class="btn-logout">Logout</button>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <h1>รายงานและวิเคราะห์ (Reports & Analytics) - CEO Only</h1>
+            <div class="header-actions">
+                <select id="reportPeriod">
+                    <option value="month">เดือนนี้</option>
+                    <option value="quarter">ไตรมาสนี้</option>
+                    <option value="year">ปีนี้</option>
+                    <option value="custom">กำหนดเอง</option>
+                </select>
+                <button class="btn-primary" id="exportReportBtn">📊 Export รายงาน</button>
+            </div>
+        </div>
+        
+        <!-- Summary Cards -->
+        <div class="reports-summary">
+            <div class="summary-card revenue">
+                <div class="summary-icon">💰</div>
+                <div class="summary-info">
+                    <h3>รายได้รวม</h3>
+                    <p class="amount">฿850,000</p>
+                    <span class="trend up">↑ 15% จากเดือนที่แล้ว</span>
+                </div>
+            </div>
+            <div class="summary-card profit">
+                <div class="summary-icon">📈</div>
+                <div class="summary-info">
+                    <h3>กำไรรวม</h3>
+                    <p class="amount">฿285,000</p>
+                    <span class="trend up">↑ 12% จากเดือนที่แล้ว</span>
+                </div>
+            </div>
+            <div class="summary-card projects">
+                <div class="summary-icon">🏗️</div>
+                <div class="summary-info">
+                    <h3>โครงการเสร็จ</h3>
+                    <p class="amount">12</p>
+                    <span class="trend neutral">= เท่ากับเดือนที่แล้ว</span>
+                </div>
+            </div>
+            <div class="summary-card margin">
+                <div class="summary-icon">📊</div>
+                <div class="summary-info">
+                    <h3>อัตรากำไร</h3>
+                    <p class="amount">33.5%</p>
+                    <span class="trend down">↓ 2% จากเดือนที่แล้ว</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <!-- Revenue Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>รายได้รายเดือน</h3>
+                    <select class="chart-filter">
+                        <option>6 เดือนล่าสุด</option>
+                        <option>12 เดือนล่าสุด</option>
+                    </select>
+                </div>
+                <div class="chart-placeholder">
+                    <canvas id="revenueChart"></canvas>
+                    <div class="chart-mock">
+                        <p>📊 กราฟแสดงรายได้รายเดือน</p>
+                        <small>ต.ค. 65: ฿650K | พ.ย. 65: ฿720K | ธ.ค. 65: ฿850K</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profit Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>เปรียบเทียบรายได้และกำไร</h3>
+                </div>
+                <div class="chart-placeholder">
+                    <canvas id="profitChart"></canvas>
+                    <div class="chart-mock">
+                        <p>📈 กราฟเปรียบเทียบรายได้และกำไร</p>
+                        <small>รายได้: ฿850K | กำไร: ฿285K | อัตรา: 33.5%</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reports Table -->
+        <div class="reports-tabs">
+            <button class="tab-btn active" data-report="revenue">รายงานรายได้</button>
+            <button class="tab-btn" data-report="projects">รายงานโครงการ</button>
+            <button class="tab-btn" data-report="inventory">รายงานวัสดุ</button>
+            <button class="tab-btn" data-report="attendance">รายงานการทำงาน</button>
+        </div>
+        
+        <!-- Revenue Report -->
+        <div id="revenueReport" class="report-section active">
+            <h2>รายงานรายได้และกำไร</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>โครงการ</th>
+                            <th>ลูกค้า</th>
+                            <th>วันที่เสร็จ</th>
+                            <th>ต้นทุน</th>
+                            <th>ราคาขาย</th>
+                            <th>กำไร</th>
+                            <th>อัตรากำไร</th>
+                            <th>สถานะชำระ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>โครงการติดตั้งกระจกบ้านคุณสมชาย</td>
+                            <td>คุณสมชาย ใจดี</td>
+                            <td>15 มี.ค. 2568</td>
+                            <td>฿15,000</td>
+                            <td>฿25,000</td>
+                            <td class="profit">฿10,000</td>
+                            <td>40%</td>
+                            <td><span class="badge badge-success">ชำระแล้ว</span></td>
+                        </tr>
+                        <tr>
+                            <td>โครงการติดตั้งอลูมิเนียมออฟฟิศ ABC</td>
+                            <td>บริษัท ABC จำกัด</td>
+                            <td>12 มี.ค. 2568</td>
+                            <td>฿45,000</td>
+                            <td>฿75,000</td>
+                            <td class="profit">฿30,000</td>
+                            <td>40%</td>
+                            <td><span class="badge badge-warning">ค้างชำระ</span></td>
+                        </tr>
+                        <tr>
+                            <td>โครงการติดตั้งประตูบ้านคุณมานี</td>
+                            <td>คุณมานี รักษ์ดี</td>
+                            <td>8 มี.ค. 2568</td>
+                            <td>฿20,000</td>
+                            <td>฿32,000</td>
+                            <td class="profit">฿12,000</td>
+                            <td>37.5%</td>
+                            <td><span class="badge badge-success">ชำระแล้ว</span></td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="3"><strong>รวมทั้งหมด</strong></td>
+                            <td><strong>฿80,000</strong></td>
+                            <td><strong>฿132,000</strong></td>
+                            <td class="profit"><strong>฿52,000</strong></td>
+                            <td><strong>39.4%</strong></td>
+                            <td>-</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Projects Report -->
+        <div id="projectsReport" class="report-section">
+            <h2>รายงานสรุปโครงการ</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>สถานะ</th>
+                            <th>จำนวนโครงการ</th>
+                            <th>มูลค่ารวม</th>
+                            <th>กำไรรวม</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge badge-success">เสร็จสิ้น</span></td>
+                            <td>33</td>
+                            <td>฿2,450,000</td>
+                            <td class="profit">฿850,000</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-warning">กำลังดำเนินการ</span></td>
+                            <td>12</td>
+                            <td>฿1,200,000</td>
+                            <td class="profit">฿380,000</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-info">วางแผน</span></td>
+                            <td>5</td>
+                            <td>฿450,000</td>
+                            <td class="profit">฿140,000</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Inventory Report -->
+        <div id="inventoryReport" class="report-section">
+            <h2>รายงานวัสดุคงเหลือและวัสดุใกล้หมด</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ชื่อวัสดุ</th>
+                            <th>ประเภท</th>
+                            <th>จำนวนคงเหลือ</th>
+                            <th>จำนวนขั้นต่ำ</th>
+                            <th>สถานะ</th>
+                            <th>แนะนำสั่งซื้อ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>กระจก 5 มิล 2*2 เมตร</td>
+                            <td>วัสดุใหม่</td>
+                            <td>50 แผ่น</td>
+                            <td>10 แผ่น</td>
+                            <td><span class="status-normal">ปกติ</span></td>
+                            <td>-</td>
+                        </tr>
+                        <tr class="warning-row">
+                            <td>รางบานเลื่อน</td>
+                            <td>วัสดุใหม่</td>
+                            <td>8 เส้น</td>
+                            <td>15 เส้น</td>
+                            <td><span class="status-low">ใกล้หมด</span></td>
+                            <td>20 เส้น</td>
+                        </tr>
+                        <tr>
+                            <td>เศษอลูมิเนียม</td>
+                            <td>เศษวัสดุ</td>
+                            <td>25 กก.</td>
+                            <td>5 กก.</td>
+                            <td><span class="status-normal">ปกติ</span></td>
+                            <td>-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Attendance Report -->
+        <div id="attendanceReport" class="report-section">
+            <h2>รายงานสรุปเวลาทำงานพนักงาน</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>พนักงาน</th>
+                            <th>วันที่มา</th>
+                            <th>มาสาย</th>
+                            <th>ขาดงาน</th>
+                            <th>ชั่วโมงทำงาน</th>
+                            <th>ประเมิน</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>คุณสมชาย ใจดี</td>
+                            <td>22 วัน</td>
+                            <td>2 ครั้ง</td>
+                            <td>0 วัน</td>
+                            <td>176 ชม.</td>
+                            <td><span class="badge badge-success">ดีมาก</span></td>
+                        </tr>
+                        <tr>
+                            <td>คุณมานี รักษ์ดี</td>
+                            <td>20 วัน</td>
+                            <td>5 ครั้ง</td>
+                            <td>2 วัน</td>
+                            <td>160 ชม.</td>
+                            <td><span class="badge badge-warning">พอใช้</span></td>
+                        </tr>
+                        <tr>
+                            <td>คุณวิชัย ทำดี</td>
+                            <td>22 วัน</td>
+                            <td>1 ครั้ง</td>
+                            <td>0 วัน</td>
+                            <td>178 ชม.</td>
+                            <td><span class="badge badge-success">ดีมาก</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    
+    <script src="js/main.js"></script>
+</body>
+</html>

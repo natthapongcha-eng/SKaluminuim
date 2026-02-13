@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Aluminium - Attendance</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dashboard-page">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>SK ALUMINIUM</h2>
+            <p id="userRole">CEO</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="icon">📦</span>
+                <span>Inventory</span>
+            </a>
+            <a href="projects.html" class="nav-item">
+                <span class="icon">🏗️</span>
+                <span>Projects</span>
+            </a>
+            <a href="quotation.html" class="nav-item">
+                <span class="icon">📄</span>
+                <span>Quotation</span>
+            </a>
+            <a href="customers.html" class="nav-item ceo-only">
+                <span class="icon">👥</span>
+                <span>Customers</span>
+            </a>
+            <a href="attendance.html" class="nav-item active">
+                <span class="icon">⏰</span>
+                <span>Attendance</span>
+            </a>
+            <a href="media.html" class="nav-item">
+                <span class="icon">🖼️</span>
+                <span>Media</span>
+            </a>
+            <a href="reports.html" class="nav-item ceo-only">
+                <span class="icon">📈</span>
+                <span>Reports</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <button id="logoutBtn" class="btn-logout">Logout</button>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <h1>บันทึกเวลาเข้า-ออกงาน (Attendance)</h1>
+            <div class="header-actions">
+                <button class="btn-success" id="checkInBtn">✓ เข้างาน</button>
+                <button class="btn-danger" id="checkOutBtn">✗ ออกงาน</button>
+            </div>
+        </div>
+        
+        <!-- Today Info -->
+        <div class="today-info">
+            <div class="time-display">
+                <h2 id="currentTime">14:30:25</h2>
+                <p id="currentDateDisplay">วันพุธที่ 15 มีนาคม 2568</p>
+            </div>
+            <div class="today-status">
+                <div class="status-item">
+                    <span>เวลาเข้างานวันนี้:</span>
+                    <strong id="todayCheckIn">08:15:00</strong>
+                </div>
+                <div class="status-item">
+                    <span>สถานะ:</span>
+                    <strong class="status-working">กำลังทำงาน</strong>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="filter-group">
+                <select id="filterEmployee" class="ceo-only-field">
+                    <option value="all">พนักงานทั้งหมด</option>
+                    <option value="1">คุณสมชาย ใจดี</option>
+                    <option value="2">คุณมานี รักษ์ดี</option>
+                </select>
+                <input type="month" id="filterMonth" value="2026-03">
+                <button class="btn-secondary" id="exportAttendanceBtn">Export Excel</button>
+            </div>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div class="inventory-stats">
+            <div class="stat-card success">
+                <div class="stat-icon">✓</div>
+                <div class="stat-info">
+                    <h3>22</h3>
+                    <p>วันที่มา</p>
+                </div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-icon">⏰</div>
+                <div class="stat-info">
+                    <h3>5</h3>
+                    <p>มาสาย</p>
+                </div>
+            </div>
+            <div class="stat-card danger">
+                <div class="stat-icon">✗</div>
+                <div class="stat-info">
+                    <h3>2</h3>
+                    <p>ขาดงาน</p>
+                </div>
+            </div>
+            <div class="stat-card info">
+                <div class="stat-icon">📊</div>
+                <div class="stat-info">
+                    <h3>176</h3>
+                    <p>ชั่วโมงทำงาน</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Attendance Calendar -->
+        <div class="calendar-section">
+            <h2>ปฏิทินการเข้างาน - มีนาคม 2568</h2>
+            <div class="calendar-grid">
+                <div class="calendar-day header">อา</div>
+                <div class="calendar-day header">จ</div>
+                <div class="calendar-day header">อ</div>
+                <div class="calendar-day header">พ</div>
+                <div class="calendar-day header">พฤ</div>
+                <div class="calendar-day header">ศ</div>
+                <div class="calendar-day header">ส</div>
+                
+                <!-- Days -->
+                <div class="calendar-day other-month">26</div>
+                <div class="calendar-day other-month">27</div>
+                <div class="calendar-day other-month">28</div>
+                <div class="calendar-day other-month">29</div>
+                <div class="calendar-day other-month">30</div>
+                <div class="calendar-day other-month">31</div>
+                <div class="calendar-day present">1</div>
+                <div class="calendar-day present">2</div>
+                <div class="calendar-day present">3</div>
+                <div class="calendar-day present">4</div>
+                <div class="calendar-day present">5</div>
+                <div class="calendar-day late">6</div>
+                <div class="calendar-day present">7</div>
+                <div class="calendar-day present">8</div>
+                <div class="calendar-day present">9</div>
+                <div class="calendar-day absent">10</div>
+                <div class="calendar-day present">11</div>
+                <div class="calendar-day present">12</div>
+                <div class="calendar-day late">13</div>
+                <div class="calendar-day present">14</div>
+                <div class="calendar-day today present">15</div>
+                <div class="calendar-day">16</div>
+                <div class="calendar-day">17</div>
+                <div class="calendar-day">18</div>
+                <div class="calendar-day">19</div>
+                <div class="calendar-day">20</div>
+                <div class="calendar-day">21</div>
+                <div class="calendar-day">22</div>
+                <div class="calendar-day">23</div>
+                <div class="calendar-day">24</div>
+                <div class="calendar-day">25</div>
+                <div class="calendar-day">26</div>
+                <div class="calendar-day">27</div>
+                <div class="calendar-day">28</div>
+                <div class="calendar-day">29</div>
+                <div class="calendar-day">30</div>
+                <div class="calendar-day">31</div>
+            </div>
+            <div class="calendar-legend">
+                <div class="legend-item"><span class="dot present"></span> ปกติ</div>
+                <div class="legend-item"><span class="dot late"></span> สาย</div>
+                <div class="legend-item"><span class="dot absent"></span> ขาด</div>
+                <div class="legend-item"><span class="dot today"></span> วันนี้</div>
+            </div>
+        </div>
+        
+        <!-- Attendance History -->
+        <div class="table-container">
+            <h2>ประวัติการเข้า-ออกงาน</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>วันที่</th>
+                        <th>พนักงาน</th>
+                        <th>เวลาเข้า</th>
+                        <th>เวลาออก</th>
+                        <th>ชั่วโมงทำงาน</th>
+                        <th>สถานะ</th>
+                        <th>หมายเหตุ</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceList">
+                    <tr>
+                        <td>15 มี.ค. 2568</td>
+                        <td>คุณสมชาย ใจดี</td>
+                        <td>08:15:00</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td><span class="status-working">กำลังทำงาน</span></td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>14 มี.ค. 2568</td>
+                        <td>คุณสมชาย ใจดี</td>
+                        <td>08:00:00</td>
+                        <td>17:30:00</td>
+                        <td>9.5 ชม.</td>
+                        <td><span class="status-present">ปกติ</span></td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>13 มี.ค. 2568</td>
+                        <td>คุณสมชาย ใจดี</td>
+                        <td>08:45:00</td>
+                        <td>17:15:00</td>
+                        <td>8.5 ชม.</td>
+                        <td><span class="status-late">สาย 45 นาที</span></td>
+                        <td>รถติด</td>
+                    </tr>
+                    <tr>
+                        <td>12 มี.ค. 2568</td>
+                        <td>คุณสมชาย ใจดี</td>
+                        <td>08:10:00</td>
+                        <td>17:00:00</td>
+                        <td>8.8 ชม.</td>
+                        <td><span class="status-present">ปกติ</span></td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+    
+    <!-- Check In/Out Confirmation Modal -->
+    <div id="attendanceModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="attendanceModalTitle">ยืนยันการเข้างาน</h2>
+            <div class="modal-body">
+                <p id="attendanceModalMessage">คุณต้องการบันทึกเวลาเข้างานใช่หรือไม่?</p>
+                <div class="time-confirm">
+                    <h3 id="confirmTime">08:15:00</h3>
+                    <p id="confirmDate">วันพุธที่ 15 มีนาคม 2568</p>
+                </div>
+                <div class="form-group">
+                    <label>หมายเหตุ (ถ้ามี)</label>
+                    <textarea id="attendanceNote" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancelAttendance">ยกเลิก</button>
+                <button type="button" class="btn-primary" id="confirmAttendance">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/main.js"></script>
+</body>
+</html>

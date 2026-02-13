@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Aluminium - Inventory Management</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dashboard-page">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>SK ALUMINIUM</h2>
+            <p id="userRole">CEO</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item active">
+                <span class="icon">📦</span>
+                <span>Inventory</span>
+            </a>
+            <a href="projects.html" class="nav-item">
+                <span class="icon">🏗️</span>
+                <span>Projects</span>
+            </a>
+            <a href="quotation.html" class="nav-item">
+                <span class="icon">📄</span>
+                <span>Quotation</span>
+            </a>
+            <a href="customers.html" class="nav-item ceo-only">
+                <span class="icon">👥</span>
+                <span>Customers</span>
+            </a>
+            <a href="attendance.html" class="nav-item">
+                <span class="icon">⏰</span>
+                <span>Attendance</span>
+            </a>
+            <a href="media.html" class="nav-item">
+                <span class="icon">🖼️</span>
+                <span>Media</span>
+            </a>
+            <a href="reports.html" class="nav-item ceo-only">
+                <span class="icon">📈</span>
+                <span>Reports</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <button id="logoutBtn" class="btn-logout">Logout</button>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <h1>จัดการคลังวัสดุ (Inventory Management)</h1>
+            <button class="btn-primary" id="addMaterialBtn">+ เพิ่มวัสดุใหม่</button>
+        </div>
+        
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="filter-group">
+                <input type="text" id="searchMaterial" placeholder="ค้นหาวัสดุ...">
+                <select id="filterType">
+                    <option value="all">ทั้งหมด</option>
+                    <option value="NEW">วัสดุใหม่</option>
+                    <option value="SCRAP">เศษวัสดุ</option>
+                </select>
+                <select id="filterStock">
+                    <option value="all">สถานะทั้งหมด</option>
+                    <option value="low">วัสดุใกล้หมด</option>
+                    <option value="normal">สต็อกปกติ</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div class="inventory-stats">
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-info">
+                    <h3>125</h3>
+                    <p>วัสดุทั้งหมด</p>
+                </div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-info">
+                    <h3>12</h3>
+                    <p>วัสดุใกล้หมด</p>
+                </div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-icon">✓</div>
+                <div class="stat-info">
+                    <h3>113</h3>
+                    <p>สต็อกปกติ</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Inventory Table -->
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>รหัสวัสดุ</th>
+                        <th>ชื่อวัสดุ</th>
+                        <th>ประเภท</th>
+                        <th>จำนวนคงเหลือ</th>
+                        <th>หน่วย</th>
+                        <th>ราคา/หน่วย</th>
+                        <th>จำนวนขั้นต่ำ</th>
+                        <th>สถานะ</th>
+                        <th>จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryList">
+                    <tr>
+                        <td>MAT-001</td>
+                        <td>กระจก 5 มิล 2*2 เมตร</td>
+                        <td><span class="badge badge-new">วัสดุใหม่</span></td>
+                        <td>50</td>
+                        <td>แผ่น</td>
+                        <td>1,000</td>
+                        <td>10</td>
+                        <td><span class="status-normal">ปกติ</span></td>
+                        <td>
+                            <button class="btn-icon" title="รับเข้า">📥</button>
+                            <button class="btn-icon" title="เบิกออก">📤</button>
+                            <button class="btn-icon" title="แก้ไข">✏️</button>
+                            <button class="btn-icon" title="ลบ">🗑️</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>MAT-002</td>
+                        <td>รางบานเลื่อน</td>
+                        <td><span class="badge badge-new">วัสดุใหม่</span></td>
+                        <td>8</td>
+                        <td>เส้น</td>
+                        <td>300</td>
+                        <td>15</td>
+                        <td><span class="status-low">ใกล้หมด</span></td>
+                        <td>
+                            <button class="btn-icon" title="รับเข้า">📥</button>
+                            <button class="btn-icon" title="เบิกออก">📤</button>
+                            <button class="btn-icon" title="แก้ไข">✏️</button>
+                            <button class="btn-icon" title="ลบ">🗑️</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>MAT-003</td>
+                        <td>เศษอลูมิเนียม</td>
+                        <td><span class="badge badge-scrap">เศษวัสดุ</span></td>
+                        <td>25</td>
+                        <td>กก.</td>
+                        <td>50</td>
+                        <td>5</td>
+                        <td><span class="status-normal">ปกติ</span></td>
+                        <td>
+                            <button class="btn-icon" title="รับเข้า">📥</button>
+                            <button class="btn-icon" title="เบิกออก">📤</button>
+                            <button class="btn-icon" title="แก้ไข">✏️</button>
+                            <button class="btn-icon" title="ลบ">🗑️</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+    
+    <!-- Add Material Modal -->
+    <div id="addMaterialModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>เพิ่มวัสดุใหม่</h2>
+            <form id="addMaterialForm">
+                <div class="form-group">
+                    <label>ชื่อวัสดุ</label>
+                    <input type="text" id="materialName" required>
+                </div>
+                <div class="form-group">
+                    <label>ประเภท</label>
+                    <select id="materialType" required>
+                        <option value="">เลือกประเภท</option>
+                        <option value="NEW">วัสดุใหม่</option>
+                        <option value="SCRAP">เศษวัสดุ</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>จำนวน</label>
+                        <input type="number" id="materialQuantity" required>
+                    </div>
+                    <div class="form-group">
+                        <label>หน่วย</label>
+                        <input type="text" id="materialUnit" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ราคา/หน่วย</label>
+                        <input type="number" id="materialPrice" required>
+                    </div>
+                    <div class="form-group">
+                        <label>จำนวนขั้นต่ำ</label>
+                        <input type="number" id="materialMinimum" required>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelAddMaterial">ยกเลิก</button>
+                    <button type="submit" class="btn-primary">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Stock In/Out Modal -->
+    <div id="stockModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="stockModalTitle">รับวัสดุเข้า</h2>
+            <form id="stockForm">
+                <div class="form-group">
+                    <label>ชื่อวัสดุ</label>
+                    <input type="text" id="stockMaterialName" readonly>
+                </div>
+                <div class="form-group">
+                    <label>จำนวน</label>
+                    <input type="number" id="stockQuantity" required>
+                </div>
+                <div class="form-group">
+                    <label>หมายเหตุ</label>
+                    <textarea id="stockNote" rows="3"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelStock">ยกเลิก</button>
+                    <button type="submit" class="btn-primary">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="js/main.js"></script>
+</body>
+</html>

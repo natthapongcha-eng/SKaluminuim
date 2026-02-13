@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Aluminium - Media Management</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dashboard-page">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>SK ALUMINIUM</h2>
+            <p id="userRole">CEO</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="icon">📦</span>
+                <span>Inventory</span>
+            </a>
+            <a href="projects.html" class="nav-item">
+                <span class="icon">🏗️</span>
+                <span>Projects</span>
+            </a>
+            <a href="quotation.html" class="nav-item">
+                <span class="icon">📄</span>
+                <span>Quotation</span>
+            </a>
+            <a href="customers.html" class="nav-item ceo-only">
+                <span class="icon">👥</span>
+                <span>Customers</span>
+            </a>
+            <a href="attendance.html" class="nav-item">
+                <span class="icon">⏰</span>
+                <span>Attendance</span>
+            </a>
+            <a href="media.html" class="nav-item active">
+                <span class="icon">🖼️</span>
+                <span>Media</span>
+            </a>
+            <a href="reports.html" class="nav-item ceo-only">
+                <span class="icon">📈</span>
+                <span>Reports</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <button id="logoutBtn" class="btn-logout">Logout</button>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <h1>จัดการรูปภาพโครงการ (Media Management)</h1>
+            <button class="btn-primary" id="uploadMediaBtn">📷 อัปโหลดรูปภาพ</button>
+        </div>
+        
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="filter-group">
+                <select id="filterProject">
+                    <option value="all">โครงการทั้งหมด</option>
+                    <option value="1">โครงการติดตั้งกระจกบ้านคุณสมชาย</option>
+                    <option value="2">โครงการติดตั้งอลูมิเนียมออฟฟิศ ABC</option>
+                    <option value="3">โครงการติดตั้งประตูอลูมิเนียมคอนโด XYZ</option>
+                </select>
+                <select id="filterMediaType">
+                    <option value="all">ประเภททั้งหมด</option>
+                    <option value="before">รูปก่อนติดตั้ง</option>
+                    <option value="during">รูประหว่างติดตั้ง</option>
+                    <option value="after">รูปหลังติดตั้ง</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div class="inventory-stats">
+            <div class="stat-card">
+                <div class="stat-icon">🖼️</div>
+                <div class="stat-info">
+                    <h3>248</h3>
+                    <p>รูปภาพทั้งหมด</p>
+                </div>
+            </div>
+            <div class="stat-card info">
+                <div class="stat-icon">📁</div>
+                <div class="stat-info">
+                    <h3>45</h3>
+                    <p>โครงการที่มีรูป</p>
+                </div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-icon">✓</div>
+                <div class="stat-info">
+                    <h3>1.2 GB</h3>
+                    <p>พื้นที่ใช้งาน</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Projects Gallery -->
+        <div class="projects-gallery">
+            <!-- Project 1 -->
+            <div class="project-gallery-card">
+                <div class="project-gallery-header">
+                    <h3>โครงการติดตั้งกระจกบ้านคุณสมชาย</h3>
+                    <span class="image-count">12 รูป</span>
+                </div>
+                
+                <div class="media-tabs">
+                    <button class="tab-btn active" data-tab="before-1">ก่อนติดตั้ง (4)</button>
+                    <button class="tab-btn" data-tab="during-1">ระหว่างติดตั้ง (3)</button>
+                    <button class="tab-btn" data-tab="after-1">หลังติดตั้ง (5)</button>
+                </div>
+                
+                <div class="media-grid" id="before-1">
+                    <div class="media-item">
+                        <img src="https://via.placeholder.com/200x150/1e40af/ffffff?text=Before+1" alt="Before 1">
+                        <div class="media-overlay">
+                            <button class="btn-icon">👁️</button>
+                            <button class="btn-icon">🗑️</button>
+                        </div>
+                        <p class="media-date">10 มี.ค. 2568</p>
+                    </div>
+                    <div class="media-item">
+                        <img src="https://via.placeholder.com/200x150/1e40af/ffffff?text=Before+2" alt="Before 2">
+                        <div class="media-overlay">
+                            <button class="btn-icon">👁️</button>
+                            <button class="btn-icon">🗑️</button>
+                        </div>
+                        <p class="media-date">10 มี.ค. 2568</p>
+                    </div>
+                    <div class="media-item">
+                        <img src="https://via.placeholder.com/200x150/1e40af/ffffff?text=Before+3" alt="Before 3">
+                        <div class="media-overlay">
+                            <button class="btn-icon">👁️</button>
+                            <button class="btn-icon">🗑️</button>
+                        </div>
+                        <p class="media-date">10 มี.ค. 2568</p>
+                    </div>
+                    <div class="media-item">
+                        <img src="https://via.placeholder.com/200x150/1e40af/ffffff?text=Before+4" alt="Before 4">
+                        <div class="media-overlay">
+                            <button class="btn-icon">👁️</button>
+                            <button class="btn-icon">🗑️</button>
+                        </div>
+                        <p class="media-date">10 มี.ค. 2568</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Project 2 -->
+            <div class="project-gallery-card">
+                <div class="project-gallery-header">
+                    <h3>โครงการติดตั้งอลูมิเนียมออฟฟิศ ABC</h3>
+                    <span class="image-count">8 รูป</span>
+                </div>
+                
+                <div class="media-tabs">
+                    <button class="tab-btn active" data-tab="before-2">ก่อนติดตั้ง (3)</button>
+                    <button class="tab-btn" data-tab="during-2">ระหว่างติดตั้ง (5)</button>
+                    <button class="tab-btn" data-tab="after-2">หลังติดตั้ง (0)</button>
+                </div>
+                
+                <div class="media-grid" id="before-2">
+                    <div class="media-item">
+                        <img src="https://via.placeholder.com/200x150/1e40af/ffffff?text=ABC+Before+1" alt="ABC Before 1">
+                        <div class="media-overlay">
+                            <button class="btn-icon">👁️</button>
+                            <button class="btn-icon">🗑️</button>
+                        </div>
+                        <p class="media-date">20 มี.ค. 2568</p>
+                    </div>
+                    <div class="media-item">
+                        <img src="https://via.placeholder.com/200x150/1e40af/ffffff?text=ABC+Before+2" alt="ABC Before 2">
+                        <div class="media-overlay">
+                            <button class="btn-icon">👁️</button>
+                            <button class="btn-icon">🗑️</button>
+                        </div>
+                        <p class="media-date">20 มี.ค. 2568</p>
+                    </div>
+                    <div class="media-item">
+                        <img src="https://via.placeholder.com/200x150/1e40af/ffffff?text=ABC+Before+3" alt="ABC Before 3">
+                        <div class="media-overlay">
+                            <button class="btn-icon">👁️</button>
+                            <button class="btn-icon">🗑️</button>
+                        </div>
+                        <p class="media-date">20 มี.ค. 2568</p>
+                    </div>
+                    <div class="media-item upload-placeholder">
+                        <button class="btn-upload">
+                            <span>➕</span>
+                            <p>เพิ่มรูปภาพ</p>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Upload Media Modal -->
+    <div id="uploadMediaModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>อัปโหลดรูปภาพ</h2>
+            <form id="uploadMediaForm">
+                <div class="form-group">
+                    <label>เลือกโครงการ</label>
+                    <select id="mediaProject" required>
+                        <option value="">เลือกโครงการ</option>
+                        <option value="1">โครงการติดตั้งกระจกบ้านคุณสมชาย</option>
+                        <option value="2">โครงการติดตั้งอลูมิเนียมออฟฟิศ ABC</option>
+                        <option value="3">โครงการติดตั้งประตูอลูมิเนียมคอนโด XYZ</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ประเภทรูปภาพ</label>
+                    <select id="mediaCategory" required>
+                        <option value="">เลือกประเภท</option>
+                        <option value="before">รูปก่อนติดตั้ง</option>
+                        <option value="during">รูประหว่างติดตั้ง</option>
+                        <option value="after">รูปหลังติดตั้ง</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>อัปโหลดรูปภาพ</label>
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <input type="file" id="mediaFiles" multiple accept="image/*" hidden>
+                        <div class="upload-prompt">
+                            <span class="upload-icon">📷</span>
+                            <p>คลิกหรือลากไฟล์มาวางที่นี่</p>
+                            <small>รองรับ JPG, PNG, GIF (สูงสุด 5MB/ไฟล์)</small>
+                        </div>
+                        <div id="filePreview" class="file-preview"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>หมายเหตุ</label>
+                    <textarea id="mediaDescription" rows="2"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelUpload">ยกเลิก</button>
+                    <button type="submit" class="btn-primary">อัปโหลด</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Image Viewer Modal -->
+    <div id="imageViewerModal" class="modal image-viewer">
+        <div class="modal-content large">
+            <span class="close">&times;</span>
+            <div class="image-viewer-container">
+                <button class="nav-btn prev">‹</button>
+                <img id="viewerImage" src="" alt="Full size image">
+                <button class="nav-btn next">›</button>
+            </div>
+            <div class="image-info">
+                <p id="imageProjectName">โครงการ...</p>
+                <p id="imageDate">วันที่...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/main.js"></script>
+</body>
+</html>
