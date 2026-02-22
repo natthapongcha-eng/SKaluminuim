@@ -69,7 +69,11 @@ router.delete('/:id', async (req, res) => {
 // Stock In
 router.post('/:id/stock-in', async (req, res) => {
     try {
-        const { quantity, reason, userId } = req.body;
+        const { quantity, reason, userId } = req.body; // ส่งมาแค่ quantity กับ reason แต่ userId จะเป็น undefined เพราะไม่ได้ส่งมา แต่ไม่เกิด error ใด ๆ
+        /*
+        ถ้า property ไหน ไม่มีใน object → ค่านั้นจะเป็น undefined โดยอัตโนมัติ
+        กรณีนี้ req.body มีแค่ { quantity, reason } 
+       */ 
         const item = await Material.findById(req.params.id);
         
         if (!item) return res.status(404).json({ message: 'Item not found' });

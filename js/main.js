@@ -228,54 +228,17 @@ if (document.getElementById('addMaterialBtn')) {
     const addMaterialModal = document.getElementById('addMaterialModal');
     const addMaterialForm = document.getElementById('addMaterialForm');
     const cancelAddMaterial = document.getElementById('cancelAddMaterial');
-    
+
+    // Inventory page now uses js/pages/inventory.js for all logic.
+    // Hereเราปล่อยให้ปุ่มเปิด/ปิด modal ถูกจัดการจากสคริปต์เฉพาะหน้านั้นแทน
     addMaterialBtn?.addEventListener('click', function() {
         openModal('addMaterialModal');
     });
-    
+
     cancelAddMaterial?.addEventListener('click', function() {
         closeModal('addMaterialModal');
     });
-    
-    addMaterialForm?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        alert('เพิ่มวัสดุเรียบร้อย');
-        closeModal('addMaterialModal');
-        addMaterialForm.reset();
-    });
-    
-    // Stock in/out buttons
-    const stockModal = document.getElementById('stockModal');
-    const stockForm = document.getElementById('stockForm');
-    const cancelStock = document.getElementById('cancelStock');
-    
-    document.querySelectorAll('.btn-icon[title="รับเข้า"]').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.getElementById('stockModalTitle').textContent = 'รับวัสดุเข้า';
-            openModal('stockModal');
-        });
-    });
-    
-    document.querySelectorAll('.btn-icon[title="เบิกออก"]').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.getElementById('stockModalTitle').textContent = 'เบิกวัสดุออก';
-            openModal('stockModal');
-        });
-    });
-    
-    cancelStock?.addEventListener('click', function() {
-        closeModal('stockModal');
-    });
-    
-    stockForm?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        alert('บันทึกการเคลื่อนไหววัสดุเรียบร้อย');
-        closeModal('stockModal');
-        stockForm.reset();
-    });
-    
+
     // Search and filter
     const searchMaterial = document.getElementById('searchMaterial');
     const filterType = document.getElementById('filterType');

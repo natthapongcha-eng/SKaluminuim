@@ -200,19 +200,21 @@ const InventoryPage = {
 
     // Process stock in/out
     async processStock() {
-        const quantity = parseInt(document.getElementById('stockQuantity').value);
-        const note = document.getElementById('stockNote').value;
+        const quantityInput = document.getElementById('stockQuantity');
+        const quantityValue = quantityInput ? quantityInput.value : '';
+        const quantity = Number(quantityValue);
+        const note = document.getElementById('stockNote').value.trim();
 
-        if (!quantity || quantity <= 0) {
+        if (Number.isNaN(quantity) || quantity <= 0) {
             alert('กรุณาระบุจำนวนที่ถูกต้อง');
             return;
         }
 
         try {
             if (this.stockAction === 'in') {
-                await api.inventory.stockIn(this.currentItemId, { quantity, note });
+                await api.inventory.stockIn(this.currentItemId, { quantity, reason: note });
             } else {
-                await api.inventory.stockOut(this.currentItemId, { quantity, note });
+                await api.inventory.stockOut(this.currentItemId, { quantity, reason: note });
             }
             
             alert('บันทึกการเคลื่อนไหววัสดุเรียบร้อย');
