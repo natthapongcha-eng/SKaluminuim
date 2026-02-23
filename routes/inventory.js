@@ -104,11 +104,11 @@ router.post('/:id/stock-in', async (req, res) => {
 // Stock Out
 router.post('/:id/stock-out', async (req, res) => {
     try {
-        const { quantity, reason, projectId, userId } = req.body;
+        const { quantity, reason, projectId, userId } = req.body; // // ส่งมาแค่ quantity, projectId  กับ reason แต่ userId จะเป็น undefined เพราะไม่ได้ส่งมา แต่ไม่เกิด error ใด ๆ
         const item = await Material.findById(req.params.id);
         
         if (!item) return res.status(404).json({ message: 'Item not found' });
-        if (item.quantity < quantity) return res.status(400).json({ message: 'Insufficient stock' });
+        if (item.quantity < quantity) return res.status(400).json({ message: 'Insufficient stock' }); // ถ้าจพนวนสต๊อคเดิมน้อยกว่าที่จะเบิกออก ให้แจ้งว่า สต๊อคไม่พอ
         
         const previousStock = item.quantity;
         item.quantity -= quantity;
