@@ -1,4 +1,4 @@
-# ระบบบริหารจัดการธุรกิจกระจกและอลูมิเนียม
+# ระบบบริหารจัดการธุรกิจกระจกและอลูมิเนียม กัส
 # SK Aluminium - Glass & Aluminum Business Management System
 
 ![SK Aluminium](https://img.shields.io/badge/Version-1.0.0-blue)
