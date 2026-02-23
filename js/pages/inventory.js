@@ -195,13 +195,48 @@ const InventoryPage = {
         document.getElementById('stockQuantity').value = '';
         document.getElementById('stockNote').value = '';
         
+        const projectGroup = document.getElementById('stockProjectGroup');
+        const projectSelect = document.getElementById('stockProject');
+
+        if (projectGroup && projectSelect) {
+            if (action === 'out') {
+                projectGroup.style.display = 'block';
+                this.loadProjectsForStock(projectSelect);
+            } else {
+                projectGroup.style.display = 'none';
+                projectSelect.innerHTML = '<option value="">เลือกโปรเจกต์</option>';
+            }
+        }
+
         openModal('stockModal');
+    },
+
+    async loadProjectsForStock(selectElement) {
+        try {
+            const projects = await api.projects.getAll(); // กันกรณีได้ค่าแปลก ๆ ไม่ใช่ array ก็เลิกทำงาน ไม่ map ต่อ ปกติต้องได้ค้า array
+            if (!Array.isArray(projects)) return;
+
+            selectElement.innerHTML = '<option value="">เลือกโปรเจกต์</option>' +
+                projects.map(p => {
+                    const customerName = p.customerId?.name || 'ไม่ระบุลูกค้า';
+                    const shortId = (p._id || '').slice(-6).toUpperCase();
+                    return `<option value="${p._id}">${customerName} (${shortId})</option>`;
+                }).join('');
+        } catch (error) {
+            console.error('Error loading projects for stock:', error);
+            selectElement.innerHTML = '<option value="">โหลดรายชื่อโปรเจกต์ไม่สำเร็จ</option>';
+        }
     },
 
     // Process stock in/out
     async processStock() {
         const quantityInput = document.getElementById('stockQuantity');
         const quantityValue = quantityInput ? quantityInput.value : '';
+        /* 
+        " line ตัวแปร quantityInput มีค่าไหม? (หา element เจอไหม?)"
+
+        ถ้ามี (True): ให้ดึงค่าที่กรอก (.value) มาใส่ใน quantityValue
+        ถ้าไม่มี (False): ให้ใส่ค่าเป็นข้อความว่าง '' แทน*/
         const quantity = Number(quantityValue);
         const note = document.getElementById('stockNote').value.trim();
 
@@ -214,7 +249,15 @@ const InventoryPage = {
             if (this.stockAction === 'in') {
                 await api.inventory.stockIn(this.currentItemId, { quantity, reason: note });
             } else {
-                await api.inventory.stockOut(this.currentItemId, { quantity, reason: note });
+                const projectSelect = document.getElementById('stockProject');
+                const projectId = projectSelect ? projectSelect.value : ''; //ดึงค่า id ของโปรเจกต์ที่เลือกมาใช้  ถ้าไม่มี selectElement หรือไม่ได้เลือกโปรเจกต์ จะได้ค่าเป็น '' แทน
+
+                if (!projectId) {
+                    alert('กรุณาเลือกโปรเจกต์ที่ใช้วัสดุ');
+                    return;
+                }
+
+                await api.inventory.stockOut(this.currentItemId, { quantity, reason: note, projectId });
             }
             
             alert('บันทึกการเคลื่อนไหววัสดุเรียบร้อย');
@@ -299,4 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('addMaterialBtn')) {
         InventoryPage.init();
     }
+    /*เมื่อ DOM โหลดเสร็จ → callback นี้ทำงาน
+เช็คว่ามีปุ่ม #addMaterialBtn ไหม (เพื่อแน่ใจว่าอยู่หน้า Inventory)
+ถ้ามี → เรียก InventoryPage.init()*/
 });
