@@ -643,6 +643,67 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // ===== Announcement (publish/load) =====
+    const announcementBanner = document.getElementById('siteAnnouncementBanner');
+    const announcementContent = announcementBanner ? announcementBanner.querySelector('.announcement-content') : null;
+    const publishBtn = document.getElementById('publishAnnouncementBtn');
+    const saveDraftBtn = document.getElementById('saveDraftAnnouncementBtn');
+    const clearBtn = document.getElementById('clearAnnouncementBtn');
+    const announcementText = document.getElementById('announcementText');
+
+    function renderAnnouncement(text) {
+        if (!announcementBanner || !announcementContent) return;
+        if (text) {
+            announcementContent.textContent = text;
+            announcementBanner.style.display = 'flex';
+            announcementBanner.style.justifyContent = 'space-between';
+            announcementBanner.style.alignItems = 'center';
+            announcementBanner.style.background = '#fff6d6';
+            announcementBanner.style.border = '1px solid #f0e1a8';
+            announcementBanner.style.padding = '10px 12px';
+        } else {
+            announcementBanner.style.display = 'none';
+        }
+    }
+
+    // Load published announcement
+    try {
+        const storedAnnouncement = localStorage.getItem('siteAnnouncement');
+        if (storedAnnouncement) renderAnnouncement(storedAnnouncement);
+
+        // Load draft into editor if present
+        const draft = localStorage.getItem('siteAnnouncementDraft');
+        if (announcementText && draft) announcementText.value = draft;
+    } catch (e) {
+        console.warn('LocalStorage unavailable for announcements', e);
+    }
+
+    publishBtn?.addEventListener('click', function() {
+        const text = announcementText?.value.trim();
+        if (!text) {
+            alert('Please enter announcement text');
+            return;
+        }
+        localStorage.setItem('siteAnnouncement', text);
+        localStorage.removeItem('siteAnnouncementDraft');
+        renderAnnouncement(text);
+        alert('Announcement published');
+    });
+
+    saveDraftBtn?.addEventListener('click', function() {
+        const text = announcementText?.value || '';
+        localStorage.setItem('siteAnnouncementDraft', text);
+        alert('Draft saved');
+    });
+
+    clearBtn?.addEventListener('click', function() {
+        if (!announcementBanner) return;
+        if (confirm('Are you sure you want to clear the announcement?')) {
+            localStorage.removeItem('siteAnnouncement');
+            renderAnnouncement(null);
+        }
+    });
     
     // ===== Logout =====
     const logoutBtns = document.querySelectorAll('#logoutBtn');

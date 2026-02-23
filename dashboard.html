@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -63,6 +63,12 @@
                 <span id="currentDate">2000-2026</span>
             </div>
         </header>
+        
+        <!-- Announcement Banner -->
+        <div id="siteAnnouncementBanner" class="announcement-banner" style="display:none;">
+            <div class="announcement-content"></div>
+            <button id="clearAnnouncementBtn" class="btn-clear">Clear Announcement</button>
+        </div>
         
         <!-- Hero Section -->
         <section class="hero-section">
@@ -153,6 +159,16 @@
             <div class="question-box">
                 <h3>📋 Select this questionnaire</h3>
                 <p>What small steps have helped you feel more confident today?</p>
+            </div>
+            
+            <!-- Announcement Editor (CEO only) -->
+            <div class="question-box ceo-only-field announcement-editor" style="margin-top:16px;">
+                <h3>📣 Write Announcement (CEO only)</h3>
+                <textarea id="announcementText" rows="3" style="width:100%;" placeholder="Type your announcement..."></textarea>
+                <div style="margin-top:8px; display:flex; gap:8px;">
+                    <button id="publishAnnouncementBtn" class="btn-action">Publish</button>
+                    <button id="saveDraftAnnouncementBtn" class="btn-secondary">Save Draft</button>
+                </div>
             </div>
         </section>
     </main>
