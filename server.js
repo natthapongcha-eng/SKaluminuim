@@ -31,6 +31,7 @@ const quotationRoutes = require('./routes/quotations');
 const attendanceRoutes = require('./routes/attendance');
 const reportRoutes = require('./routes/reports');
 const mediaRoutes = require('./routes/media');
+const announcementRoutes = require('./routes/announcement');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -41,6 +42,7 @@ app.use('/api/quotations', quotationRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/announcement', announcementRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
