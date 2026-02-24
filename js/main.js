@@ -661,41 +661,91 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Load published announcement
-    try {
-        const storedAnnouncement = localStorage.getItem('siteAnnouncement');
-        if (storedAnnouncement) renderAnnouncement(storedAnnouncement);
-
-        // Load draft into editor if present
-        const draft = localStorage.getItem('siteAnnouncementDraft');
-        if (announcementText && draft) announcementText.value = draft;
-    } catch (e) {
-        console.warn('LocalStorage unavailable for announcements', e);
+    // Load published announcement from MongoDB via API
+    async function loadAnnouncementFromServer() {
+        try {
+            const response = await fetch('/api/announcement');
+            const data = await response.json();
+            if (data.announcement) {
+                renderAnnouncement(data.announcement);
+                if (announcementText) {
+                    announcementText.value = data.announcement;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load announcement from server:', error);
+        }
     }
 
-    publishBtn?.addEventListener('click', function() {
+    // Load announcement on page load
+    loadAnnouncementFromServer();
+
+    // Load draft from localStorage if present
+    try {
+        const draft = localStorage.getItem('siteAnnouncementDraft');
+        if (announcementText && draft) {
+            announcementText.value = draft;
+        }
+    } catch (e) {
+        console.warn('LocalStorage unavailable for drafts', e);
+    }
+
+    publishBtn?.addEventListener('click', async function() {
         const text = announcementText?.value.trim();
         if (!text) {
             alert('Please enter announcement text');
             return;
         }
-        localStorage.setItem('siteAnnouncement', text);
-        localStorage.removeItem('siteAnnouncementDraft');
-        renderAnnouncement(text);
-        alert('Announcement published');
+        
+        try {
+            const response = await fetch('/api/announcement', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: text })
+            });
+
+            if (response.ok) {
+                await loadAnnouncementFromServer();
+                localStorage.removeItem('siteAnnouncementDraft');
+                alert('✅ Announcement published successfully - Everyone can see it!');
+            } else {
+                const errorData = await response.json();
+                alert(`❌ Error: ${errorData.message}`);
+            }
+        } catch (error) {
+            console.error('Failed to publish announcement:', error);
+            alert('❌ Failed to connect to server');
+        }
     });
 
     saveDraftBtn?.addEventListener('click', function() {
         const text = announcementText?.value || '';
-        localStorage.setItem('siteAnnouncementDraft', text);
-        alert('Draft saved');
+        try {
+            localStorage.setItem('siteAnnouncementDraft', text);
+            alert('✅ Draft saved');
+        } catch (e) {
+            console.warn('LocalStorage unavailable for drafts', e);
+            alert('⚠️ Unable to save draft');
+        }
     });
 
-    clearBtn?.addEventListener('click', function() {
+    clearBtn?.addEventListener('click', async function() {
         if (!announcementBanner) return;
         if (confirm('Are you sure you want to clear the announcement?')) {
-            localStorage.removeItem('siteAnnouncement');
-            renderAnnouncement(null);
+            try {
+                const response = await fetch('/api/announcement', {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    renderAnnouncement(null);
+                    if (announcementText) announcementText.value = '';
+                    alert('✅ Announcement cleared');
+                }
+            } catch (error) {
+                console.error('Failed to clear announcement:', error);
+                alert('❌ Failed to clear announcement');
+            }
         }
     });
     
