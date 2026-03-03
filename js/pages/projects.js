@@ -2,16 +2,203 @@
 const ProjectsPage = {
     projects: [],
     customers: [],
+    materials: [],            // list of inventory items
+    projectMaterials: [],     // materials added to current project form
+    selectedMaterial: null,   // item picked from search results
     currentProjectId: null,
 
     // Initialize projects page
     async init() {
         await Promise.all([
             this.loadProjects(),
-            this.loadCustomers()
+            this.loadCustomers(),
+            this.loadMaterials()
         ]);
         this.setupEventListeners();
     },
+
+    // Load available materials from inventory for dropdown
+    async loadMaterials() {
+        try {
+            const mats = await api.inventory.getAll();
+            // ensure array
+            this.materials = Array.isArray(mats) ? mats : [];
+        } catch (error) {
+            console.error('Error loading materials:', error);
+            this.materials = [];
+        }
+    },
+
+    // Render search results table based on materials list (or filtered subset)
+    renderSearchResults(results) {
+        const tbody = document.querySelector('#materialSearchResults tbody');
+        if (!tbody) return;
+
+        const searchInput = document.getElementById('modalMaterialSearch');
+        const isEmptyQuery = !searchInput || searchInput.value.trim() === '';
+
+        if (!results || results.length === 0) {
+            const msg = isEmptyQuery ? 'พิมพ์ค้นหาเพื่อแสดงรายการ' : 'ไม่พบรายการ';
+            tbody.innerHTML = `
+                <tr class="empty-state">
+                    <td colspan="6" style="text-align:center;color:#666;">${msg}</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = results.map(item => {
+            return `
+                <tr data-id="${item._id}" class="search-row">
+                    <td>${item._id.slice(-6).toUpperCase()}</td>
+                    <td>${item.name}</td>
+                    <td>${item.specification || '-'}</td>
+                    <td>${item.type}</td>
+                    <td>${item.quantity} ${item.unit || ''}</td>
+                    <td>${item.unit || ''}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // attach click listeners
+        document.querySelectorAll('#materialSearchResults .search-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+                const id = e.currentTarget.dataset.id;
+                this.selectMaterialById(id);
+                // highlight selected row
+                document.querySelectorAll('#materialSearchResults .search-row').forEach(r => r.classList.remove('selected'));
+                e.currentTarget.classList.add('selected');
+            });
+        });
+    },
+
+    selectMaterialById(id) {
+        this.selectedMaterial = this.materials.find(m => m._id === id) || null;
+        const noSelect = document.getElementById('materialNotSelected');
+        if (noSelect) noSelect.style.display = 'none';
+        const preview = document.getElementById('selectedMaterialPreview');
+        if (this.selectedMaterial) {
+            // prefill price
+            const priceInput = document.getElementById('projectMaterialPrice');
+            if (priceInput) priceInput.value = this.selectedMaterial.unitPrice || '';
+            if (preview) {
+                preview.textContent = `เลือก: ${this.selectedMaterial.name}` +
+                    (this.selectedMaterial.specification ? ` (${this.selectedMaterial.specification})` : '');
+            }
+        } else {
+            if (preview) preview.textContent = '';
+        }
+    },
+
+
+    // Open the material modal and reset values
+    async openMaterialModal() {
+        // reload inventory each time so new items are available
+        await this.loadMaterials();
+        // clear search box and message
+        const searchInput = document.getElementById('modalMaterialSearch');
+        const notFound = document.getElementById('materialNotFound');
+        const noSelect = document.getElementById('materialNotSelected');
+        if (searchInput) searchInput.value = '';
+        if (notFound) notFound.style.display = 'none';
+        if (noSelect) noSelect.style.display = 'none';
+        this.selectedMaterial = null;
+        const preview = document.getElementById('selectedMaterialPreview');
+        if (preview) preview.textContent = '';
+        this.renderSearchResults([]);
+        document.getElementById('projectMaterialQty').value = '';
+        document.getElementById('projectMaterialPrice').value = '';
+        openModal('addProjectMaterialModal');
+    },
+
+    // Add chosen material to projectMaterials array
+    addMaterialToProject() {
+        const qty = parseFloat(document.getElementById('projectMaterialQty').value) || 0;
+        const price = parseFloat(document.getElementById('projectMaterialPrice').value) || 0;
+        if (!this.selectedMaterial) {
+            const noSelect = document.getElementById('materialNotSelected');
+            if (noSelect) noSelect.style.display = 'block';
+            return;
+        }
+        if (qty <= 0) return;
+
+        const mat = this.selectedMaterial;
+        const sku = mat._id.slice(-6).toUpperCase();
+        const total = qty * price;
+
+        this.projectMaterials.push({
+            id: mat._id,
+            sku,
+            name: mat.name,
+            spec: mat.specification || '',
+            unit: mat.unit || '',
+            qty,
+            price,
+            total
+        });
+        this.renderProjectMaterialsList();
+        // keep modal open for next item, clear qty & price
+        document.getElementById('projectMaterialQty').value = '';
+        document.getElementById('projectMaterialPrice').value = mat.unitPrice || '';
+        // clear selected item/highlight so user can choose again
+        this.selectedMaterial = null;
+        const preview = document.getElementById('selectedMaterialPreview');
+        if (preview) preview.textContent = '';
+        document.querySelectorAll('#materialSearchResults .search-row').forEach(r => r.classList.remove('selected'));
+    },
+
+    // Render rows inside materials table on project form and in modal
+    renderProjectMaterialsList() {
+        // helper to render a specific table body
+        const renderBody = (selector) => {
+            const tbody = document.querySelector(`${selector} tbody`);
+            if (!tbody) return;
+            if (this.projectMaterials.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="6">ยังไม่มีวัสดุ</td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = this.projectMaterials.map((m, i) => `
+                    <tr data-index="${i}">
+                        <td>${m.sku}</td>
+                        <td>${m.name}</td>
+                        <td>${m.spec || '-'}</td>
+                        <td>${m.qty} ${m.unit || ''}</td>
+                        <td>฿${m.price.toLocaleString('th-TH')}</td>
+                        <td>฿${m.total.toLocaleString('th-TH')}</td>
+                        <td><button type="button" class="btn-icon remove-material-btn" data-index="${i}">✖️</button></td>
+                    </tr>
+                `).join('');
+            }
+        };
+
+        renderBody('#projectMaterialsList');
+        renderBody('#modalMaterialsList');
+
+        this.attachMaterialRowEvents();
+        this.updateCostFromMaterials();
+    },
+
+    attachMaterialRowEvents() {
+        document.querySelectorAll('#projectMaterialsList .remove-material-btn, #modalMaterialsList .remove-material-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.dataset.index);
+                if (!isNaN(idx)) {
+                    this.projectMaterials.splice(idx, 1);
+                    this.renderProjectMaterialsList();
+                }
+            });
+        });
+    },
+
+    updateCostFromMaterials() {
+        const sum = this.projectMaterials.reduce((a, m) => a + m.total, 0);
+        const costInput = document.getElementById('projectCost');
+        if (costInput) costInput.value = sum;
+    },
+
 
     // Load projects from API
     async loadProjects() {
@@ -43,7 +230,7 @@ const ProjectsPage = {
         if (!select) return;
 
         select.innerHTML = '<option value="">เลือกลูกค้า</option>' +
-            this.customers.map(c => `<option value="${c._id}">${c.name}</option>`).join('');
+            this.customers.map(c => `<option value="${c._id}">${c.customerName}</option>`).join('');
     },
 
     // Render projects grid
@@ -63,7 +250,7 @@ const ProjectsPage = {
         grid.innerHTML = projects.map(project => {
             const statusBadge = this.getStatusBadge(project.status);
             const paymentBadge = this.getPaymentBadge(project.paymentStatus);
-            const customerName = project.customerId?.name || 'ไม่ระบุ';
+            const customerName = project.customerId?.customerName || 'ไม่ระบุ';
             const teamNames = (project.assignedTeam || []).map(t => t.username || t).join(', ') || 'ไม่ระบุ';
             
             return `
@@ -168,6 +355,68 @@ const ProjectsPage = {
             });
         }
 
+        // make sure closing modal clears material entries
+        const addProjModalClose = document.querySelector('#addProjectModal .close');
+        addProjModalClose?.addEventListener('click', () => {
+            closeModal('addProjectModal');
+            this.projectMaterials = [];
+            this.renderProjectMaterialsList();
+        });
+
+        const materialModalClose = document.querySelector('#addProjectMaterialModal .close');
+        materialModalClose?.addEventListener('click', () => {
+            // behave like cancel: clear the temporary list and selected item
+            this.projectMaterials = [];
+            this.renderProjectMaterialsList();
+            this.selectedMaterial = null;
+            const preview = document.getElementById('selectedMaterialPreview');
+            if (preview) preview.textContent = '';
+            closeModal('addProjectMaterialModal');
+        });
+
+        // Add material button and modal interactions
+        const addMaterialBtn = document.getElementById('addMaterialToProject');
+        addMaterialBtn?.addEventListener('click', () => this.openMaterialModal());
+
+        // When opening the create-project modal, make sure the material list is cleared
+        const addProjBtn = document.getElementById('addProjectBtn');
+        addProjBtn?.addEventListener('click', () => {
+            this.projectMaterials = [];
+            this.renderProjectMaterialsList();
+            document.getElementById('addProjectForm')?.reset();
+        });
+
+        const addMaterialForm = document.getElementById('addProjectMaterialForm');
+        addMaterialForm?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.addMaterialToProject();
+        });
+
+        // after adding items, user can finish
+        const doneBtn = document.getElementById('doneProjectMaterials');
+        doneBtn?.addEventListener('click', () => {
+            closeModal('addProjectMaterialModal');
+        });
+
+        // clear search filtering when modal opens
+        const materialSearch = document.getElementById('modalMaterialSearch');
+        materialSearch?.addEventListener('input', (e) => {
+            this.filterMaterialOptions(e.target.value);
+        });
+
+        const cancelAddMaterial = document.getElementById('cancelAddProjectMaterial');
+        cancelAddMaterial?.addEventListener('click', () => {
+            // cancel will discard the whole selection
+            this.projectMaterials = [];
+            this.renderProjectMaterialsList();
+            this.selectedMaterial = null;
+            const preview = document.getElementById('selectedMaterialPreview');
+            if (preview) preview.textContent = '';
+            closeModal('addProjectMaterialModal');
+        });
+
+
+
         // Search and Filter
         const searchInput = document.getElementById('searchProject');
         const filterPayment = document.getElementById('filterPaymentStatus');
@@ -181,13 +430,16 @@ const ProjectsPage = {
 
     // Save project (create or update)
     async saveProject() {
+        // make sure cost matches materials list
+        this.updateCostFromMaterials();
         const formData = {
             customerId: document.getElementById('projectCustomer')?.value || null,
             totalCost: parseFloat(document.getElementById('projectCost')?.value) || 0,
-            totalPrice: parseFloat(document.getElementById('projectSellingPrice')?.value) || 0,
+            totalPrice: 0,  // will be set later in Quotation
             status: document.getElementById('projectStatus')?.value || 'รอดำเนินการ',
             paymentStatus: document.getElementById('projectPaymentStatus')?.value || 'unpaid',
-            description: document.getElementById('projectDescription')?.value
+            description: document.getElementById('projectDescription')?.value,
+            materials: this.projectMaterials // may be persisted later
         };
 
         try {
@@ -201,6 +453,9 @@ const ProjectsPage = {
             
             closeModal('addProjectModal');
             document.getElementById('addProjectForm')?.reset();
+            // clear material list
+            this.projectMaterials = [];
+            this.renderProjectMaterialsList();
             this.currentProjectId = null;
             await this.loadProjects();
         } catch (error) {
@@ -215,6 +470,10 @@ const ProjectsPage = {
         if (!project) return;
 
         this.currentProjectId = id;
+
+        // reset any existing material entries
+        this.projectMaterials = [];
+        this.renderProjectMaterialsList();
 
         // Fill form with project data
         const fields = {
@@ -262,6 +521,25 @@ const ProjectsPage = {
         });
 
         this.renderProjectsGrid(filtered);
+    },
+
+    // Filter materials options inside modal based on search query and render table
+    filterMaterialOptions(query) {
+        const normalized = query.trim().toLowerCase();
+        const notFound = document.getElementById('materialNotFound');
+        let filtered = this.materials;
+        if (normalized) {
+            filtered = this.materials.filter(m => m.name.toLowerCase().includes(normalized));
+        }
+        if (filtered.length === 0 && normalized) {
+            if (notFound) notFound.style.display = 'block';
+        } else if (notFound) {
+            notFound.style.display = 'none';
+        }
+        // hide selection warning when query changes
+        const noSelect = document.getElementById('materialNotSelected');
+        if (noSelect) noSelect.style.display = 'none';
+        this.renderSearchResults(filtered);
     },
 
     // Export to Excel

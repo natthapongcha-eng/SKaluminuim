@@ -646,118 +646,56 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearBtn = document.getElementById('clearAnnouncementBtn');
     const announcementText = document.getElementById('announcementText');
 
-    function renderAnnouncement(text, metadata = {}) {
+    function renderAnnouncement(text) {
         if (!announcementBanner || !announcementContent) return;
         if (text) {
             announcementContent.textContent = text;
-            
-            // Update timestamp
-            const dateElement = announcementBanner.querySelector('.announcement-date');
-            if (dateElement) {
-                const date = new Date(metadata.updatedAt || new Date());
-                dateElement.textContent = date.toLocaleString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            }
-            
             announcementBanner.style.display = 'flex';
+            announcementBanner.style.justifyContent = 'space-between';
+            announcementBanner.style.alignItems = 'center';
+            announcementBanner.style.background = '#fff6d6';
+            announcementBanner.style.border = '1px solid #f0e1a8';
+            announcementBanner.style.padding = '10px 12px';
         } else {
             announcementBanner.style.display = 'none';
         }
     }
 
-    // Load published announcement from MongoDB via API
-    async function loadAnnouncementFromServer() {
-        try {
-            const response = await fetch('/api/announcement');
-            const data = await response.json();
-            if (data.announcement) {
-                renderAnnouncement(data.announcement, {
-                    updatedAt: data.updatedAt,
-                    createdBy: data.createdBy
-                });
-                if (announcementText) {
-                    announcementText.value = data.announcement;
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load announcement from server:', error);
-        }
-    }
-
-    // Load announcement on page load
-    loadAnnouncementFromServer();
-
-    // Load draft from localStorage if present
+    // Load published announcement
     try {
+        const storedAnnouncement = localStorage.getItem('siteAnnouncement');
+        if (storedAnnouncement) renderAnnouncement(storedAnnouncement);
+
+        // Load draft into editor if present
         const draft = localStorage.getItem('siteAnnouncementDraft');
-        if (announcementText && draft) {
-            announcementText.value = draft;
-        }
+        if (announcementText && draft) announcementText.value = draft;
     } catch (e) {
-        console.warn('LocalStorage unavailable for drafts', e);
+        console.warn('LocalStorage unavailable for announcements', e);
     }
 
-    publishBtn?.addEventListener('click', async function() {
+    publishBtn?.addEventListener('click', function() {
         const text = announcementText?.value.trim();
         if (!text) {
             alert('Please enter announcement text');
             return;
         }
-        
-        try {
-            const response = await fetch('/api/announcement', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: text })
-            });
-
-            if (response.ok) {
-                await loadAnnouncementFromServer();
-                localStorage.removeItem('siteAnnouncementDraft');
-                alert('✅ Announcement published successfully - Everyone can see it!');
-            } else {
-                const errorData = await response.json();
-                alert(`❌ Error: ${errorData.message}`);
-            }
-        } catch (error) {
-            console.error('Failed to publish announcement:', error);
-            alert('❌ Failed to connect to server');
-        }
+        localStorage.setItem('siteAnnouncement', text);
+        localStorage.removeItem('siteAnnouncementDraft');
+        renderAnnouncement(text);
+        alert('Announcement published');
     });
 
     saveDraftBtn?.addEventListener('click', function() {
         const text = announcementText?.value || '';
-        try {
-            localStorage.setItem('siteAnnouncementDraft', text);
-            alert('✅ Draft saved');
-        } catch (e) {
-            console.warn('LocalStorage unavailable for drafts', e);
-            alert('⚠️ Unable to save draft');
-        }
+        localStorage.setItem('siteAnnouncementDraft', text);
+        alert('Draft saved');
     });
 
-    clearBtn?.addEventListener('click', async function() {
+    clearBtn?.addEventListener('click', function() {
         if (!announcementBanner) return;
         if (confirm('Are you sure you want to clear the announcement?')) {
-            try {
-                const response = await fetch('/api/announcement', {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    renderAnnouncement(null);
-                    if (announcementText) announcementText.value = '';
-                    alert('✅ Announcement cleared');
-                }
-            } catch (error) {
-                console.error('Failed to clear announcement:', error);
-                alert('❌ Failed to clear announcement');
-            }
+            localStorage.removeItem('siteAnnouncement');
+            renderAnnouncement(null);
         }
     });
     

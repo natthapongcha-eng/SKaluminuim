@@ -257,7 +257,9 @@
                     <table class="mini-table" id="projectMaterialsList">
                         <thead>
                             <tr>
+                                <th>SKU</th>
                                 <th>วัสดุ</th>
+                                <th>รายละเอียด/ขนาด</th>
                                 <th>จำนวน</th>
                                 <th>ราคา/หน่วย</th>
                                 <th>รวม</th>
@@ -275,10 +277,6 @@
                     <div class="form-group">
                         <label>ต้นทุนรวม</label>
                         <input type="number" id="projectCost" placeholder="0">
-                    </div>
-                    <div class="form-group">
-                        <label>ราคาขาย</label>
-                        <input type="number" id="projectSellingPrice" required>
                     </div>
                 </div>
                 <div class="form-row">
@@ -305,6 +303,81 @@
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" id="cancelAddProject">ยกเลิก</button>
                     <button type="submit" class="btn-primary">สร้างโครงการ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Material to Project Modal -->
+    <div id="addProjectMaterialModal" class="modal">
+        <div class="modal-content small">
+            <span class="close">&times;</span>
+            <h2>เลือกวัสดุสำหรับโครงการ</h2>
+            <!-- search field for inventory lookup -->
+            <div class="form-group">
+                <label>ค้นหาวัสดุ</label>
+                <input type="text" id="modalMaterialSearch" placeholder="พิมพ์ชื่อวัสดุเพื่อตามหา...">
+                <p id="materialNotFound" style="color: red; display: none;">ไม่พบวัสดุชิ้นนี้</p>
+            </div>
+            <form id="addProjectMaterialForm">
+                <div class="form-group">
+                    <label>รายการวัสดุจากคลัง</label>
+                    <table class="data-table" id="materialSearchResults" style="max-height:200px;overflow:auto;display:block;">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>ชื่อวัสดุ</th>
+                                <th>รายละเอียด/ขนาด</th>
+                                <th>ประเภท</th>
+                                <th>คงเหลือ</th>
+                                <th>หน่วย</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="empty-state">
+                                <td colspan="6" style="text-align:center;color:#666;">พิมพ์ค้นหาเพื่อแสดงรายการ</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p id="materialNotSelected" style="color:red;display:none;">กรุณาเลือกวัสดุก่อนเพิ่ม</p>
+                </div>
+                <div id="selectedMaterialPreview" style="margin-bottom:8px;color:#333;"></div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>จำนวน</label>
+                        <input type="number" id="projectMaterialQty" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>ราคา/หน่วย</label>
+                        <input type="number" id="projectMaterialPrice" min="0" required>
+                    </div>
+                </div>
+                <!-- Temporary list in popup -->
+                <div class="form-group">
+                    <label>รายการที่เลือก</label>
+                    <table class="mini-table" id="modalMaterialsList">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>วัสดุ</th>
+                                <th>รายละเอียด/ขนาด</th>
+                                <th>จำนวน</th>
+                                <th>ราคา/หน่วย</th>
+                                <th>รวม</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="empty-state">
+                                <td colspan="6">ยังไม่มีวัสดุ</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelAddProjectMaterial">ยกเลิก</button>
+                    <button type="button" class="btn-primary" id="doneProjectMaterials">ยืนยัน</button>
+                    <button type="submit" class="btn-primary">เพิ่ม</button>
                 </div>
             </form>
         </div>

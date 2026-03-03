@@ -32,7 +32,7 @@ const InventoryPage = {
         if (items.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 40px; color: #666;">
+                    <td colspan="10" style="text-align: center; padding: 40px; color: #666;">
                         ยังไม่มีข้อมูลวัสดุ คลิก "+ เพิ่มวัสดุใหม่" เพื่อเพิ่มวัสดุ
                     </td>
                 </tr>
@@ -49,6 +49,7 @@ const InventoryPage = {
                 <tr data-id="${item._id}">
                     <td>${item._id.slice(-6).toUpperCase()}</td>
                     <td>${item.name}</td>
+                    <td>${item.specification || '-'}</td>
                     <td><span class="badge ${typeBadge}">${typeLabel}</span></td>
                     <td>${item.quantity}</td>
                     <td>${item.unit || 'ชิ้น'}</td>
@@ -153,6 +154,7 @@ const InventoryPage = {
     async addMaterial() {
         const formData = {
             name: document.getElementById('materialName').value,
+            specification: document.getElementById('materialSpecification').value,
             type: document.getElementById('materialType').value,
             quantity: parseInt(document.getElementById('materialQuantity').value) || 0,
             unit: document.getElementById('materialUnit').value || 'ชิ้น',
@@ -218,7 +220,7 @@ const InventoryPage = {
 
             selectElement.innerHTML = '<option value="">เลือกโปรเจกต์</option>' +
                 projects.map(p => {
-                    const customerName = p.customerId?.name || 'ไม่ระบุลูกค้า';
+                    const customerName = p.customerId?.customerName || 'ไม่ระบุลูกค้า';
                     const shortId = (p._id || '').slice(-6).toUpperCase();
                     return `<option value="${p._id}">${customerName} (${shortId})</option>`;
                 }).join('');
@@ -277,6 +279,7 @@ const InventoryPage = {
         this.currentItemId = id;
         
         document.getElementById('materialName').value = item.name;
+        document.getElementById('materialSpecification').value = item.specification || '';
         document.getElementById('materialType').value = item.type;
         document.getElementById('materialQuantity').value = item.quantity;
         document.getElementById('materialUnit').value = item.unit || 'ชิ้น';
@@ -307,7 +310,8 @@ const InventoryPage = {
         const stock = document.getElementById('filterStock')?.value || 'all';
 
         const filtered = this.items.filter(item => {
-            const matchSearch = item.name.toLowerCase().includes(search);
+            const matchSearch = item.name.toLowerCase().includes(search) ||
+                                (item.specification || '').toLowerCase().includes(search);
             const matchType = type === 'all' || item.type === type;
             const isLow = item.quantity <= (item.minimumThreshold || 10);
             const matchStock = stock === 'all' || 

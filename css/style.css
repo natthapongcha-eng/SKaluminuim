@@ -1785,6 +1785,35 @@ body {
     max-width: 800px;
 }
 
+.modal-content.small {
+    max-width: 600px;
+}
+
+#modalMaterialSearch {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+}
+
+#materialSearchResults {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+}
+#materialSearchResults th, #materialSearchResults td {
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    font-size: 0.9rem;
+}
+#materialSearchResults tr.search-row { cursor: pointer; }
+#materialSearchResults tr.selected { background-color: #eef; }
+
+#materialNotSelected {
+    margin-top: 4px;
+}
+
 .modal-content .close {
     position: absolute;
     right: 20px;

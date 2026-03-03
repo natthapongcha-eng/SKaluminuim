@@ -5,6 +5,8 @@ const materialSchema = new mongoose.Schema({
     name: { type: String, required: true },
     type: { type: String, enum: ['NEW', 'SCRAP'], default: 'NEW' },
     quantity: { type: Number, default: 0 },
+    // new manual fields
+    specification: { type: String }, // ขนาด/รายละเอียดเพิ่มเติม
     unit: { type: String, default: 'ชิ้น' },
     minimumThreshold: { type: Number, default: 10 },
     unitPrice: { type: Number, default: 0 },

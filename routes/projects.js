@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
         if (paymentStatus) query.paymentStatus = paymentStatus;
         
         let projects = await Project.find(query)
-            .populate('customerId', 'name phone address')
+            .populate('customerId', 'customerName customerPhone address')
             .populate('assignedTeam', 'username role')
             .sort({ createdAt: -1 });
         
@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
         if (search) {
             const searchLower = search.toLowerCase();
             projects = projects.filter(p => 
-                p.customerId?.name?.toLowerCase().includes(searchLower)
+                p.customerId?.customerName?.toLowerCase().includes(searchLower)
             );
         }
         
