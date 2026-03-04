@@ -3,104 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SK Aluminium - Quotation</title>
+    <title>SK Aluminium - Quotation System</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* --- 1. การจัดการโครงสร้างกระดาษ --- */
+        .quotation-paper {
+            position: relative;
+            background-color: #fff;
+            overflow: hidden;
+            min-height: 297mm; /* ขนาด A4 */
+            display: flex;
+            flex-direction: column; /* สำหรับการดัน Footer ในหน้าจอ */
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        /* ลายน้ำ Sk.jpg: ปิดไว้ในหน้าจอทำงานปกติ */
+        .quotation-paper::before {
+            content: none;
+        }
+
+        /* ตัวดันพื้นที่: จะยืดตัวเพื่อดันส่วนท้ายลงไป */
+        .spacer {
+            flex-grow: 1;
+        }
+
+        .footer-section-container {
+            position: relative;
+            z-index: 1;
+            margin-top: 20px;
+        }
+
+        /* --- 2. การตกแต่งส่วนประกอบใบเสนอราคา --- */
+        .input-inline-edit {
+            border: none;
+            border-bottom: 1px dashed #ccc;
+            font-family: inherit;
+            width: 120px;
+            outline: none;
+            background: transparent;
+        }
+
+        .select-date-part {
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            font-family: 'Sarabun', sans-serif;
+            font-size: 14px;
+        }
+
+        /* --- 3. การตั้งค่าสำหรับการพิมพ์ (Print / PDF) --- */
+        @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+
+            /* ซ่อนสิ่งที่ไม่เกี่ยวข้อง */
+            .sidebar, .content-header, .no-print, .btn-add-item, .quotation-actions, .modal {
+                display: none !important;
+            }
+
+            .main-content { margin: 0; padding: 0; }
+            
+            .quotation-paper { 
+                box-shadow: none; 
+                border: none; 
+                width: 100%; 
+                height: auto;
+                margin: 0;
+                padding: 15mm; 
+                position: relative;
+                display: block; /* ยกเลิก flex ตอนพิมพ์เพื่อใช้ Absolute Positioning */
+            }
+
+            /* เปิดลายน้ำเฉพาะตอนพิมพ์เท่านั้น */
+            .quotation-paper::before {
+                content: "";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 450px;
+                height: 450px;
+                background-image: url('Sk.jpg'); 
+                background-repeat: no-repeat;
+                background-position: center;
+                background-size: contain;
+                opacity: 0.15;
+                z-index: 0;
+                display: block !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* ตรึงส่วนท้าย (ราคา/สถานะ/ลายเซ็น) ไว้ล่างสุดของกระดาษเสมอ */
+            .footer-section-container {
+                position: relative;
+                margin-top: 20mm;
+                z-index: 1;
+                page-break-inside: avoid;
+            }
+
+            .spacer {
+                display: none !important;
+            }
+
+            .quotation-table {
+                page-break-inside: auto;
+                break-inside: auto;
+            }
+
+            .quotation-table thead {
+                display: table-header-group;
+            }
+
+            .quotation-table tfoot {
+                display: table-row-group;
+            }
+
+            .quotation-table tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .input-inline-edit, .select-date-part {
+                border: none !important;
+                appearance: none;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
 </head>
 <body class="dashboard-page">
-    <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
             <h2>SK ALUMINIUM</h2>
             <p id="userRole">CEO</p>
         </div>
-        
         <nav class="sidebar-nav">
-            <a href="dashboard.html" class="nav-item">
-                <span class="icon">📊</span>
-                <span>Dashboard</span>
-            </a>
-            <a href="inventory.html" class="nav-item">
-                <span class="icon">📦</span>
-                <span>Inventory</span>
-            </a>
-            <a href="projects.html" class="nav-item">
-                <span class="icon">🏗️</span>
-                <span>Projects</span>
-            </a>
-            <a href="quotation.html" class="nav-item active">
-                <span class="icon">📄</span>
-                <span>Quotation</span>
-            </a>
-            <a href="customers.html" class="nav-item ceo-only">
-                <span class="icon">👥</span>
-                <span>Customers</span>
-            </a>
-            <a href="attendance.html" class="nav-item">
-                <span class="icon">⏰</span>
-                <span>Attendance</span>
-            </a>
-            <a href="media.html" class="nav-item">
-                <span class="icon">🖼️</span>
-                <span>Media</span>
-            </a>
-            <a href="reports.html" class="nav-item ceo-only">
-                <span class="icon">📈</span>
-                <span>Reports</span>
-            </a>
+            <a href="dashboard.html" class="nav-item"><span>📊 Dashboard</span></a>
+            <a href="inventory.html" class="nav-item"><span>📦 Inventory</span></a>
+            <a href="projects.html" class="nav-item"><span>🏗️ Projects</span></a>
+            <a href="quotation.html" class="nav-item active"><span>📄 Quotation</span></a>
+            <a href="customers.html" class="nav-item ceo-only"><span>👥 Customers</span></a>
+            <a href="attendance.html" class="nav-item"><span>⏰ Attendance</span></a>
+            <a href="media.html" class="nav-item"><span>🖼️ Media</span></a>
+            <a href="reports.html" class="nav-item ceo-only"><span>📈 Reports</span></a>
         </nav>
-        
-        <div class="sidebar-footer">
-            <button id="logoutBtn" class="btn-logout">Logout</button>
-        </div>
+        <div class="sidebar-footer"><button id="logoutBtn" class="btn-logout">Logout</button></div>
     </aside>
     
-    <!-- Main Content -->
     <main class="main-content">
-        <div class="content-header">
+        <div class="content-header no-print">
             <h1>ใบเสนอราคา (Quotation)</h1>
             <button class="btn-primary" id="createQuotationBtn">สร้างใบเสนอราคาใหม่</button>
         </div>
         
-        <!-- Quotation Form -->
         <div class="quotation-container">
-            <div class="quotation-paper">
-                <!-- Header -->
+            <div class="quotation-paper" id="printableArea">
                 <div class="quotation-header">
                     <div class="company-info">
                         <h2>บริษัท SK Aluminium</h2>
-                        <p>ที่อยู่: KU SRC University</p>
-                        <p>หมายเลขผู้เสียภาษีอากร: 1234567890</p>
+                        <p>ที่อยู่: KU SRC University | Tax ID: 1234567890</p>
                     </div>
-                    <div class="quotation-title">
-                        <h1>ใบเสนอราคา</h1>
+                    <div class="quotation-title" style="text-align: right;">
+                        <h1 style="color: #1e40af;">ใบเสนอราคา</h1>
                         <p>โทร: +123-456-7890</p>
-                        <p>อีเมล: SK Aluminum .com</p>
                     </div>
                 </div>
                 
-                <!-- Customer Info -->
-                <div class="customer-section">
-                    <div class="customer-select-section" style="margin-bottom: 15px;">
-                        <select id="selectCustomer" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd; min-width: 200px;">
-                            <option value="">เลือกลูกค้า</option>
-                        </select>
-                    </div>
+                <div class="customer-section" style="display: flex; justify-content: space-between; margin: 20px 0;">
                     <div class="customer-info">
-                        <h3>ชื่อลูกค้า: <span id="customerName"></span></h3>
-                        <p>ที่อยู่: <span id="customerAddress"></span></p>
-                        <p>เบอร์โทร: <span id="customerPhone"></span></p>
+                        <div class="customer-select-section no-print" style="margin-bottom: 10px;">
+                            <select id="selectCustomer" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd;"></select>
+                        </div>
+                        <h3>ชื่อลูกค้า: <span id="customerName">....................</span></h3>
+                        <p>ที่อยู่: <span id="customerAddress">....................</span></p>
+                        <p>เบอร์โทร: <span id="customerPhone">....................</span></p>
                     </div>
-                    <div class="quotation-info">
-                        <p>เลขที่เอกสาร <span id="quotationNumber">QT-001</span></p>
-                        <p>วันที่ <span id="quotationDate">15 ธ.ค. 2568</span></p>
+                    <div class="quotation-info" style="text-align: right;">
+                        <p>เลขที่เอกสาร <input type="text" id="quotationNumber" value="QT-001" class="input-inline-edit"></p>
+                        <div class="date-select-group" style="justify-content: flex-end;">
+                            <span>วันที่:</span>
+                            <select id="q_day" class="select-date-part"></select>
+                            <select id="q_month" class="select-date-part"></select>
+                            <select id="q_year" class="select-date-part"></select>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Items Table -->
-                <table class="quotation-table">
-                    <thead>
+                <table class="quotation-table" style="width: 100%; border-collapse: collapse;">
+                    <thead style="background: #1e40af; color: #fff;">
                         <tr>
-                            <th>ลำดับ</th>
+                            <th style="padding: 10px;">ลำดับ</th>
                             <th>รายการ</th>
                             <th>จำนวน</th>
                             <th>หน่วย</th>
@@ -108,140 +206,150 @@
                             <th>ราคารวม</th>
                         </tr>
                     </thead>
-                    <tbody id="quotationItems">
-                        <tr>
-                            <td>1.</td>
-                            <td>กระจก 5 มิล 2*2 เมตร</td>
-                            <td>2</td>
-                            <td>แผ่น</td>
-                            <td>1000</td>
-                            <td>2000</td>
-                        </tr>
-                        <tr>
-                            <td>2.</td>
-                            <td>รางบานเลื่อน</td>
-                            <td>3</td>
-                            <td>เส้น</td>
-                            <td>300</td>
-                            <td>900</td>
-                        </tr>
-                        <tr>
-                            <td>3.</td>
-                            <td>ปีกจับประตู</td>
-                            <td>2</td>
-                            <td>ชิ้น</td>
-                            <td>300</td>
-                            <td>600</td>
-                        </tr>
-                        <tr>
-                            <td>4.</td>
-                            <td>ค่าแรงติดตั้ง</td>
-                            <td>1</td>
-                            <td>-</td>
-                            <td>700</td>
-                            <td>700</td>
-                        </tr>
-                        <tr class="add-item-row">
-                            <td colspan="6">
-                                <button class="btn-add-item" id="addItemBtn">+ เพิ่มรายการ</button>
+                    <tbody id="quotationItems"></tbody>
+                    <tfoot>
+                        <tr class="add-item-row no-print">
+                            <td colspan="6" style="padding-top: 15px;">
+                                <button class="btn-add-item" id="addItemBtn" style="width: 100%; padding: 10px; border: 2px dashed #ccc; cursor: pointer;" onclick="document.getElementById('addItemModal').style.display='block'">+ เพิ่มรายการ</button>
                             </td>
                         </tr>
-                    </tbody>
+                    </tfoot>
                 </table>
+
+                <div class="spacer"></div>
                 
-                <!-- Summary -->
-                <div class="quotation-summary">
-                    <div class="summary-row">
-                        <span>สินค้าหรือรายการบริการทั้งหมด</span>
-                        <span>ราค่ามาน้กรมรวม</span>
-                        <span id="totalAmount">4,200</span>
+                <div class="footer-section-container">
+                    <div class="quotation-summary" style="background: rgba(243, 244, 246, 0.5); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <div class="summary-row" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: bold;">ราคาทั้งหมด</span>
+                            <span id="totalAmount" style="font-size: 1.5rem; font-weight: bold; color: #1e40af;">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="payment-status" style="border: 2px solid #e5e7eb; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <label style="font-weight: bold;">สถานะการชำระเงิน</label>
+                        <div class="checkbox-group" style="margin: 10px 0;">
+                            <label><input type="radio" name="paymentStatus" value="paid"> ชำระเงินแล้ว ✓</label>
+                            <label style="margin-left: 15px;"><input type="radio" name="paymentStatus" value="unpaid" checked> ค้างชำระ</label>
+                        </div>
+                        <div class="payment-date">
+                            <div class="date-select-group">
+                                <span>ชำระเมื่อวันที่:</span>
+                                <select id="p_day" class="select-date-part"></select>
+                                <select id="p_month" class="select-date-part"></select>
+                                <select id="p_year" class="select-date-part"></select>
+                            </div>
+                            <p style="margin-top: 10px;">หมายเหตุ: <input type="text" id="paymentNote" placeholder="ระบุหมายเหตุ..." class="input-note-line"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="signature-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 20px; text-align: center;">
+                        <div class="signature-box">
+                            <h4>ผู้เสนอราคา</h4>
+                            <div style="border-top: 1px solid #000; width: 180px; margin: 40px auto 10px;"></div>
+                            <p id="sigDateThai">วันที่ ..../..../....</p>
+                        </div>
+                        <div class="signature-box">
+                            <h4>ลูกค้า</h4>
+                            <div style="border-top: 1px solid #000; width: 180px; margin: 40px auto 10px;"></div>
+                            <p>วันที่ ................................. </p>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Payment Status -->
-                <div class="payment-status">
-                    <label>สถานะการชำระเงิน</label>
-                    <div class="checkbox-group">
-                        <label>
-                            <input type="checkbox" name="paymentStatus" value="paid" checked>
-                            ชำระเงินแล้ว ✓
-                        </label>
-                        <label>
-                            <input type="checkbox" name="paymentStatus" value="unpaid">
-                            ค้างชำระ
-                        </label>
-                    </div>
-                    <div class="payment-date">
-                        <span>ชำระเมื่อวันที่ 15 ธ.ค. 2568</span>
-                        <span>หมายเหตุ</span>
-                    </div>
-                </div>
-                
-                <!-- Signatures -->
-                <div class="signature-section">
-                    <div class="signature-box">
-                        <h4>ผู้เสนอราคา</h4>
-                        <div class="signature-line"></div>
-                        <p>วันที่ ................................. </p>
-                    </div>
-                    <div class="signature-box">
-                        <h4>ลูกค้า</h4>
-                        <div class="signature-line"></div>
-                        <p>วันที่ ................................. </p>
-                    </div>
-                </div>
-                
-                <!-- Action Buttons -->
-                <div class="quotation-actions">
+                <div class="quotation-actions no-print" style="margin-top: 20px; text-align: center;">
                     <button class="btn-secondary" id="saveQuotationBtn">บันทึก</button>
-                    <button class="btn-primary" id="printQuotationBtn">พิมพ์</button>
+                    <button class="btn-primary" id="printQuotationBtn" onclick="window.print()">พิมพ์ / PDF</button>
                     <button class="btn-success" id="exportPdfBtn">Export PDF</button>
                 </div>
             </div>
         </div>
     </main>
     
-    <!-- Add Item Modal -->
-    <div id="addItemModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
+   <div id="addItemModal" class="modal">
+        <div class="modal-content" style="background: #fff; padding: 30px; border-radius: 8px; max-width: 500px; margin: 50px auto; position: relative;">
+            <span class="close" style="position: absolute; right: 20px; top: 10px; cursor: pointer; font-size: 24px;" onclick="document.getElementById('addItemModal').style.display='none'">&times;</span>
             <h2>เพิ่มรายการสินค้า/บริการ</h2>
             <form id="addItemForm">
-                <div class="form-group">
-                    <label>เลือกจากคลังวัสดุ (ไม่บังคับ)</label>
-                    <select id="selectMaterial">
-                        <option value="">เลือกวัสดุ</option>
-                    </select>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block;">เลือกจากคลังวัสดุ (ไม่บังคับ)</label>
+                    <select id="selectMaterial" style="width: 100%; padding: 8px;"></select>
                 </div>
-                <div class="form-group">
-                    <label>รายการ</label>
-                    <input type="text" id="itemName" required>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block;">รายการ</label>
+                    <input type="text" id="itemName" required style="width: 100%; padding: 8px;">
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
+                <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <div class="form-group" style="flex: 1;">
                         <label>จำนวน</label>
-                        <input type="number" id="itemQuantity" required>
+                        <input type="number" id="itemQuantity" required min="1" step="any" style="width: 100%; padding: 8px;">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="flex: 1;">
                         <label>หน่วย</label>
-                        <input type="text" id="itemUnit" required>
+                        <input type="text" id="itemUnit" required placeholder="เช่น แผ่น, เส้น" style="width: 100%; padding: 8px;">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>ราคา/หน่วย</label>
-                    <input type="number" id="itemPrice" required>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block;">ราคา/หน่วย</label>
+                    <input type="number" id="itemPrice" required min="0" step="any" style="width: 100%; padding: 8px;">
                 </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="cancelAddItem">ยกเลิก</button>
-                    <button type="submit" class="btn-primary">เพิ่ม</button>
+                <div class="modal-actions" style="text-align: right;">
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('addItemModal').style.display='none'">ยกเลิก</button>
+                    <button type="submit" class="btn-primary" style="padding: 8px 20px;">เพิ่มรายการ</button>
                 </div>
             </form>
         </div>
     </div>
     
     <script src="js/api.js"></script>
-    <script src="js/utils/export.js"></script>
     <script src="js/main.js"></script>
     <script src="js/pages/quotation.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const monthsThai = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+            function setupDatePicker(prefix) {
+                const daySelect = document.getElementById(prefix + '_day');
+                const monthSelect = document.getElementById(prefix + '_month');
+                const yearSelect = document.getElementById(prefix + '_year');
+                const now = new Date();
+
+                for (let i = 1; i <= 31; i++) {
+                    let opt = document.createElement('option');
+                    opt.value = i; opt.innerHTML = i;
+                    if (i === now.getDate()) opt.selected = true;
+                    daySelect.appendChild(opt);
+                }
+
+                monthsThai.forEach((month, index) => {
+                    let opt = document.createElement('option');
+                    opt.value = index; opt.innerHTML = month;
+                    if (index === now.getMonth()) opt.selected = true;
+                    monthSelect.appendChild(opt);
+                });
+
+                for (let i = now.getFullYear() - 2; i <= now.getFullYear() + 5; i++) {
+                    let opt = document.createElement('option');
+                    opt.value = i; opt.innerHTML = i + 543;
+                    if (i === now.getFullYear()) opt.selected = true;
+                    yearSelect.appendChild(opt);
+                }
+
+                if (prefix === 'q') {
+                    const updateSignature = () => {
+                        const d = daySelect.value;
+                        const m = monthsThai[monthSelect.value];
+                        const y = parseInt(yearSelect.value) + 543;
+                        document.getElementById('sigDateThai').innerText = `วันที่ ${d} ${m} ${y}`;
+                    };
+                    [daySelect, monthSelect, yearSelect].forEach(el => el.addEventListener('change', updateSignature));
+                    updateSignature();
+                }
+            }
+            setupDatePicker('q');
+            setupDatePicker('p');
+        });
+    </script>
 </body>
 </html>
