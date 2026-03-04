@@ -279,37 +279,7 @@ if (document.getElementById('addProjectBtn')) {
 
 // ===== Customers Page =====
 if (document.getElementById('addCustomerBtn')) {
-    const addCustomerBtn = document.getElementById('addCustomerBtn');
-    const addCustomerModal = document.getElementById('addCustomerModal');
-    const addCustomerForm = document.getElementById('addCustomerForm');
-    const cancelAddCustomer = document.getElementById('cancelAddCustomer');
-    const customerType = document.getElementById('customerType');
-    const companyFields = document.getElementById('companyFields');
-    
-    addCustomerBtn?.addEventListener('click', function() {
-        openModal('addCustomerModal');
-    });
-    
-    cancelAddCustomer?.addEventListener('click', function() {
-        closeModal('addCustomerModal');
-    });
-    
-    customerType?.addEventListener('change', function() {
-        if (this.value === 'company') {
-            companyFields.style.display = 'block';
-        } else {
-            companyFields.style.display = 'none';
-        }
-    });
-    
-    addCustomerForm?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        alert('เพิ่มลูกค้าเรียบร้อย');
-        closeModal('addCustomerModal');
-        addCustomerForm.reset();
-        companyFields.style.display = 'none';
-    });
+    // Handled by js/pages/customers.js
 }
 
 // ===== Attendance Page =====
