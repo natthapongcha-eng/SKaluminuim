@@ -76,13 +76,35 @@ function applyRBAC(user) {
     if (!user) return;
     
     currentUser = user;
-    
-    // Update user role display
-    const userRoleElements = document.querySelectorAll('#userRole');
-    userRoleElements.forEach(el => {
-        el.textContent = user.role === 'CEO' ? 'CEO' : 'Employee';
-    });
-    
+   const userRoleElements = document.querySelectorAll('#userRole');
+userRoleElements.forEach(el => {
+    const span = el.querySelector('span');
+    const img = el.querySelector('img');
+
+    // 1. จัดการตัวกล่องหุ้ม (Container) ให้อยู่แถวเดียวกันและกึ่งกลาง
+    el.style.display = 'flex';
+    el.style.alignItems = 'center'; // จัดให้รูปกับข้อความกลางเท่ากันในแนวตั้ง
+    el.style.gap = '10px';          // เว้นระยะห่างระหว่างรูปกับข้อความ
+
+    if (span) {
+        span.textContent = user.role === 'CEO' ? 'CEO' : 'Employee';
+        // มั่นใจว่า span ไม่มีความสูงเกินจำเป็น
+        span.style.lineHeight = '1'; 
+    }
+
+    if (img) {
+        img.src = user.role === 'CEO'
+            ? 'images/ceo-icon.png'
+            : 'images/employee-icon.png';
+        
+        // 2. ปรับขนาดรูปให้พอดี (แนะนำ 24px - 30px ตามภาพใหม่ของคุณ)
+        img.style.width = '30px'; 
+        img.style.height = '30px';
+        img.style.objectFit = 'contain';
+        img.style.display = 'block';
+        img.style.margin = '0'; // ล้างค่า margin ที่อาจทำให้เบี้ยว
+    }
+});
     // Hide CEO-only elements for employees
     if (user.role === 'EMPLOYEE') {
         const ceoOnlyElements = document.querySelectorAll('.ceo-only');
