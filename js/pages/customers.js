@@ -2,6 +2,7 @@
 const CustomersPage = {
     customers: [],
     currentCustomerId: null,
+    isEditMode: false,
 
     // Initialize customers page
     async init() {
@@ -30,7 +31,7 @@ const CustomersPage = {
         if (customers.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                    <td colspan="8" style="text-align: center; padding: 40px; color: #666;">
                         ยังไม่มีข้อมูลลูกค้า คลิก "+ เพิ่มลูกค้าใหม่" เพื่อเพิ่มลูกค้า
                     </td>
                 </tr>
@@ -49,6 +50,7 @@ const CustomersPage = {
                     <td><span class="badge ${typeBadge}">${typeLabel}</span></td>
                     <td>${customer.phone || '-'}</td>
                     <td>${customer.email || '-'}</td>
+                    <td>${customer.address || '-'}</td>
                     <td>${customer.totalProjects || 0}</td>
                     <td>
                         <button class="btn-icon edit-btn" title="แก้ไข" data-id="${customer._id}">✏️</button>
@@ -66,7 +68,7 @@ const CustomersPage = {
     attachRowEventListeners() {
         document.querySelectorAll('#customersList .edit-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                this.editCustomer(e.target.dataset.id);
+                this.handleEdit(e.currentTarget.dataset.id);
             });
         });
 
@@ -103,6 +105,20 @@ const CustomersPage = {
 
     // Setup event listeners
     setupEventListeners() {
+        const addCustomerBtn = document.getElementById('addCustomerBtn');
+        if (addCustomerBtn) {
+            addCustomerBtn.addEventListener('click', () => {
+                this.openAddModal();
+            });
+        }
+
+        const cancelAddCustomer = document.getElementById('cancelAddCustomer');
+        if (cancelAddCustomer) {
+            cancelAddCustomer.addEventListener('click', () => {
+                closeModal('addCustomerModal');
+            });
+        }
+
         // Add Customer Form
         const addCustomerForm = document.getElementById('addCustomerForm');
         if (addCustomerForm) {
@@ -131,6 +147,29 @@ const CustomersPage = {
         });
     },
 
+    updateModalUI() {
+        const modalTitle = document.querySelector('#addCustomerModal h2');
+        if (modalTitle) {
+            modalTitle.textContent = this.isEditMode ? 'แก้ไขข้อมูลลูกค้า' : 'เพิ่มลูกค้าใหม่';
+        }
+    },
+
+    resetForm() {
+        document.getElementById('addCustomerForm')?.reset();
+        const companyFields = document.getElementById('companyFields');
+        if (companyFields) {
+            companyFields.style.display = 'none';
+        }
+    },
+
+    openAddModal() {
+        this.currentCustomerId = null;
+        this.isEditMode = false;
+        this.resetForm();
+        this.updateModalUI();
+        openModal('addCustomerModal');
+    },
+
     // Save customer (create or update)
     async saveCustomer() {
         const formData = {
@@ -145,7 +184,7 @@ const CustomersPage = {
         };
 
         try {
-            if (this.currentCustomerId) {
+            if (this.isEditMode && this.currentCustomerId) {
                 await api.customers.update(this.currentCustomerId, formData);
                 alert('แก้ไขข้อมูลลูกค้าเรียบร้อย');
             } else {
@@ -154,9 +193,10 @@ const CustomersPage = {
             }
             
             closeModal('addCustomerModal');
-            document.getElementById('addCustomerForm')?.reset();
-            document.getElementById('companyFields').style.display = 'none';
+            this.resetForm();
             this.currentCustomerId = null;
+            this.isEditMode = false;
+            this.updateModalUI();
             await this.loadCustomers();
         } catch (error) {
             console.error('Error saving customer:', error);
@@ -165,11 +205,13 @@ const CustomersPage = {
     },
 
     // Edit customer
-    editCustomer(id) {
+    handleEdit(id) {
         const customer = this.customers.find(c => c._id === id);
         if (!customer) return;
 
         this.currentCustomerId = id;
+        this.isEditMode = true;
+        this.updateModalUI();
 
         // Fill form with customer data
         document.getElementById('customerType').value = customer.customerType || 'individual';
