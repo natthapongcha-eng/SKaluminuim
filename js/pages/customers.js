@@ -3,7 +3,6 @@ const CustomersPage = {
     customers: [],
     currentCustomerId: null,
     isEditMode: false,
-    isViewMode: false,
 
     // Initialize customers page
     async init() {
@@ -150,65 +149,8 @@ const CustomersPage = {
 
     updateModalUI() {
         const modalTitle = document.querySelector('#addCustomerModal h2');
-        const cancelBtn = document.getElementById('cancelAddCustomer');
-        const saveBtn = document.querySelector('#addCustomerForm button[type="submit"]');
-
         if (modalTitle) {
-            if (this.isViewMode) {
-                modalTitle.textContent = 'รายละเอียดลูกค้า';
-            } else {
-                modalTitle.textContent = this.isEditMode ? 'แก้ไขข้อมูลลูกค้า' : 'เพิ่มลูกค้าใหม่';
-            }
-        }
-
-        if (cancelBtn) {
-            cancelBtn.textContent = this.isViewMode ? 'ปิด' : 'ยกเลิก';
-        }
-
-        if (saveBtn) {
-            saveBtn.style.display = this.isViewMode ? 'none' : '';
-        }
-    },
-
-    setFormReadOnly(isReadOnly) {
-        const inputIds = [
-            'customerType',
-            'customerName',
-            'companyName',
-            'taxId',
-            'customerPhone',
-            'customerEmail',
-            'customerAddress',
-            'customerNotes'
-        ];
-
-        inputIds.forEach((id) => {
-            const element = document.getElementById(id);
-            if (!element) return;
-
-            if (element.tagName === 'SELECT') {
-                element.disabled = isReadOnly;
-            } else {
-                element.readOnly = isReadOnly;
-            }
-
-            element.classList.toggle('readonly-field', isReadOnly);
-        });
-    },
-
-    fillCustomerForm(customer) {
-        document.getElementById('customerType').value = customer.customerType || 'individual';
-        document.getElementById('customerName').value = customer.name || '';
-        document.getElementById('companyName').value = customer.companyName || '';
-        document.getElementById('taxId').value = customer.taxId || '';
-        document.getElementById('customerPhone').value = customer.phone || '';
-        document.getElementById('customerEmail').value = customer.email || '';
-        document.getElementById('customerAddress').value = customer.address || '';
-        document.getElementById('customerNotes').value = customer.notes || '';
-
-        const companyFields = document.getElementById('companyFields');
-        if (companyFields) {
-            companyFields.style.display = customer.customerType === 'company' ? 'block' : 'none';
+            modalTitle.textContent = this.isEditMode ? 'แก้ไขข้อมูลลูกค้า' : 'เพิ่มลูกค้าใหม่';
         }
     },
 
@@ -223,17 +165,13 @@ const CustomersPage = {
     openAddModal() {
         this.currentCustomerId = null;
         this.isEditMode = false;
-        this.isViewMode = false;
         this.resetForm();
-        this.setFormReadOnly(false);
         this.updateModalUI();
         openModal('addCustomerModal');
     },
 
     // Save customer (create or update)
     async saveCustomer() {
-        if (this.isViewMode) return;
-
         const formData = {
             customerType: document.getElementById('customerType')?.value || 'individual',
             name: document.getElementById('customerName')?.value,
@@ -258,8 +196,6 @@ const CustomersPage = {
             this.resetForm();
             this.currentCustomerId = null;
             this.isEditMode = false;
-            this.isViewMode = false;
-            this.setFormReadOnly(false);
             this.updateModalUI();
             await this.loadCustomers();
         } catch (error) {
@@ -275,10 +211,23 @@ const CustomersPage = {
 
         this.currentCustomerId = id;
         this.isEditMode = true;
-        this.isViewMode = false;
-        this.setFormReadOnly(false);
         this.updateModalUI();
-        this.fillCustomerForm(customer);
+
+        // Fill form with customer data
+        document.getElementById('customerType').value = customer.customerType || 'individual';
+        document.getElementById('customerName').value = customer.name || '';
+        document.getElementById('companyName').value = customer.companyName || '';
+        document.getElementById('taxId').value = customer.taxId || '';
+        document.getElementById('customerPhone').value = customer.phone || '';
+        document.getElementById('customerEmail').value = customer.email || '';
+        document.getElementById('customerAddress').value = customer.address || '';
+        document.getElementById('customerNotes').value = customer.notes || '';
+
+        // Show company fields if company type
+        const companyFields = document.getElementById('companyFields');
+        if (companyFields) {
+            companyFields.style.display = customer.customerType === 'company' ? 'block' : 'none';
+        }
 
         openModal('addCustomerModal');
     },
@@ -302,13 +251,74 @@ const CustomersPage = {
         const customer = this.customers.find(c => c._id === id);
         if (!customer) return;
 
-        this.currentCustomerId = id;
-        this.isEditMode = false;
-        this.isViewMode = true;
-        this.fillCustomerForm(customer);
-        this.setFormReadOnly(true);
-        this.updateModalUI();
-        openModal('addCustomerModal');
+        const typeLabel = customer.customerType === 'company' ? 'นิติบุคคล' : 'บุคคลทั่วไป';
+        
+        const htmlContent = `
+            <div style="text-align: left; font-size: 0.95rem;">
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">ชื่อ:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.name || '-'}</p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">ประเภท:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${typeLabel}</p>
+                </div>
+                ${customer.companyName ? `
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">ชื่อบริษัท:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.companyName}</p>
+                </div>
+                ` : ''}
+                ${customer.taxId ? `
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">เลขประจำตัวผู้เสียภาษี:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.taxId}</p>
+                </div>
+                ` : ''}
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">เบอร์โทร:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.phone || '-'}</p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">อีเมล:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.email || '-'}</p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">ที่อยู่:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.address || '-'}</p>
+                </div>
+                ${customer.notes ? `
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">หมายเหตุ:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.notes}</p>
+                </div>
+                ` : ''}
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">โครงการที่ดำเนินการ:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.totalProjects || 0} โครงการ</p>
+                </div>
+                <div>
+                    <strong style="color: #1e40af;">ยอดใช้จ่ายรวม:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">฿${(customer.totalSpent || 0).toLocaleString('th-TH')}</p>
+                </div>
+            </div>
+        `;
+
+        Swal.fire({
+            title: 'รายละเอียดลูกค้า',
+            html: htmlContent,
+            icon: 'info',
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#1e40af',
+            didOpen: (modal) => {
+                const confirmButton = modal.querySelector('.swal2-confirm');
+                if (confirmButton) {
+                    confirmButton.style.borderRadius = '8px';
+                    confirmButton.style.fontSize = '0.95rem';
+                    confirmButton.style.fontWeight = '600';
+                }
+            }
+        });
     },
 
     // Filter customers

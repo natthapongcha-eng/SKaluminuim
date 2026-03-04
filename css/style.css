@@ -1892,15 +1892,6 @@ body {
     box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
 }
 
-.form-group input[readonly],
-.form-group textarea[readonly],
-.form-group select:disabled,
-.form-group .readonly-field {
-    background: var(--gray-100);
-    color: var(--gray-700);
-    cursor: not-allowed;
-}
-
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
