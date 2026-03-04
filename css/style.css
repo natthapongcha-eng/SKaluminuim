@@ -2167,4 +2167,20 @@ body {
     .quotation-paper {
         box-shadow: none;
     }
+.role-icon {
+    /* ปรับจาก 14px เป็น 20px */
+    width: 20px !important;
+    height: 20px !important;
+    
+    /* เพิ่มสิ่งนี้เพื่อให้จัดวางสวยขึ้น */
+    object-fit: contain;
+    display: block; 
+}
+
+.role-box {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* เพิ่มระยะห่างระหว่างรูปกับตัวหนังสืออีกนิด */
+    padding-left: 5px; /* ขยับออกจากขอบซ้ายเล็กน้อยถ้ามันชิดไป */
+}
 }
