@@ -74,13 +74,13 @@ const CustomersPage = {
 
         document.querySelectorAll('#customersList .delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                this.deleteCustomer(e.target.dataset.id);
+                this.deleteCustomer(e.currentTarget.dataset.id);
             });
         });
 
         document.querySelectorAll('#customersList .view-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                this.viewCustomer(e.target.dataset.id);
+                this.viewCustomer(e.currentTarget.dataset.id);
             });
         });
     },
@@ -251,18 +251,74 @@ const CustomersPage = {
         const customer = this.customers.find(c => c._id === id);
         if (!customer) return;
 
-        const details = [
-            `ชื่อ: ${customer.name}`,
-            `ประเภท: ${customer.customerType === 'company' ? 'นิติบุคคล' : 'บุคคลทั่วไป'}`,
-            customer.companyName ? `บริษัท: ${customer.companyName}` : '',
-            `โทร: ${customer.phone || '-'}`,
-            `อีเมล: ${customer.email || '-'}`,
-            `ที่อยู่: ${customer.address || '-'}`,
-            `โครงการทั้งหมด: ${customer.totalProjects || 0}`,
-            `ยอดใช้จ่าย: ฿${(customer.totalSpent || 0).toLocaleString('th-TH')}`
-        ].filter(Boolean).join('\n');
+        const typeLabel = customer.customerType === 'company' ? 'นิติบุคคล' : 'บุคคลทั่วไป';
+        
+        const htmlContent = `
+            <div style="text-align: left; font-size: 0.95rem;">
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">ชื่อ:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.name || '-'}</p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">ประเภท:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${typeLabel}</p>
+                </div>
+                ${customer.companyName ? `
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">ชื่อบริษัท:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.companyName}</p>
+                </div>
+                ` : ''}
+                ${customer.taxId ? `
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">เลขประจำตัวผู้เสียภาษี:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.taxId}</p>
+                </div>
+                ` : ''}
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">เบอร์โทร:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.phone || '-'}</p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">อีเมล:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.email || '-'}</p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">ที่อยู่:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.address || '-'}</p>
+                </div>
+                ${customer.notes ? `
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">หมายเหตุ:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.notes}</p>
+                </div>
+                ` : ''}
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #1e40af;">โครงการที่ดำเนินการ:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.totalProjects || 0} โครงการ</p>
+                </div>
+                <div>
+                    <strong style="color: #1e40af;">ยอดใช้จ่ายรวม:</strong>
+                    <p style="margin: 4px 0 0 0; color: #374151;">฿${(customer.totalSpent || 0).toLocaleString('th-TH')}</p>
+                </div>
+            </div>
+        `;
 
-        alert(`รายละเอียดลูกค้า:\n\n${details}`);
+        Swal.fire({
+            title: 'รายละเอียดลูกค้า',
+            html: htmlContent,
+            icon: 'info',
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#1e40af',
+            didOpen: (modal) => {
+                const confirmButton = modal.querySelector('.swal2-confirm');
+                if (confirmButton) {
+                    confirmButton.style.borderRadius = '8px';
+                    confirmButton.style.fontSize = '0.95rem';
+                    confirmButton.style.fontWeight = '600';
+                }
+            }
+        });
     },
 
     // Filter customers
