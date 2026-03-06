@@ -164,8 +164,12 @@ body {
     position: fixed;
     height: 100vh;
     box-shadow: var(--shadow-lg);
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease;
     z-index: 1000;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 
 .sidebar-header {
@@ -235,6 +239,26 @@ body {
     flex: 1;
     padding: 20px 0;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .nav-item {
@@ -243,19 +267,23 @@ body {
     padding: 14px 20px;
     color: var(--white);
     text-decoration: none;
-    transition: all 0.3s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease;
     margin: 4px 10px;
     border-radius: 8px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 
 .nav-item:hover {
     background: rgba(255, 255, 255, 0.1);
-    transform: translateX(5px);
 }
 
 .nav-item.active {
     background: rgba(255, 255, 255, 0.2);
     font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .nav-item .icon {
@@ -279,12 +307,18 @@ body {
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 .btn-logout:hover {
     background: var(--danger);
-    transform: translateY(-2px);
+    transform: translateY(-1px);
+}
+
+.btn-logout:active {
+    transform: translateY(0);
 }
 
 /* ===== Main Content ===== */
@@ -2260,19 +2294,24 @@ body {
         box-shadow: none;
     }
 .role-icon {
-    /* ปรับจาก 14px เป็น 20px */
     width: 20px !important;
     height: 20px !important;
-    
-    /* เพิ่มสิ่งนี้เพื่อให้จัดวางสวยขึ้น */
     object-fit: contain;
-    display: block; 
+    display: block;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 
 .role-box {
     display: flex;
     align-items: center;
-    gap: 8px; /* เพิ่มระยะห่างระหว่างรูปกับตัวหนังสืออีกนิด */
-    padding-left: 5px; /* ขยับออกจากขอบซ้ายเล็กน้อยถ้ามันชิดไป */
+    gap: 8px;
+    padding-left: 5px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 }
