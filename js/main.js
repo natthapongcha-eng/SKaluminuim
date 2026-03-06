@@ -175,6 +175,295 @@ function closeAllModals() {
     });
 }
 
+function ensureProfileModal() {
+    let modal = document.getElementById('userProfileModal');
+    if (modal) return modal;
+
+    const modalHtml = `
+        <div id="userProfileModal" class="modal">
+            <div class="modal-content small">
+                <span class="close" id="closeUserProfileModal">&times;</span>
+                <h2>ข้อมูลโปรไฟล์</h2>
+
+                <div class="profile-avatar-section">
+                    <img id="profileAvatarPreview" class="profile-avatar-preview" src="images/ceo-icon.png" alt="Profile Avatar">
+                </div>
+
+                <div id="profileViewSection" class="profile-view-grid">
+                    <div class="profile-field">
+                        <label>ชื่อ</label>
+                        <p id="profileViewFirstName">-</p>
+                    </div>
+                    <div class="profile-field">
+                        <label>นามสกุล</label>
+                        <p id="profileViewLastName">-</p>
+                    </div>
+                    <div class="profile-field">
+                        <label>เบอร์โทร</label>
+                        <p id="profileViewPhone">-</p>
+                    </div>
+                    <div class="profile-field">
+                        <label>อีเมล</label>
+                        <p id="profileViewEmail">-</p>
+                    </div>
+                    <div class="profile-field">
+                        <label>ตำแหน่ง</label>
+                        <p id="profileViewRole">-</p>
+                    </div>
+                </div>
+
+                <form id="profileEditForm" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="profileFirstName">ชื่อ</label>
+                            <input type="text" id="profileFirstName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileLastName">นามสกุล</label>
+                            <input type="text" id="profileLastName" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="profilePhone">เบอร์โทร</label>
+                        <input type="tel" id="profilePhone" placeholder="08xxxxxxxx">
+                    </div>
+                    <div class="form-group">
+                        <label for="profileImageInput">รูปโปรไฟล์</label>
+                        <input type="file" id="profileImageInput" accept="image/*">
+                        <button type="button" id="removeProfileImageBtn" class="btn-secondary profile-remove-btn">ลบรูปโปรไฟล์</button>
+                    </div>
+                </form>
+
+                <div class="modal-actions">
+                    <button type="button" id="editProfileBtn" class="btn-secondary">แก้ไขข้อมูล</button>
+                    <button type="button" id="cancelProfileEditBtn" class="btn-secondary" style="display:none;">ยกเลิก</button>
+                    <button type="button" id="saveProfileBtn" class="btn-primary" style="display:none;">บันทึก</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    modal = document.getElementById('userProfileModal');
+
+    document.getElementById('closeUserProfileModal')?.addEventListener('click', () => {
+        closeModal('userProfileModal');
+    });
+
+    return modal;
+}
+
+function renderProfileModal(user) {
+    const profileViewFirstName = document.getElementById('profileViewFirstName');
+    const profileViewLastName = document.getElementById('profileViewLastName');
+    const profileViewPhone = document.getElementById('profileViewPhone');
+    const profileViewEmail = document.getElementById('profileViewEmail');
+    const profileViewRole = document.getElementById('profileViewRole');
+
+    if (profileViewFirstName) profileViewFirstName.textContent = user.firstName || '-';
+    if (profileViewLastName) profileViewLastName.textContent = user.lastName || '-';
+    if (profileViewPhone) profileViewPhone.textContent = user.phone || '-';
+    if (profileViewEmail) profileViewEmail.textContent = user.email || '-';
+    if (profileViewRole) profileViewRole.textContent = user.role === 'CEO' ? 'CEO' : 'Employee';
+
+    const profileFirstName = document.getElementById('profileFirstName');
+    const profileLastName = document.getElementById('profileLastName');
+    const profilePhone = document.getElementById('profilePhone');
+    const profileAvatarPreview = document.getElementById('profileAvatarPreview');
+    const profileImageInput = document.getElementById('profileImageInput');
+
+    if (profileFirstName) profileFirstName.value = user.firstName || '';
+    if (profileLastName) profileLastName.value = user.lastName || '';
+    if (profilePhone) profilePhone.value = user.phone || '';
+    if (profileAvatarPreview) profileAvatarPreview.src = getUserAvatar(user);
+    if (profileImageInput) profileImageInput.value = '';
+}
+
+function setProfileEditMode(isEdit) {
+    const profileViewSection = document.getElementById('profileViewSection');
+    const profileEditForm = document.getElementById('profileEditForm');
+    const editProfileBtn = document.getElementById('editProfileBtn');
+    const cancelProfileEditBtn = document.getElementById('cancelProfileEditBtn');
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+
+    if (profileViewSection) profileViewSection.style.display = isEdit ? 'none' : 'grid';
+    if (profileEditForm) profileEditForm.style.display = isEdit ? 'block' : 'none';
+    if (editProfileBtn) editProfileBtn.style.display = isEdit ? 'none' : 'inline-flex';
+    if (cancelProfileEditBtn) cancelProfileEditBtn.style.display = isEdit ? 'inline-flex' : 'none';
+    if (saveProfileBtn) saveProfileBtn.style.display = isEdit ? 'inline-flex' : 'none';
+}
+
+function initUserProfile(user) {
+    if (!user || (!user.id && !user._id && !user.email)) return;
+
+    const roleBoxes = document.querySelectorAll('#userRole');
+    if (!roleBoxes.length) return;
+
+    ensureProfileModal();
+    renderProfileModal(currentUser);
+    setProfileEditMode(false);
+
+    roleBoxes.forEach(roleBox => {
+        if (roleBox.dataset.profileReady === 'true') return;
+
+        roleBox.classList.add('profile-trigger');
+        roleBox.title = 'กดเพื่อดูข้อมูลโปรไฟล์';
+        roleBox.addEventListener('click', function() {
+            selectedProfileImageData = null;
+            renderProfileModal(currentUser);
+            setProfileEditMode(false);
+            openModal('userProfileModal');
+        });
+
+        roleBox.dataset.profileReady = 'true';
+    });
+
+    const editProfileBtn = document.getElementById('editProfileBtn');
+    if (editProfileBtn && editProfileBtn.dataset.profileReady !== 'true') {
+        editProfileBtn.addEventListener('click', function() {
+            setProfileEditMode(true);
+        });
+        editProfileBtn.dataset.profileReady = 'true';
+    }
+
+    const cancelProfileEditBtn = document.getElementById('cancelProfileEditBtn');
+    if (cancelProfileEditBtn && cancelProfileEditBtn.dataset.profileReady !== 'true') {
+        cancelProfileEditBtn.addEventListener('click', function() {
+            selectedProfileImageData = null;
+            renderProfileModal(currentUser);
+            setProfileEditMode(false);
+        });
+        cancelProfileEditBtn.dataset.profileReady = 'true';
+    }
+
+    const profileImageInput = document.getElementById('profileImageInput');
+    if (profileImageInput && profileImageInput.dataset.profileReady !== 'true') {
+        profileImageInput.addEventListener('change', async function() {
+            const file = this.files?.[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+                this.value = '';
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('ไฟล์รูปมีขนาดใหญ่เกินไป (สูงสุด 10MB)');
+                this.value = '';
+                return;
+            }
+
+            try {
+                selectedProfileImageData = await optimizeProfileImage(file);
+                const profileAvatarPreview = document.getElementById('profileAvatarPreview');
+                if (profileAvatarPreview && selectedProfileImageData) {
+                    profileAvatarPreview.src = selectedProfileImageData;
+                }
+            } catch (error) {
+                alert(error.message || 'ไม่สามารถอัปโหลดรูปภาพได้');
+                this.value = '';
+            }
+        });
+        profileImageInput.dataset.profileReady = 'true';
+    }
+
+    const removeProfileImageBtn = document.getElementById('removeProfileImageBtn');
+    if (removeProfileImageBtn && removeProfileImageBtn.dataset.profileReady !== 'true') {
+        removeProfileImageBtn.addEventListener('click', function() {
+            selectedProfileImageData = '';
+            const profileAvatarPreview = document.getElementById('profileAvatarPreview');
+            const profileImageInputEl = document.getElementById('profileImageInput');
+            if (profileAvatarPreview) {
+                profileAvatarPreview.src = getDefaultRoleIcon(currentUser.role);
+            }
+            if (profileImageInputEl) {
+                profileImageInputEl.value = '';
+            }
+            saveLocalProfileImage(currentUser, '');
+        });
+        removeProfileImageBtn.dataset.profileReady = 'true';
+    }
+
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+    if (saveProfileBtn && saveProfileBtn.dataset.profileReady !== 'true') {
+        saveProfileBtn.addEventListener('click', async function() {
+            const firstName = document.getElementById('profileFirstName')?.value.trim() || '';
+            const lastName = document.getElementById('profileLastName')?.value.trim() || '';
+            const phone = document.getElementById('profilePhone')?.value.trim() || '';
+            const profileImage = selectedProfileImageData !== null
+                ? selectedProfileImageData
+                : (currentUser.profileImage || '');
+            const userId = currentUser.id || currentUser._id;
+
+            if (!firstName || !lastName) {
+                alert('กรุณากรอกชื่อและนามสกุลให้ครบ');
+                return;
+            }
+
+            const originalText = saveProfileBtn.textContent;
+            saveProfileBtn.textContent = 'กำลังบันทึก...';
+            saveProfileBtn.disabled = true;
+
+            try {
+                let response;
+                if (userId) {
+                    response = await api.auth.updateProfile(userId, { firstName, lastName, phone, profileImage });
+                } else if (currentUser.email) {
+                    response = await api.auth.updateProfileByEmail(currentUser.email, currentUser.role, { firstName, lastName, phone, profileImage });
+                } else {
+                    throw new Error('User identifier is missing');
+                }
+
+                if (response.success && response.user) {
+                    currentUser = { ...currentUser, ...response.user };
+                    if (selectedProfileImageData !== null) {
+                        currentUser.profileImage = selectedProfileImageData;
+                    }
+                    saveLocalProfileImage(currentUser, currentUser.profileImage || '');
+                    saveSessionUser(currentUser);
+                    applyRBAC(currentUser);
+                    renderProfileModal(currentUser);
+                    selectedProfileImageData = null;
+                    setProfileEditMode(false);
+                    alert('บันทึกข้อมูลโปรไฟล์เรียบร้อย');
+                } else {
+                    alert(response.message || 'บันทึกข้อมูลไม่สำเร็จ');
+                }
+            } catch (error) {
+                console.error('Update profile error:', error);
+                alert(error.message || 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
+            } finally {
+                saveProfileBtn.textContent = originalText;
+                saveProfileBtn.disabled = false;
+            }
+        });
+        saveProfileBtn.dataset.profileReady = 'true';
+    }
+
+    const userId = user.id || user._id;
+    const profileRequest = userId
+        ? api.auth.getProfile(userId)
+        : api.auth.getProfileByEmail(user.email, user.role);
+
+    profileRequest
+        .then(response => {
+            if (response.success && response.user) {
+                currentUser = { ...currentUser, ...response.user };
+                if (!currentUser.profileImage) {
+                    currentUser.profileImage = getLocalProfileImage(currentUser);
+                }
+                saveLocalProfileImage(currentUser, currentUser.profileImage || '');
+                saveSessionUser(currentUser);
+                applyRBAC(currentUser);
+                renderProfileModal(currentUser);
+            }
+        })
+        .catch(error => {
+            console.warn('Unable to load latest profile data:', error);
+        });
+}
+
 function setProfileHydrated(isReady) {
     document.body.classList.toggle('profile-ready', !!isReady);
 }
@@ -1258,6 +1547,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const user = checkAuth();
         if (user) {
             applyRBAC(user);
+            initUserProfile(user);
             initUserProfile(user);
         }
     } else {
