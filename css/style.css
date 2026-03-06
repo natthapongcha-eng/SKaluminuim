@@ -184,6 +184,53 @@ body {
     opacity: 0.9;
 }
 
+.profile-trigger {
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.profile-trigger:hover {
+    transform: translateX(2px);
+    opacity: 1;
+}
+
+.role-profile-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.role-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
+}
+
+.role-meta {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 0;
+}
+
+.role-user-name {
+    color: var(--white);
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.role-user-role {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+
 .sidebar-nav {
     flex: 1;
     padding: 20px 0;
@@ -1903,6 +1950,51 @@ body {
     gap: 10px;
     justify-content: flex-end;
     margin-top: 20px;
+}
+
+.profile-view-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.profile-field {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.profile-field label {
+    display: block;
+    color: var(--gray-600);
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+}
+
+.profile-field p {
+    color: var(--gray-900);
+    font-weight: 600;
+    margin: 0;
+}
+
+.profile-avatar-section {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.profile-avatar-preview {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    border: 2px solid var(--gray-300);
+    object-fit: cover;
+    background: var(--gray-100);
+}
+
+.profile-remove-btn {
+    margin-top: 8px;
 }
 
 /* ===== File Upload ===== */
