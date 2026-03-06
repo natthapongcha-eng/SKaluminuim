@@ -1197,15 +1197,16 @@ body.profile-ready #userRole {
 
 /* ===== Quotation ===== */
 .quotation-container {
-    max-width: 900px;
+    max-width: 980px;
     margin: 0 auto;
 }
 
 .quotation-paper {
     background: var(--white);
-    border-radius: 12px;
+    border-radius: 16px;
     box-shadow: var(--shadow-lg);
     padding: 40px;
+    border: 1px solid var(--gray-200);
 }
 
 .quotation-header {
@@ -1250,9 +1251,10 @@ body.profile-ready #userRole {
     display: flex;
     justify-content: space-between;
     margin-bottom: 30px;
-    padding: 20px;
+    padding: 24px;
     background: var(--gray-50);
-    border-radius: 8px;
+    border-radius: 12px;
+    border: 1px solid var(--gray-200);
 }
 
 .customer-info h3 {
@@ -1272,6 +1274,8 @@ body.profile-ready #userRole {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
+    overflow: hidden;
+    border-radius: 12px;
 }
 
 .quotation-table thead {
@@ -1280,32 +1284,50 @@ body.profile-ready #userRole {
 }
 
 .quotation-table th {
-    padding: 12px;
+    padding: 14px 12px;
     text-align: center;
     font-weight: 600;
     font-size: 0.875rem;
+    letter-spacing: 0.2px;
 }
 
 .quotation-table td {
-    padding: 12px;
+    padding: 14px 12px;
     text-align: center;
     border-bottom: 1px solid var(--gray-200);
+    background: var(--white);
 }
 
 .quotation-table tbody tr:hover {
     background: var(--gray-50);
 }
 
+.quotation-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.quotation-table td:nth-child(2) {
+    text-align: left;
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
 .add-item-row {
     background: transparent !important;
 }
 
+.quotation-table tfoot .add-item-row td {
+    padding: 18px 0 0;
+    background: transparent;
+    border-bottom: none;
+}
+
 .btn-add-item {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     background: var(--gray-100);
     border: 2px dashed var(--gray-400);
-    border-radius: 8px;
+    border-radius: 10px;
     color: var(--gray-600);
     font-weight: 600;
     cursor: pointer;
@@ -1316,6 +1338,33 @@ body.profile-ready #userRole {
     background: var(--primary-blue);
     color: var(--white);
     border-color: var(--primary-blue);
+}
+
+.quotation-item-edit {
+    width: 100%;
+    min-width: 84px;
+    padding: 8px 10px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--gray-800);
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.quotation-item-edit:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.12);
+}
+
+.quotation-item-edit-number {
+    text-align: right;
+}
+
+.item-total-cell {
+    font-weight: 700;
+    color: var(--primary-blue);
 }
 
 .quotation-summary {

@@ -5,6 +5,9 @@ const QuotationPage = {
     customers: [],
     inventoryItems: [],
     quotationItems: [],
+    pendingQuotationItems: [],
+    filteredInventoryItems: [],
+    selectedInventoryItem: null,
 
     // Initialize quotation page
     async init() {
@@ -54,28 +57,76 @@ const QuotationPage = {
 
     // Populate item select in modal
     populateItemSelect() {
-        const select = document.getElementById('selectMaterial');
-        if (!select) return;
+        this.renderInventoryCatalog('');
+    },
 
-        select.innerHTML = '<option value="">เลือกวัสดุ</option>' +
-            this.inventoryItems.map(item => `
-                <option value="${item._id}" 
-                    data-name="${item.name}" 
-                    data-unit="${item.unit}" 
-                    data-price="${item.pricePerUnit}">
-                    ${item.name} (฿${item.pricePerUnit?.toLocaleString('th-TH')}/${item.unit})
-                </option>
-            `).join('');
+    normalizeName(name) {
+        return String(name || '').trim().toLowerCase();
+    },
+
+    renderInventoryCatalog(query) {
+        const tbody = document.getElementById('inventoryCatalogBody');
+        if (!tbody) return;
+
+        const q = this.normalizeName(query);
+        this.filteredInventoryItems = this.inventoryItems.filter(item => {
+            if (!q) return true;
+            const sku = this.normalizeName((item._id || '').slice(-6).toUpperCase());
+            const name = this.normalizeName(item.name);
+            const spec = this.normalizeName(item.specification || '');
+            return sku.includes(q) || name.includes(q) || spec.includes(q);
+        });
+
+        if (this.filteredInventoryItems.length === 0) {
+            tbody.innerHTML = `
+                <tr><td colspan="6" style="padding: 12px; text-align: center; color: #6b7280;">ไม่พบวัสดุที่ค้นหา</td></tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = this.filteredInventoryItems.map(item => {
+            const sku = (item._id || '').slice(-6).toUpperCase();
+            const unit = item.unit || 'ชิ้น';
+            const quantity = Number(item.quantity || 0).toLocaleString('th-TH');
+            const isSelected = this.selectedInventoryItem?._id === item._id;
+            return `
+                <tr class="inventory-catalog-row ${isSelected ? 'selected' : ''}" data-id="${item._id}" style="cursor:pointer; background:${isSelected ? '#e0ecff' : '#fff'};">
+                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6;">${sku}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6;">${item.name || '-'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6;">${item.specification || '-'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align:center;">${item.type || '-'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align:right;">${quantity}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align:center;">${unit}</td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.querySelectorAll('.inventory-catalog-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const id = row.dataset.id;
+                const selected = this.inventoryItems.find(item => item._id === id);
+                if (!selected) return;
+                this.selectedInventoryItem = selected;
+                const priceInput = document.getElementById('cartUnitPrice');
+                if (priceInput) {
+                    const unitPrice = selected.unitPrice ?? selected.pricePerUnit ?? 0;
+                    priceInput.value = String(unitPrice);
+                }
+                this.renderInventoryCatalog(document.getElementById('inventorySearchInput')?.value || '');
+            });
+        });
     },
 
     // Initialize new quotation
     async initNewQuotation() {
         this.quotationItems = [];
+        this.pendingQuotationItems = [];
         
         // Get next quotation number
         try {
             const result = await api.quotations.getNextNumber();
-            document.getElementById('quotationNumber').textContent = result.number || 'QT-001';
+            document.getElementById('quotationNumber').textContent =
+                result.quotationNumber || result.number || 'QT-001';
         } catch (error) {
             document.getElementById('quotationNumber').textContent = 'QT-001';
         }
@@ -113,15 +164,23 @@ const QuotationPage = {
             });
         }
 
-        // Material selection auto-fill
-        const selectMaterial = document.getElementById('selectMaterial');
-        selectMaterial?.addEventListener('change', (e) => {
-            const option = e.target.selectedOptions[0];
-            if (option && option.value) {
-                document.getElementById('itemName').value = option.dataset.name || '';
-                document.getElementById('itemUnit').value = option.dataset.unit || '';
-                document.getElementById('itemPrice').value = option.dataset.price || '';
-            }
+        document.getElementById('addItemBtn')?.addEventListener('click', () => {
+            this.openAddItemModal();
+        });
+
+        document.getElementById('closeAddItemModal')?.addEventListener('click', () => {
+            this.closeAddItemModal();
+        });
+        document.getElementById('cancelAddItemModal')?.addEventListener('click', () => {
+            this.closeAddItemModal();
+        });
+        document.getElementById('confirmAddItemsBtn')?.addEventListener('click', () => {
+            this.commitPendingItemsToQuotation();
+        });
+
+        const inventorySearchInput = document.getElementById('inventorySearchInput');
+        inventorySearchInput?.addEventListener('input', () => {
+            this.renderInventoryCatalog(inventorySearchInput.value || '');
         });
 
         // Create new quotation button
@@ -153,27 +212,113 @@ const QuotationPage = {
 
     // Add item to quotation
     addItemToQuotation() {
-        const name = document.getElementById('itemName').value;
-        const quantity = parseFloat(document.getElementById('itemQuantity').value) || 0;
-        const unit = document.getElementById('itemUnit').value;
-        const unitPrice = parseFloat(document.getElementById('itemPrice').value) || 0;
+        const quantityInput = document.getElementById('cartQuantity');
+        const priceInput = document.getElementById('cartUnitPrice');
+        const quantity = parseFloat(quantityInput?.value ?? '') || 0;
+        const unitPrice = parseFloat(priceInput?.value ?? '') || 0;
+
+        if (!this.selectedInventoryItem) {
+            alert('กรุณาเลือกวัสดุจากรายการวัสดุจากคลัง');
+            return;
+        }
+
+        const name = (this.selectedInventoryItem.name || '').trim();
+        const unit = this.selectedInventoryItem.unit || 'ชิ้น';
+        const specification = this.selectedInventoryItem.specification || '-';
+        const sku = (this.selectedInventoryItem._id || '').slice(-6).toUpperCase();
 
         if (!name || !quantity || !unit || !unitPrice) {
             alert('กรุณากรอกข้อมูลให้ครบถ้วน');
             return;
         }
 
-        this.quotationItems.push({
+        this.pendingQuotationItems.push({
+            sku,
             name,
+            specification,
             quantity,
             unit,
             unitPrice,
             total: quantity * unitPrice
         });
 
-        this.renderQuotationItems();
+        this.renderPendingCart();
+        this.clearItemEntryFields();
+    },
+
+    openAddItemModal() {
+        this.pendingQuotationItems = [];
+        this.renderPendingCart();
+        this.clearItemEntryFields();
+        this.populateItemSelect();
+        openModal('addItemModal');
+    },
+
+    closeAddItemModal() {
+        this.pendingQuotationItems = [];
+        this.renderPendingCart();
+        this.clearItemEntryFields();
         closeModal('addItemModal');
-        document.getElementById('addItemForm').reset();
+    },
+
+    clearItemEntryFields() {
+        const searchInput = document.getElementById('inventorySearchInput');
+        const quantityInput = document.getElementById('cartQuantity');
+        const priceInput = document.getElementById('cartUnitPrice');
+
+        if (searchInput) searchInput.value = '';
+        if (quantityInput) quantityInput.value = '';
+        if (priceInput) priceInput.value = '';
+        this.selectedInventoryItem = null;
+        this.renderInventoryCatalog('');
+    },
+
+    renderPendingCart() {
+        const list = document.getElementById('pendingItemsTableBody');
+        const summary = document.getElementById('pendingCartSummary');
+        if (!list || !summary) return;
+
+        if (this.pendingQuotationItems.length === 0) {
+            list.innerHTML = '<tr><td colspan="7" style="padding: 10px; text-align: center; color: #6b7280;">ยังไม่มีรายการที่เลือก</td></tr>';
+            summary.textContent = 'รวม 0 รายการ | ฿0';
+            return;
+        }
+
+        list.innerHTML = this.pendingQuotationItems.map((item, index) => `
+            <tr>
+                <td style="padding: 8px; border-bottom:1px solid #e5e7eb;">${item.sku || '-'}</td>
+                <td style="padding: 8px; border-bottom:1px solid #e5e7eb;">${item.name}</td>
+                <td style="padding: 8px; border-bottom:1px solid #e5e7eb;">${item.specification || '-'}</td>
+                <td style="padding: 8px; border-bottom:1px solid #e5e7eb; text-align:right;">${Number(item.quantity).toLocaleString('th-TH')} ${item.unit}</td>
+                <td style="padding: 8px; border-bottom:1px solid #e5e7eb; text-align:right;">฿${Number(item.unitPrice).toLocaleString('th-TH')}</td>
+                <td style="padding: 8px; border-bottom:1px solid #e5e7eb; text-align:right;">฿${Number(item.total).toLocaleString('th-TH')}</td>
+                <td style="padding: 8px; border-bottom:1px solid #e5e7eb; text-align:center;"><button type="button" class="pending-item-remove-btn" data-index="${index}" style="border:none; background:#fee2e2; color:#b91c1c; border-radius:6px; padding:4px 7px; cursor:pointer;">✕</button></td>
+            </tr>
+        `).join('');
+
+        const pendingTotal = this.pendingQuotationItems.reduce((sum, item) => sum + (item.total || 0), 0);
+        summary.textContent = `รวม ${this.pendingQuotationItems.length} รายการ | ฿${pendingTotal.toLocaleString('th-TH')}`;
+
+        list.querySelectorAll('.pending-item-remove-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = Number(e.currentTarget.dataset.index);
+                if (!Number.isInteger(index)) return;
+                this.pendingQuotationItems.splice(index, 1);
+                this.renderPendingCart();
+            });
+        });
+    },
+
+    commitPendingItemsToQuotation() {
+        if (this.pendingQuotationItems.length === 0) {
+            alert('กรุณาเพิ่มรายการลงตะกร้าก่อนกดตกลง');
+            return;
+        }
+
+        this.quotationItems.push(...this.pendingQuotationItems);
+        this.pendingQuotationItems = [];
+        this.renderQuotationItems();
+        this.closeAddItemModal();
     },
 
     // Render quotation items table
@@ -185,40 +330,79 @@ const QuotationPage = {
             <tr>
                 <td>${index + 1}</td>
                 <td>${item.name}</td>
-                <td>${item.quantity}</td>
-                <td>${item.unit}</td>
-                <td>${item.unitPrice.toLocaleString('th-TH')}</td>
-                <td>${item.total.toLocaleString('th-TH')}</td>
                 <td>
-                    <button class="btn-icon remove-item-btn" data-index="${index}" title="ลบ">🗑️</button>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            class="quotation-item-edit quotation-item-edit-number"
+                            data-index="${index}"
+                            data-field="quantity"
+                            value="${item.quantity}"
+                        >
+                        <span style="color:#6b7280; font-size:13px; white-space:nowrap;"></span>
+                    </div>
                 </td>
+                <td>
+                    <input
+                        type="text"
+                        class="quotation-item-edit"
+                        data-index="${index}"
+                        data-field="unit"
+                        value="${item.unit}"
+                    >
+                </td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            class="quotation-item-edit quotation-item-edit-number"
+                            data-index="${index}"
+                            data-field="unitPrice"
+                            value="${item.unitPrice}"
+                        >
+                        <span style="color:#6b7280; font-size:13px; white-space:nowrap;">฿</span>
+                    </div>
+                </td>
+                <td class="item-total-cell" data-index="${index}">${item.total.toLocaleString('th-TH')}</td>
             </tr>
         `).join('');
-
-        // Add item row
-        html += `
-            <tr class="add-item-row">
-                <td colspan="7">
-                    <button type="button" class="btn-add-item" id="addItemBtn">+ เพิ่มรายการ</button>
-                </td>
-            </tr>
-        `;
 
         tbody.innerHTML = html;
 
         // Update total
         this.updateQuotationTotal();
 
-        // Attach event listeners
-        document.querySelectorAll('.remove-item-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const index = parseInt(e.target.dataset.index);
-                this.removeItem(index);
-            });
-        });
+        // Attach edit listeners
+        document.querySelectorAll('.quotation-item-edit').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index, 10);
+                const field = e.target.dataset.field;
+                const item = this.quotationItems[index];
+                if (!item || !field) return;
 
-        document.getElementById('addItemBtn')?.addEventListener('click', () => {
-            openModal('addItemModal');
+                const numericValue = parseFloat(String(e.target.value || '').replace(/,/g, ''));
+
+                if (field === 'quantity') {
+                    const quantity = numericValue;
+                    item.quantity = Number.isFinite(quantity) && quantity >= 0 ? quantity : 0;
+                    e.target.value = item.quantity;
+                } else if (field === 'unitPrice') {
+                    const unitPrice = numericValue;
+                    item.unitPrice = Number.isFinite(unitPrice) && unitPrice >= 0 ? unitPrice : 0;
+                    e.target.value = item.unitPrice;
+                } else if (field === 'unit') {
+                    item.unit = (e.target.value || '').trim();
+                }
+
+                item.total = (item.quantity || 0) * (item.unitPrice || 0);
+                const totalCell = document.querySelector(`.item-total-cell[data-index="${index}"]`);
+                if (totalCell) {
+                    totalCell.textContent = item.total.toLocaleString('th-TH');
+                }
+                this.updateQuotationTotal();
+            });
         });
     },
 
@@ -276,7 +460,13 @@ const QuotationPage = {
             customerName: customerName,
             customerAddress: document.getElementById('customerAddress')?.textContent,
             customerPhone: document.getElementById('customerPhone')?.textContent,
-            items: this.quotationItems,
+            items: this.quotationItems.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                unit: item.unit,
+                pricePerUnit: item.unitPrice ?? item.pricePerUnit ?? 0,
+                total: item.total
+            })),
             subtotal: this.quotationItems.reduce((sum, item) => sum + item.total, 0),
             vat: this.quotationItems.reduce((sum, item) => sum + item.total, 0) * 0.07,
             total: this.quotationItems.reduce((sum, item) => sum + item.total, 0) * 1.07,
@@ -300,22 +490,19 @@ const QuotationPage = {
 
     // Export to PDF
     exportToPDF() {
-        const quotationData = {
-            quotationNumber: document.getElementById('quotationNumber')?.textContent || 'QT-001',
-            customerName: document.getElementById('customerName')?.textContent || '',
-            customerAddress: document.getElementById('customerAddress')?.textContent || '',
-            customerPhone: document.getElementById('customerPhone')?.textContent || '',
-            date: document.getElementById('quotationDate')?.textContent || new Date().toLocaleDateString('th-TH'),
-            validUntil: this.getValidUntilDate(),
-            items: this.quotationItems
-        };
-
         if (this.quotationItems.length === 0) {
             alert('กรุณาเพิ่มรายการสินค้าก่อน Export PDF');
             return;
         }
 
-        ExportUtils.exportQuotationToPDF(quotationData);
+        if (!window.ExportUtils || typeof window.ExportUtils.exportUsingPrintLayout !== 'function') {
+            alert('ระบบ Export PDF ยังไม่พร้อมใช้งาน กรุณารีเฟรชหน้าอีกครั้ง');
+            return;
+        }
+
+        const quotationNumberInput = document.getElementById('quotationNumber');
+        const quotationNumber = quotationNumberInput?.value || quotationNumberInput?.textContent || 'QT-001';
+        ExportUtils.exportUsingPrintLayout('printableArea', `quotation_${quotationNumber}.pdf`);
     },
 
     // Get valid until date (30 days from now)
