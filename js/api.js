@@ -15,10 +15,19 @@ const api = {
         
         try {
             const response = await fetch(url, config);
-            const data = await response.json();
+            const contentType = response.headers.get('content-type') || '';
+            const isJson = contentType.includes('application/json');
+            const data = isJson ? await response.json() : await response.text();
             
             if (!response.ok) {
-                throw new Error(data.message || 'API request failed');
+                const fallbackMessage = typeof data === 'string'
+                    ? `API request failed (${response.status})`
+                    : 'API request failed';
+                throw new Error(data?.message || fallbackMessage);
+            }
+
+            if (!isJson) {
+                throw new Error(`API returned non-JSON response (${response.status})`);
             }
             
             return data;
@@ -34,6 +43,27 @@ const api = {
             return api.request('/auth/login', {
                 method: 'POST',
                 body: JSON.stringify({ email, password, role })
+            });
+        },
+        async getProfile(userId) {
+            return api.request(`/auth/profile/${userId}`);
+        },
+        async getProfileByEmail(email, role) {
+            return api.request('/auth/profile-by-email', {
+                method: 'POST',
+                body: JSON.stringify({ email, role })
+            });
+        },
+        async updateProfile(userId, profileData) {
+            return api.request(`/auth/profile/${userId}`, {
+                method: 'PUT',
+                body: JSON.stringify(profileData)
+            });
+        },
+        async updateProfileByEmail(email, role, profileData) {
+            return api.request('/auth/profile-by-email', {
+                method: 'PUT',
+                body: JSON.stringify({ email, role, ...profileData })
             });
         },
         async getUsers() {
