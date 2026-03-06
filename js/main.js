@@ -1041,28 +1041,52 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Load published announcement
-    try {
-        const storedAnnouncement = localStorage.getItem('siteAnnouncement');
-        if (storedAnnouncement) renderAnnouncement(storedAnnouncement);
+    async function loadPublishedAnnouncement() {
+        if (!announcementBanner) return;
+        try {
+            const response = await api.announcement.getCurrent();
+            renderAnnouncement(response?.announcement || null);
+        } catch (error) {
+            console.warn('Unable to load announcement from server:', error);
+        }
+    }
 
-        // Load draft into editor if present
+    // Load draft into editor if present
+    try {
         const draft = localStorage.getItem('siteAnnouncementDraft');
         if (announcementText && draft) announcementText.value = draft;
     } catch (e) {
         console.warn('LocalStorage unavailable for announcements', e);
     }
 
-    publishBtn?.addEventListener('click', function() {
+    if (clearBtn) {
+        clearBtn.style.display = currentUser.role === 'CEO' ? '' : 'none';
+    }
+
+    loadPublishedAnnouncement();
+
+    publishBtn?.addEventListener('click', async function() {
         const text = announcementText?.value.trim();
         if (!text) {
             alert('Please enter announcement text');
             return;
         }
-        localStorage.setItem('siteAnnouncement', text);
-        localStorage.removeItem('siteAnnouncementDraft');
-        renderAnnouncement(text);
-        alert('Announcement published');
+
+        const originalText = publishBtn.textContent;
+        publishBtn.textContent = 'Publishing...';
+        publishBtn.disabled = true;
+
+        try {
+            const response = await api.announcement.publish(text, currentUser.role || 'CEO');
+            localStorage.removeItem('siteAnnouncementDraft');
+            renderAnnouncement(response?.announcement || text);
+            alert('Announcement published');
+        } catch (error) {
+            alert(error.message || 'Unable to publish announcement');
+        } finally {
+            publishBtn.textContent = originalText;
+            publishBtn.disabled = false;
+        }
     });
 
     saveDraftBtn?.addEventListener('click', function() {
@@ -1071,11 +1095,16 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('Draft saved');
     });
 
-    clearBtn?.addEventListener('click', function() {
+    clearBtn?.addEventListener('click', async function() {
         if (!announcementBanner) return;
+        if (currentUser.role !== 'CEO') return;
         if (confirm('Are you sure you want to clear the announcement?')) {
-            localStorage.removeItem('siteAnnouncement');
-            renderAnnouncement(null);
+            try {
+                await api.announcement.clear();
+                renderAnnouncement(null);
+            } catch (error) {
+                alert(error.message || 'Unable to clear announcement');
+            }
         }
     });
     
