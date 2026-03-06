@@ -204,6 +204,7 @@ const ProjectsPage = {
     async loadProjects() {
         try {
             const projects = await api.projects.getAll();
+            console.log('Projects from API:', projects);
             this.projects = projects;
             this.renderProjectsGrid(projects);
             this.updateStats();
@@ -230,13 +231,18 @@ const ProjectsPage = {
         if (!select) return;
 
         select.innerHTML = '<option value="">เลือกลูกค้า</option>' +
-            this.customers.map(c => `<option value="${c._id}">${c.customerName}</option>`).join('');
+            this.customers.map(c => {
+                const displayName = c.name || c.companyName || 'ไม่ระบุ';
+                return `<option value="${c._id}">${displayName}</option>`;
+            }).join('');
     },
 
     // Render projects grid
     renderProjectsGrid(projects) {
         const grid = document.querySelector('.projects-grid');
         if (!grid) return;
+
+        console.log('Rendering projects:', projects);
 
         if (projects.length === 0) {
             grid.innerHTML = `
@@ -248,21 +254,26 @@ const ProjectsPage = {
         }
 
         grid.innerHTML = projects.map(project => {
+            console.log('Project object:', project);
+            console.log('customerId:', project.customerId);
             const statusBadge = this.getStatusBadge(project.status);
             const paymentBadge = this.getPaymentBadge(project.paymentStatus);
-            const customerName = project.customerId?.customerName || 'ไม่ระบุ';
-            const teamNames = (project.assignedTeam || []).map(t => t.username || t).join(', ') || 'ไม่ระบุ';
+            const customerName = project.customerId?.name || project.customerId?.companyName || 'ไม่ระบุ';
+            const teamName = project.team || 'ไม่ระบุ';
+            const startDate = project.startDate 
+                ? new Date(project.startDate).toLocaleDateString('th-TH') 
+                : '-';
             
             return `
                 <div class="project-card" data-id="${project._id}">
                     <div class="project-header">
-                        <h3>โครงการ #${project._id.slice(-6)}</h3>
+                        <h3>${project.name || 'โครงการ #' + project._id.slice(-6)}</h3>
                         ${statusBadge}
                     </div>
                     <div class="project-info">
                         <p><strong>ลูกค้า:</strong> ${customerName}</p>
-                        <p><strong>ทีมงาน:</strong> ${teamNames}</p>
-                        <p><strong>วันที่สร้าง:</strong> ${project.createdAt ? new Date(project.createdAt).toLocaleDateString('th-TH') : '-'}</p>
+                        <p><strong>ทีมงาน:</strong> ${teamName}</p>
+                        <p><strong>วันที่สร้าง:</strong> ${startDate}</p>
                     </div>
                     <div class="project-cost">
                         <div class="cost-item">
@@ -433,7 +444,11 @@ const ProjectsPage = {
         // make sure cost matches materials list
         this.updateCostFromMaterials();
         const formData = {
+            name: document.getElementById('projectName')?.value || '',
             customerId: document.getElementById('projectCustomer')?.value || null,
+            team: document.getElementById('projectTeam')?.value || '',
+            startDate: document.getElementById('projectStartDate')?.value || null,
+            endDate: document.getElementById('projectEndDate')?.value || null,
             totalCost: parseFloat(document.getElementById('projectCost')?.value) || 0,
             totalPrice: 0,  // will be set later in Quotation
             status: document.getElementById('projectStatus')?.value || 'รอดำเนินการ',
@@ -478,12 +493,11 @@ const ProjectsPage = {
         // Fill form with project data
         const fields = {
             'projectName': project.name,
-            'projectCustomer': project.customer?._id || project.customer,
+            'projectCustomer': project.customerId?._id || project.customerId,
             'projectTeam': project.team,
             'projectStartDate': project.startDate?.split('T')[0],
             'projectEndDate': project.endDate?.split('T')[0],
-            'projectCost': project.cost,
-            'projectSellingPrice': project.sellingPrice,
+            'projectCost': project.totalCost,
             'projectStatus': project.status,
             'projectPaymentStatus': project.paymentStatus,
             'projectDescription': project.description
@@ -502,7 +516,19 @@ const ProjectsPage = {
         const project = this.projects.find(p => p._id === id);
         if (!project) return;
 
-        alert(`รายละเอียดโครงการ:\n\n${project.name}\nลูกค้า: ${project.customerName || '-'}\nสถานะ: ${project.status}\nราคา: ฿${project.sellingPrice?.toLocaleString('th-TH')}`);
+        const customerName = project.customerId?.name || project.customerId?.companyName || '-';
+        const detailsText = `
+รายละเอียดโครงการ:
+
+ชื่อโครงการ: ${project.name || '-'}
+ลูกค้า: ${customerName}
+ทีมงาน: ${project.team || '-'}
+วันเริ่ม: ${project.startDate ? new Date(project.startDate).toLocaleDateString('th-TH') : '-'}
+วันสิ้นสุด: ${project.endDate ? new Date(project.endDate).toLocaleDateString('th-TH') : '-'}
+สถานะ: ${project.status}
+ราคา: ฿${(project.totalPrice || 0).toLocaleString('th-TH')}
+        `;
+        alert(detailsText);
     },
 
     // Filter projects
@@ -512,8 +538,9 @@ const ProjectsPage = {
         const status = document.getElementById('filterStatus')?.value || 'all';
 
         const filtered = this.projects.filter(project => {
-            const matchSearch = project.name.toLowerCase().includes(search) ||
-                               (project.customerName || '').toLowerCase().includes(search);
+            const customerNameToSearch = project.customerId?.name || project.customerId?.companyName || '';
+            const matchSearch = (project.name || '').toLowerCase().includes(search) ||
+                               customerNameToSearch.toLowerCase().includes(search);
             const matchPayment = payment === 'all' || project.paymentStatus === payment;
             const matchStatus = status === 'all' || project.status === status;
             
@@ -546,15 +573,15 @@ const ProjectsPage = {
     exportToExcel() {
         const data = this.projects.map(p => ({
             'ชื่อโครงการ': p.name,
-            'ลูกค้า': p.customerName || '-',
+            'ลูกค้า': p.customerId?.name || p.customerId?.companyName || '-',
             'ทีมงาน': p.team || '-',
             'วันเริ่ม': p.startDate ? new Date(p.startDate).toLocaleDateString('th-TH') : '-',
             'วันเสร็จ': p.endDate ? new Date(p.endDate).toLocaleDateString('th-TH') : '-',
-            'ต้นทุน': p.cost || 0,
-            'ราคาขาย': p.sellingPrice || 0,
-            'กำไร': (p.sellingPrice || 0) - (p.cost || 0),
+            'ต้นทุน': p.totalCost || 0,
+            'ราคาขาย': p.totalPrice || 0,
+            'กำไร': (p.totalPrice || 0) - (p.totalCost || 0),
             'สถานะ': p.status,
-            'การชำระเงิน': p.paymentStatus === 'PAID' ? 'ชำระแล้ว' : 'ค้างชำระ'
+            'การชำระเงิน': p.paymentStatus === 'paid' ? 'ชำระแล้ว' : (p.paymentStatus === 'partial' ? 'ชำระบางส่วน' : 'ยังไม่ชำระ')
         }));
 
         ExportUtils.exportToExcel(data, 'projects');

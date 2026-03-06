@@ -13,16 +13,17 @@ router.get('/', async (req, res) => {
         if (paymentStatus) query.paymentStatus = paymentStatus;
         
         let projects = await Project.find(query)
-            .populate('customerId', 'customerName customerPhone address')
+            .populate('customerId', 'name companyName phone address email')
             .populate('assignedTeam', 'username role')
             .sort({ createdAt: -1 });
         
         // Filter by customer name if search is provided
         if (search) {
             const searchLower = search.toLowerCase();
-            projects = projects.filter(p => 
-                p.customerId?.customerName?.toLowerCase().includes(searchLower)
-            );
+            projects = projects.filter(p => {
+                const customerName = p.customerId?.name || p.customerId?.companyName || '';
+                return customerName.toLowerCase().includes(searchLower);
+            });
         }
         
         res.json(projects);
@@ -35,7 +36,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const project = await Project.findById(req.params.id)
-            .populate('customerId', 'name phone address email')
+            .populate('customerId', 'name companyName phone address email')
             .populate('assignedTeam', 'username role');
         if (!project) return res.status(404).json({ message: 'Project not found' });
         res.json(project);
@@ -49,6 +50,9 @@ router.post('/', async (req, res) => {
     try {
         const project = new Project(req.body);
         await project.save();
+        // Populate customerId before returning
+        await project.populate('customerId', 'name companyName phone address email');
+        await project.populate('assignedTeam', 'username role');
         res.status(201).json(project);
     } catch (error) {
         res.status(400).json({ message: error.message });
@@ -58,7 +62,9 @@ router.post('/', async (req, res) => {
 // Update project
 router.put('/:id', async (req, res) => {
     try {
-        const project = await Project.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const project = await Project.findByIdAndUpdate(req.params.id, req.body, { new: true })
+            .populate('customerId', 'name companyName phone address email')
+            .populate('assignedTeam', 'username role');
         res.json(project);
     } catch (error) {
         res.status(400).json({ message: error.message });

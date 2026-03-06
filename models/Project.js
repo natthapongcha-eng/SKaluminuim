@@ -6,6 +6,10 @@ const projectSchema = new mongoose.Schema({
         ref: 'Customer', 
         required: true 
     },
+    name: { type: String, required: true },
+    team: { type: String },
+    startDate: { type: Date },
+    endDate: { type: Date },
     totalCost: { type: Number, default: 0 },
     totalPrice: { type: Number, default: 0 },
     paymentStatus: { 
