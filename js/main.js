@@ -10,6 +10,7 @@ let currentUser = {
     email: ''
 };
 let selectedProfileImageData = null;
+let profileCropState = null;
 
 // ===== Utility Functions =====
 function formatCurrency(amount) {
@@ -140,6 +141,15 @@ function optimizeProfileImage(file) {
     });
 }
 
+function readImageFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์รูปภาพได้'));
+        reader.readAsDataURL(file);
+    });
+}
+
 // ===== Modal Functions =====
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -264,6 +274,292 @@ function showProfileSaveSuccess(message = 'บันทึกข้อมูล�
     }
 }
 
+function ensureProfileImageViewerModal() {
+    let modal = document.getElementById('profileImageViewerModal');
+    if (modal) return modal;
+
+    const html = `
+        <div id="profileImageViewerModal" class="modal image-viewer">
+            <div class="modal-content profile-image-viewer-content">
+                <span class="close" id="closeProfileImageViewerModal">&times;</span>
+                <h3>รูปโปรไฟล์</h3>
+                <div class="image-viewer-container profile-image-viewer-container">
+                    <img id="profileImageViewerPreview" src="" alt="Profile image preview">
+                </div>
+                <div class="modal-actions profile-image-viewer-actions">
+                    <button type="button" id="openProfileImageCropBtn" class="btn-primary" style="display:none;">ครอบภาพ</button>
+                    <button type="button" id="closeProfileImageViewerBtn" class="btn-secondary">ปิด</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    modal = document.getElementById('profileImageViewerModal');
+
+    document.getElementById('closeProfileImageViewerModal')?.addEventListener('click', () => {
+        closeModal('profileImageViewerModal');
+    });
+
+    document.getElementById('closeProfileImageViewerBtn')?.addEventListener('click', () => {
+        closeModal('profileImageViewerModal');
+    });
+
+    document.getElementById('openProfileImageCropBtn')?.addEventListener('click', () => {
+        const viewerImage = document.getElementById('profileImageViewerPreview');
+        const src = viewerImage?.getAttribute('src') || '';
+        if (!src) return;
+        closeModal('profileImageViewerModal');
+        openProfileCropModal(src);
+    });
+
+    return modal;
+}
+
+function ensureProfileImageCropModal() {
+    let modal = document.getElementById('profileImageCropModal');
+    if (modal) return modal;
+
+    const html = `
+        <div id="profileImageCropModal" class="modal profile-image-crop-modal">
+            <div class="modal-content profile-image-crop-content">
+                <span class="close" id="closeProfileImageCropModal">&times;</span>
+                <h3>ครอบรูปโปรไฟล์</h3>
+                <p class="profile-crop-subtitle">ลากรูปเพื่อจัดตำแหน่ง และใช้สไลด์เพื่อซูม</p>
+
+                <div class="profile-crop-stage" id="profileCropStage">
+                    <img id="profileCropImage" src="" alt="Crop preview">
+                    <div class="profile-crop-frame" aria-hidden="true"></div>
+                </div>
+
+                <div class="profile-crop-controls">
+                    <label for="profileCropZoom">ซูม</label>
+                    <input id="profileCropZoom" type="range" min="1" max="3" step="0.01" value="1">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" id="resetProfileCropBtn" class="btn-secondary">รีเซ็ต</button>
+                    <button type="button" id="cancelProfileCropBtn" class="btn-secondary">ยกเลิก</button>
+                    <button type="button" id="applyProfileCropBtn" class="btn-primary">ใช้ภาพนี้</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    modal = document.getElementById('profileImageCropModal');
+
+    const closeCrop = () => closeModal('profileImageCropModal');
+    document.getElementById('closeProfileImageCropModal')?.addEventListener('click', closeCrop);
+    document.getElementById('cancelProfileCropBtn')?.addEventListener('click', closeCrop);
+
+    const cropStage = document.getElementById('profileCropStage');
+    const cropImage = document.getElementById('profileCropImage');
+    const zoomInput = document.getElementById('profileCropZoom');
+
+    const onPointerDown = (event) => {
+        if (!profileCropState || !cropStage || !cropImage) return;
+        profileCropState.isDragging = true;
+        profileCropState.startX = event.clientX;
+        profileCropState.startY = event.clientY;
+        profileCropState.startOffsetX = profileCropState.offsetX;
+        profileCropState.startOffsetY = profileCropState.offsetY;
+        cropStage.setPointerCapture?.(event.pointerId);
+    };
+
+    const onPointerMove = (event) => {
+        if (!profileCropState || !profileCropState.isDragging) return;
+        const dx = event.clientX - profileCropState.startX;
+        const dy = event.clientY - profileCropState.startY;
+        profileCropState.offsetX = profileCropState.startOffsetX + dx;
+        profileCropState.offsetY = profileCropState.startOffsetY + dy;
+        clampProfileCropOffsets();
+        renderProfileCropImage();
+    };
+
+    const onPointerUp = (event) => {
+        if (!profileCropState || !cropStage) return;
+        profileCropState.isDragging = false;
+        cropStage.releasePointerCapture?.(event.pointerId);
+    };
+
+    cropStage?.addEventListener('pointerdown', onPointerDown);
+    cropStage?.addEventListener('pointermove', onPointerMove);
+    cropStage?.addEventListener('pointerup', onPointerUp);
+    cropStage?.addEventListener('pointerleave', onPointerUp);
+
+    zoomInput?.addEventListener('input', () => {
+        if (!profileCropState) return;
+        const prevScale = profileCropState.scale;
+        const nextScale = Math.max(profileCropState.minScale, Math.min(profileCropState.maxScale, Number(zoomInput.value || prevScale)));
+
+        const centerX = profileCropState.cropSize / 2;
+        const centerY = profileCropState.cropSize / 2;
+        const imagePointX = (centerX - profileCropState.offsetX) / prevScale;
+        const imagePointY = (centerY - profileCropState.offsetY) / prevScale;
+
+        profileCropState.scale = nextScale;
+        profileCropState.offsetX = centerX - (imagePointX * nextScale);
+        profileCropState.offsetY = centerY - (imagePointY * nextScale);
+
+        clampProfileCropOffsets();
+        renderProfileCropImage();
+    });
+
+    document.getElementById('resetProfileCropBtn')?.addEventListener('click', () => {
+        resetProfileCrop();
+    });
+
+    document.getElementById('applyProfileCropBtn')?.addEventListener('click', () => {
+        applyProfileCrop();
+    });
+
+    return modal;
+}
+
+function clampProfileCropOffsets() {
+    if (!profileCropState) return;
+
+    const scaledWidth = profileCropState.imageWidth * profileCropState.scale;
+    const scaledHeight = profileCropState.imageHeight * profileCropState.scale;
+
+    const minX = profileCropState.cropSize - scaledWidth;
+    const minY = profileCropState.cropSize - scaledHeight;
+
+    profileCropState.offsetX = Math.min(0, Math.max(minX, profileCropState.offsetX));
+    profileCropState.offsetY = Math.min(0, Math.max(minY, profileCropState.offsetY));
+}
+
+function renderProfileCropImage() {
+    if (!profileCropState) return;
+    const cropImage = document.getElementById('profileCropImage');
+    if (!cropImage) return;
+
+    const scaledWidth = profileCropState.imageWidth * profileCropState.scale;
+    const scaledHeight = profileCropState.imageHeight * profileCropState.scale;
+
+    cropImage.style.width = `${scaledWidth}px`;
+    cropImage.style.height = `${scaledHeight}px`;
+    cropImage.style.left = `${profileCropState.offsetX}px`;
+    cropImage.style.top = `${profileCropState.offsetY}px`;
+}
+
+function resetProfileCrop() {
+    if (!profileCropState) return;
+    profileCropState.scale = profileCropState.minScale;
+    profileCropState.offsetX = (profileCropState.cropSize - (profileCropState.imageWidth * profileCropState.scale)) / 2;
+    profileCropState.offsetY = (profileCropState.cropSize - (profileCropState.imageHeight * profileCropState.scale)) / 2;
+
+    const zoomInput = document.getElementById('profileCropZoom');
+    if (zoomInput) {
+        zoomInput.value = String(profileCropState.scale);
+    }
+
+    clampProfileCropOffsets();
+    renderProfileCropImage();
+}
+
+function openProfileImageViewer(src, { canCrop = false } = {}) {
+    if (!src) return;
+    ensureProfileImageViewerModal();
+
+    const preview = document.getElementById('profileImageViewerPreview');
+    const cropBtn = document.getElementById('openProfileImageCropBtn');
+
+    if (preview) preview.src = src;
+    if (cropBtn) cropBtn.style.display = canCrop ? 'inline-flex' : 'none';
+
+    openModal('profileImageViewerModal');
+}
+
+function openProfileCropModal(src) {
+    if (!src) return;
+    ensureProfileImageCropModal();
+
+    const cropImage = document.getElementById('profileCropImage');
+    const zoomInput = document.getElementById('profileCropZoom');
+    if (!cropImage || !zoomInput) return;
+
+    const image = new Image();
+    image.onload = () => {
+        const cropSize = 280;
+        const minScale = Math.max(cropSize / image.width, cropSize / image.height);
+        const maxScale = Math.max(minScale * 3, minScale + 0.2);
+
+        profileCropState = {
+            src,
+            image,
+            imageWidth: image.width,
+            imageHeight: image.height,
+            cropSize,
+            minScale,
+            maxScale,
+            scale: minScale,
+            offsetX: 0,
+            offsetY: 0,
+            isDragging: false,
+            startX: 0,
+            startY: 0,
+            startOffsetX: 0,
+            startOffsetY: 0
+        };
+
+        cropImage.src = src;
+        zoomInput.min = String(minScale);
+        zoomInput.max = String(maxScale);
+        zoomInput.value = String(minScale);
+
+        resetProfileCrop();
+        openModal('profileImageCropModal');
+    };
+
+    image.onerror = () => {
+        alert('ไม่สามารถโหลดรูปภาพเพื่อครอบได้');
+    };
+
+    image.src = src;
+}
+
+function applyProfileCrop() {
+    if (!profileCropState) return;
+
+    const canvas = document.createElement('canvas');
+    const outputSize = 512;
+    canvas.width = outputSize;
+    canvas.height = outputSize;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+        alert('ไม่สามารถประมวลผลรูปภาพได้');
+        return;
+    }
+
+    const sourceX = Math.max(0, (-profileCropState.offsetX) / profileCropState.scale);
+    const sourceY = Math.max(0, (-profileCropState.offsetY) / profileCropState.scale);
+    const sourceSize = profileCropState.cropSize / profileCropState.scale;
+
+    context.drawImage(
+        profileCropState.image,
+        sourceX,
+        sourceY,
+        sourceSize,
+        sourceSize,
+        0,
+        0,
+        outputSize,
+        outputSize
+    );
+
+    selectedProfileImageData = canvas.toDataURL('image/jpeg', 0.9);
+
+    const preview = document.getElementById('profileAvatarPreview');
+    if (preview && selectedProfileImageData) {
+        preview.src = selectedProfileImageData;
+    }
+
+    closeModal('profileImageCropModal');
+}
+
 function ensureProfileModal() {
     let modal = document.getElementById('userProfileModal');
     if (modal) return modal;
@@ -280,7 +576,7 @@ function ensureProfileModal() {
                 <div id="profileSaveNotice" class="profile-save-notice">บันทึกข้อมูลเรียบร้อย</div>
 
                 <div class="profile-avatar-section">
-                    <img id="profileAvatarPreview" class="profile-avatar-preview" src="images/ceo-icon.png" alt="Profile Avatar">
+                    <img id="profileAvatarPreview" class="profile-avatar-preview" src="images/ceo-icon.png" alt="Profile Avatar" title="กดเพื่อดูรูปใหญ่">
                 </div>
 
                 <div id="profileViewSection" class="profile-view-grid">
@@ -454,17 +750,25 @@ function initUserProfile(user) {
             }
 
             try {
-                selectedProfileImageData = await optimizeProfileImage(file);
-                const profileAvatarPreview = document.getElementById('profileAvatarPreview');
-                if (profileAvatarPreview && selectedProfileImageData) {
-                    profileAvatarPreview.src = selectedProfileImageData;
-                }
+                const sourceDataUrl = await readImageFileAsDataURL(file);
+                openProfileCropModal(sourceDataUrl);
             } catch (error) {
                 alert(error.message || 'ไม่สามารถอัปโหลดรูปภาพได้');
                 this.value = '';
             }
         });
         profileImageInput.dataset.profileReady = 'true';
+    }
+
+    const profileAvatarPreview = document.getElementById('profileAvatarPreview');
+    if (profileAvatarPreview && profileAvatarPreview.dataset.profileReady !== 'true') {
+        profileAvatarPreview.addEventListener('click', () => {
+            const src = profileAvatarPreview.getAttribute('src') || '';
+            if (!src) return;
+            const isEditMode = document.getElementById('profileEditForm')?.style.display !== 'none';
+            openProfileImageViewer(src, { canCrop: isEditMode });
+        });
+        profileAvatarPreview.dataset.profileReady = 'true';
     }
 
     const removeProfileImageBtn = document.getElementById('removeProfileImageBtn');
