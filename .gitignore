@@ -36,8 +36,3 @@ temp/
 *.sqlite
 
 # Uploads
-uploads/
-public/uploads/
-
-# Railway
-.railway/
