@@ -268,6 +268,32 @@ const api = {
             return api.request(`/reports/stock-movements${query ? '?' + query : ''}`);
         }
     },
+
+    // ===== Announcement =====
+    announcement: {
+        async getCurrent() {
+            return api.request('/announcement');
+        },
+        async publish(content, createdBy = 'CEO', startAt, endAt) {
+            return api.request('/announcement', {
+                method: 'POST',
+                body: JSON.stringify({ content, createdBy, startAt, endAt })
+            });
+        },
+        async clear() {
+            return api.request('/announcement', {
+                method: 'DELETE'
+            });
+        },
+        async deleteById(id) {
+            return api.request(`/announcement/${id}`, {
+                method: 'DELETE'
+            });
+        },
+        async getHistory() {
+            return api.request('/announcement/history');
+        }
+    },
     
     // ===== Status =====
     async getStatus() {

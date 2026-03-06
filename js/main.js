@@ -165,15 +165,119 @@ function closeAllModals() {
     });
 }
 
+function setProfileHydrated(isReady) {
+    document.body.classList.toggle('profile-ready', !!isReady);
+}
+
+function ensureConfirmModal() {
+    let modal = document.getElementById('appConfirmModal');
+    if (modal) return modal;
+
+    const html = `
+        <div id="appConfirmModal" class="modal confirm-modal">
+            <div class="modal-content confirm-modal-content small">
+                <span class="close" id="confirmCloseBtn">&times;</span>
+                <div class="confirm-modal-header">
+                    <h3 id="confirmTitle">ยืนยันรายการ</h3>
+                </div>
+                <p id="confirmMessage" class="confirm-modal-message">คุณต้องการดำเนินการต่อหรือไม่?</p>
+                <div class="confirm-modal-actions">
+                    <button type="button" id="confirmCancelBtn" class="btn-secondary">ยกเลิก</button>
+                    <button type="button" id="confirmOkBtn" class="btn-primary">ตกลง</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    modal = document.getElementById('appConfirmModal');
+    return modal;
+}
+
+function showStyledConfirm({
+    title = 'ยืนยันรายการ',
+    message = 'คุณต้องการดำเนินการต่อหรือไม่?',
+    confirmText = 'ตกลง',
+    cancelText = 'ยกเลิก',
+    variant = 'danger'
+} = {}) {
+    const modal = ensureConfirmModal();
+    const titleEl = document.getElementById('confirmTitle');
+    const messageEl = document.getElementById('confirmMessage');
+    const okBtn = document.getElementById('confirmOkBtn');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    const closeBtn = document.getElementById('confirmCloseBtn');
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+    if (okBtn) okBtn.textContent = confirmText;
+    if (cancelBtn) cancelBtn.textContent = cancelText;
+
+    okBtn?.classList.remove('danger', 'info');
+    if (variant === 'danger') okBtn?.classList.add('danger');
+    if (variant === 'info') okBtn?.classList.add('info');
+
+    openModal('appConfirmModal');
+
+    return new Promise((resolve) => {
+        const resolveAndCleanup = (result) => {
+            closeModal('appConfirmModal');
+            okBtn?.removeEventListener('click', onOk);
+            cancelBtn?.removeEventListener('click', onCancel);
+            closeBtn?.removeEventListener('click', onCancel);
+            modal?.removeEventListener('click', onBackdropClick);
+            resolve(result);
+        };
+
+        const onOk = () => resolveAndCleanup(true);
+        const onCancel = () => resolveAndCleanup(false);
+        const onBackdropClick = (event) => {
+            if (event.target === modal) onCancel();
+        };
+
+        okBtn?.addEventListener('click', onOk);
+        cancelBtn?.addEventListener('click', onCancel);
+        closeBtn?.addEventListener('click', onCancel);
+        modal?.addEventListener('click', onBackdropClick);
+    });
+}
+
+function showProfileSaveSuccess(message = 'บันทึกข้อมูลเรียบร้อย') {
+    const notice = document.getElementById('profileSaveNotice');
+    const modalContent = document.querySelector('#userProfileModal .profile-modal-content');
+    const avatar = document.getElementById('profileAvatarPreview');
+
+    if (notice) {
+        notice.textContent = message;
+        notice.classList.add('active');
+        setTimeout(() => notice.classList.remove('active'), 1800);
+    }
+
+    if (modalContent) {
+        modalContent.classList.add('save-success');
+        setTimeout(() => modalContent.classList.remove('save-success'), 900);
+    }
+
+    if (avatar) {
+        avatar.classList.add('saved');
+        setTimeout(() => avatar.classList.remove('saved'), 900);
+    }
+}
+
 function ensureProfileModal() {
     let modal = document.getElementById('userProfileModal');
     if (modal) return modal;
 
     const modalHtml = `
         <div id="userProfileModal" class="modal">
-            <div class="modal-content small">
+            <div class="modal-content small profile-modal-content">
                 <span class="close" id="closeUserProfileModal">&times;</span>
-                <h2>ข้อมูลโปรไฟล์</h2>
+                <div class="profile-modal-header">
+                    <h2>ข้อมูลโปรไฟล์</h2>
+                    <p>อัปเดตข้อมูลส่วนตัวให้เป็นปัจจุบัน</p>
+                </div>
+
+                <div id="profileSaveNotice" class="profile-save-notice">บันทึกข้อมูลเรียบร้อย</div>
 
                 <div class="profile-avatar-section">
                     <img id="profileAvatarPreview" class="profile-avatar-preview" src="images/ceo-icon.png" alt="Profile Avatar">
@@ -267,6 +371,11 @@ function renderProfileModal(user) {
     if (profilePhone) profilePhone.value = user.phone || '';
     if (profileAvatarPreview) profileAvatarPreview.src = getUserAvatar(user);
     if (profileImageInput) profileImageInput.value = '';
+
+    const profileSaveNotice = document.getElementById('profileSaveNotice');
+    if (profileSaveNotice) {
+        profileSaveNotice.classList.remove('active');
+    }
 }
 
 function setProfileEditMode(isEdit) {
@@ -416,7 +525,7 @@ function initUserProfile(user) {
                     renderProfileModal(currentUser);
                     selectedProfileImageData = null;
                     setProfileEditMode(false);
-                    alert('บันทึกข้อมูลโปรไฟล์เรียบร้อย');
+                    showProfileSaveSuccess('บันทึกข้อมูลโปรไฟล์เรียบร้อย');
                 } else {
                     alert(response.message || 'บันทึกข้อมูลไม่สำเร็จ');
                 }
@@ -492,6 +601,8 @@ function applyRBAC(user) {
         `;
     });
 
+    setProfileHydrated(true);
+
     // Hide CEO-only elements for employees
     if (user.role === 'EMPLOYEE') {
         const ceoOnlyElements = document.querySelectorAll('.ceo-only');
@@ -530,99 +641,7 @@ if (document.querySelector('.hero-section')) {
 
 // ===== Quotation Page =====
 if (document.getElementById('createQuotationBtn')) {
-    const createQuotationBtn = document.getElementById('createQuotationBtn');
-    const addItemBtn = document.getElementById('addItemBtn');
-    const addItemModal = document.getElementById('addItemModal');
-    const addItemForm = document.getElementById('addItemForm');
-    const cancelAddItem = document.getElementById('cancelAddItem');
-    
-    // Create new quotation
-    createQuotationBtn?.addEventListener('click', function() {
-        // Reset form
-        document.getElementById('customerName').textContent = '';
-        document.getElementById('customerAddress').textContent = '';
-        document.getElementById('customerPhone').textContent = '';
-        document.getElementById('quotationNumber').textContent = '001';
-        
-        const today = new Date();
-        document.getElementById('quotationDate').textContent = formatDate(today);
-        
-        alert('สร้างใบเสนอราคาใหม่');
-    });
-    
-    // Add item to quotation
-    addItemBtn?.addEventListener('click', function() {
-        openModal('addItemModal');
-    });
-    
-    cancelAddItem?.addEventListener('click', function() {
-        closeModal('addItemModal');
-    });
-    
-    addItemForm?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const itemName = document.getElementById('itemName').value;
-        const itemQuantity = document.getElementById('itemQuantity').value;
-        const itemUnit = document.getElementById('itemUnit').value;
-        const itemPrice = document.getElementById('itemPrice').value;
-        const itemTotal = itemQuantity * itemPrice;
-        
-        // Add row to table
-        const tbody = document.getElementById('quotationItems');
-        const rowCount = tbody.querySelectorAll('tr:not(.add-item-row)').length + 1;
-        
-        const newRow = document.createElement('tr');
-        newRow.innerHTML = `
-            <td>${rowCount}.</td>
-            <td>${itemName}</td>
-            <td>${itemQuantity}</td>
-            <td>${itemUnit}</td>
-            <td>${itemPrice}</td>
-            <td>${itemTotal}</td>
-        `;
-        
-        // Insert before add button row
-        const addItemRow = tbody.querySelector('.add-item-row');
-        tbody.insertBefore(newRow, addItemRow);
-        
-        // Update total
-        updateQuotationTotal();
-        
-        // Close modal and reset form
-        closeModal('addItemModal');
-        addItemForm.reset();
-    });
-    
-    // Save quotation
-    document.getElementById('saveQuotationBtn')?.addEventListener('click', function() {
-        alert('บันทึกใบเสนอราคาเรียบร้อย');
-    });
-    
-    // Print quotation
-    document.getElementById('printQuotationBtn')?.addEventListener('click', function() {
-        window.print();
-    });
-    
-    // Export PDF
-    document.getElementById('exportPdfBtn')?.addEventListener('click', function() {
-        alert('กำลังสร้างไฟล์ PDF... (ฟีเจอร์นี้จะเชื่อมต่อกับ backend ในภายหลัง)');
-    });
-    
-    function updateQuotationTotal() {
-        const tbody = document.getElementById('quotationItems');
-        const rows = tbody.querySelectorAll('tr:not(.add-item-row)');
-        let total = 0;
-        
-        rows.forEach(row => {
-            const totalCell = row.cells[5];
-            if (totalCell) {
-                total += parseFloat(totalCell.textContent) || 0;
-            }
-        });
-        
-        document.getElementById('totalAmount').textContent = total.toLocaleString('th-TH');
-    }
+    // Quotation page logic is handled by js/pages/quotation.js
 }
 
 // ===== Inventory Page =====
@@ -926,6 +945,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const path = window.location.pathname.toLowerCase();
     const isLoginPage = path.endsWith('index.html') || path.endsWith('/') || path === '';
 
+    if (!isLoginPage) {
+        setProfileHydrated(false);
+    }
+
     // Check authentication (except on login page)
     if (!isLoginPage) {
         const user = checkAuth();
@@ -1025,44 +1048,256 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveDraftBtn = document.getElementById('saveDraftAnnouncementBtn');
     const clearBtn = document.getElementById('clearAnnouncementBtn');
     const announcementText = document.getElementById('announcementText');
+    const announcementPublishNotice = document.getElementById('announcementPublishNotice');
+    const announcementStartAt = document.getElementById('announcementStartAt');
+    const announcementEndAt = document.getElementById('announcementEndAt');
+    const increaseAnnouncementDaysBtn = document.getElementById('increaseAnnouncementDaysBtn');
+    const decreaseAnnouncementDaysBtn = document.getElementById('decreaseAnnouncementDaysBtn');
+    const increaseAnnouncementHoursBtn = document.getElementById('increaseAnnouncementHoursBtn');
+    const decreaseAnnouncementHoursBtn = document.getElementById('decreaseAnnouncementHoursBtn');
 
-    function renderAnnouncement(text) {
+    function formatDateTimeLocal(date) {
+        const pad = value => String(value).padStart(2, '0');
+        const year = date.getFullYear();
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    function parseDateTimeLocal(value) {
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function ensureAnnouncementScheduleDefaults() {
+        if (!announcementStartAt || !announcementEndAt) return;
+        if (!announcementStartAt.value) {
+            const now = new Date();
+            announcementStartAt.value = formatDateTimeLocal(now);
+        }
+
+        if (!announcementEndAt.value) {
+            const end = new Date(parseDateTimeLocal(announcementStartAt.value)?.getTime() || Date.now());
+            end.setDate(end.getDate() + 1);
+            announcementEndAt.value = formatDateTimeLocal(end);
+        }
+    }
+
+    function adjustAnnouncementEndBy({ days = 0, hours = 0 }) {
+        if (!announcementStartAt || !announcementEndAt) return;
+        ensureAnnouncementScheduleDefaults();
+
+        const startDate = parseDateTimeLocal(announcementStartAt.value);
+        const endDate = parseDateTimeLocal(announcementEndAt.value);
+        if (!startDate || !endDate) return;
+
+        endDate.setDate(endDate.getDate() + days);
+        endDate.setHours(endDate.getHours() + hours);
+
+        if (endDate <= startDate) {
+            endDate.setTime(startDate.getTime() + 60 * 60 * 1000);
+        }
+
+        const maxEnd = new Date(startDate.getTime() + (7 * 24 * 60 * 60 * 1000));
+        if (endDate > maxEnd) {
+            endDate.setTime(maxEnd.getTime());
+        }
+
+        announcementEndAt.value = formatDateTimeLocal(endDate);
+    }
+
+    function formatAnnouncementRange(startAtValue, endAtValue) {
+        const start = new Date(startAtValue);
+        const end = new Date(endAtValue);
+        const fmt = (date) => new Intl.DateTimeFormat('th-TH', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+        return `${fmt(start)} - ${fmt(end)}`;
+    }
+
+    function showAnnouncementPublishSuccess(message = 'ประกาศสำเร็จ') {
+        if (announcementPublishNotice) {
+            announcementPublishNotice.textContent = `✅ ${message}`;
+            announcementPublishNotice.classList.add('active');
+            setTimeout(() => announcementPublishNotice.classList.remove('active'), 2000);
+        }
+
+        if (announcementBanner) {
+            announcementBanner.classList.add('announcement-success');
+            setTimeout(() => announcementBanner.classList.remove('announcement-success'), 1200);
+        }
+    }
+
+    function showAnnouncementDeleteSuccess(message = 'ลบประกาศเรียบร้อย') {
+        if (announcementPublishNotice) {
+            announcementPublishNotice.textContent = `🗑️ ${message}`;
+            announcementPublishNotice.classList.add('active', 'delete');
+            setTimeout(() => {
+                announcementPublishNotice.classList.remove('active', 'delete');
+            }, 1800);
+        }
+
+        if (announcementBanner) {
+            announcementBanner.classList.add('announcement-delete-success');
+            setTimeout(() => announcementBanner.classList.remove('announcement-delete-success'), 900);
+        }
+    }
+
+    function renderAnnouncement(items) {
         if (!announcementBanner || !announcementContent) return;
-        if (text) {
-            announcementContent.textContent = text;
+        if (items?.length) {
+            const safeItems = items
+                .map(item => `
+                    <div class="announcement-item" data-id="${item._id || ''}">
+                        <div class="announcement-item-text">${item.content}</div>
+                        <div class="announcement-item-meta">🕒 ${formatAnnouncementRange(item.startAt, item.endAt)}</div>
+                        ${currentUser.role === 'CEO' ? `<button class="announcement-remove-item" data-id="${item._id || ''}" title="ลบประกาศนี้">✕</button>` : ''}
+                    </div>
+                `)
+                .join('');
+
+            announcementContent.innerHTML = `<div class="announcement-list">${safeItems}</div>`;
             announcementBanner.style.display = 'flex';
             announcementBanner.style.justifyContent = 'space-between';
             announcementBanner.style.alignItems = 'center';
             announcementBanner.style.background = '#fff6d6';
             announcementBanner.style.border = '1px solid #f0e1a8';
             announcementBanner.style.padding = '10px 12px';
+
+            announcementContent.querySelectorAll('.announcement-remove-item').forEach(btn => {
+                btn.addEventListener('click', async (event) => {
+                    event.preventDefault();
+                    const id = btn.dataset.id;
+                    if (!id || currentUser.role !== 'CEO') return;
+                    const isConfirmed = await showStyledConfirm({
+                        title: 'ยืนยันการลบประกาศ',
+                        message: 'ลบประกาศนี้ใช่หรือไม่?',
+                        confirmText: 'ลบประกาศ',
+                        cancelText: 'ยกเลิก',
+                        variant: 'danger'
+                    });
+                    if (!isConfirmed) return;
+                    try {
+                        const announcementItem = btn.closest('.announcement-item');
+                        if (announcementItem) {
+                            announcementItem.classList.add('removing');
+                            await new Promise(resolve => setTimeout(resolve, 220));
+                        }
+                        await api.announcement.deleteById(id);
+                        await loadPublishedAnnouncement();
+                        showAnnouncementDeleteSuccess('ลบประกาศเรียบร้อย');
+                    } catch (error) {
+                        alert(error.message || 'Unable to remove announcement');
+                    }
+                });
+            });
         } else {
             announcementBanner.style.display = 'none';
+            announcementContent.innerHTML = '';
         }
     }
 
-    // Load published announcement
-    try {
-        const storedAnnouncement = localStorage.getItem('siteAnnouncement');
-        if (storedAnnouncement) renderAnnouncement(storedAnnouncement);
+    async function loadPublishedAnnouncement() {
+        if (!announcementBanner) return;
+        try {
+            const response = await api.announcement.getCurrent();
+            renderAnnouncement(response?.announcements || []);
+        } catch (error) {
+            console.warn('Unable to load announcement from server:', error);
+        }
+    }
 
-        // Load draft into editor if present
+    // Load draft into editor if present
+    try {
         const draft = localStorage.getItem('siteAnnouncementDraft');
         if (announcementText && draft) announcementText.value = draft;
     } catch (e) {
         console.warn('LocalStorage unavailable for announcements', e);
     }
 
-    publishBtn?.addEventListener('click', function() {
+    if (clearBtn) {
+        clearBtn.style.display = currentUser.role === 'CEO' ? '' : 'none';
+    }
+
+    if (announcementPublishNotice) {
+        announcementPublishNotice.classList.remove('active');
+    }
+
+    ensureAnnouncementScheduleDefaults();
+
+    announcementStartAt?.addEventListener('change', function() {
+        ensureAnnouncementScheduleDefaults();
+        const start = parseDateTimeLocal(announcementStartAt.value);
+        const end = parseDateTimeLocal(announcementEndAt?.value || '');
+        if (!start || !announcementEndAt) return;
+
+        if (!end || end <= start) {
+            const fallbackEnd = new Date(start.getTime() + 60 * 60 * 1000);
+            announcementEndAt.value = formatDateTimeLocal(fallbackEnd);
+        }
+    });
+
+    increaseAnnouncementDaysBtn?.addEventListener('click', () => adjustAnnouncementEndBy({ days: 1 }));
+    decreaseAnnouncementDaysBtn?.addEventListener('click', () => adjustAnnouncementEndBy({ days: -1 }));
+    increaseAnnouncementHoursBtn?.addEventListener('click', () => adjustAnnouncementEndBy({ hours: 1 }));
+    decreaseAnnouncementHoursBtn?.addEventListener('click', () => adjustAnnouncementEndBy({ hours: -1 }));
+
+    loadPublishedAnnouncement();
+
+    publishBtn?.addEventListener('click', async function() {
         const text = announcementText?.value.trim();
         if (!text) {
             alert('Please enter announcement text');
             return;
         }
-        localStorage.setItem('siteAnnouncement', text);
-        localStorage.removeItem('siteAnnouncementDraft');
-        renderAnnouncement(text);
-        alert('Announcement published');
+
+        const startAt = parseDateTimeLocal(announcementStartAt?.value || '');
+        const endAt = parseDateTimeLocal(announcementEndAt?.value || '');
+
+        if (!startAt || !endAt) {
+            alert('กรุณาระบุวันเวลาเริ่มและสิ้นสุดประกาศ');
+            return;
+        }
+
+        if (endAt <= startAt) {
+            alert('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น');
+            return;
+        }
+
+        const maxDuration = 7 * 24 * 60 * 60 * 1000;
+        if (endAt.getTime() - startAt.getTime() > maxDuration) {
+            alert('ประกาศต้องมีระยะเวลาไม่เกิน 7 วัน');
+            return;
+        }
+
+        const originalText = publishBtn.textContent;
+        publishBtn.textContent = 'Publishing...';
+        publishBtn.disabled = true;
+
+        try {
+            await api.announcement.publish(
+                text,
+                currentUser.role || 'CEO',
+                startAt.toISOString(),
+                endAt.toISOString()
+            );
+            localStorage.removeItem('siteAnnouncementDraft');
+            if (announcementText) announcementText.value = '';
+            ensureAnnouncementScheduleDefaults();
+            await loadPublishedAnnouncement();
+            showAnnouncementPublishSuccess('ประกาศเรียบร้อยแล้ว');
+        } catch (error) {
+            alert(error.message || 'Unable to publish announcement');
+        } finally {
+            publishBtn.textContent = originalText;
+            publishBtn.disabled = false;
+        }
     });
 
     saveDraftBtn?.addEventListener('click', function() {
@@ -1071,19 +1306,39 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('Draft saved');
     });
 
-    clearBtn?.addEventListener('click', function() {
+    clearBtn?.addEventListener('click', async function() {
         if (!announcementBanner) return;
-        if (confirm('Are you sure you want to clear the announcement?')) {
-            localStorage.removeItem('siteAnnouncement');
-            renderAnnouncement(null);
+        if (currentUser.role !== 'CEO') return;
+        const isConfirmed = await showStyledConfirm({
+            title: 'ยืนยันการลบประกาศทั้งหมด',
+            message: 'คุณต้องการลบประกาศทั้งหมดที่กำลังแสดงอยู่หรือไม่?',
+            confirmText: 'ลบทั้งหมด',
+            cancelText: 'ยกเลิก',
+            variant: 'danger'
+        });
+        if (isConfirmed) {
+            try {
+                await api.announcement.clear();
+                renderAnnouncement([]);
+                showAnnouncementDeleteSuccess('ลบประกาศทั้งหมดเรียบร้อย');
+            } catch (error) {
+                alert(error.message || 'Unable to clear announcement');
+            }
         }
     });
     
     // ===== Logout =====
     const logoutBtns = document.querySelectorAll('#logoutBtn');
     logoutBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
+        btn.addEventListener('click', async function() {
+            const isConfirmed = await showStyledConfirm({
+                title: 'ยืนยันการออกจากระบบ',
+                message: 'คุณต้องการออกจากระบบหรือไม่?',
+                confirmText: 'ออกจากระบบ',
+                cancelText: 'อยู่ต่อ',
+                variant: 'info'
+            });
+            if (isConfirmed) {
                 sessionStorage.removeItem('user');
                 window.location.href = 'index.html';
             }

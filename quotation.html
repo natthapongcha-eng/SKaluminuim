@@ -11,9 +11,8 @@
             position: relative;
             background-color: #fff;
             overflow: hidden;
-            min-height: 297mm; /* ขนาด A4 */
-            display: flex;
-            flex-direction: column; /* สำหรับการดัน Footer ในหน้าจอ */
+            min-height: auto;
+            display: block;
             padding: 40px;
             box-sizing: border-box;
         }
@@ -25,7 +24,7 @@
 
         /* ตัวดันพื้นที่: จะยืดตัวเพื่อดันส่วนท้ายลงไป */
         .spacer {
-            flex-grow: 1;
+            display: none;
         }
 
         .footer-section-container {
@@ -72,22 +71,36 @@
                 border: none; 
                 width: 100%; 
                 height: auto;
+                overflow: visible !important;
+                font-size: 12px;
+                line-height: 1.35;
+                /* 297mm - (top+bottom padding 15mm) to avoid forced overflow to page 2 */
+                min-height: calc(297mm - 30mm);
                 margin: 0;
                 padding: 15mm; 
                 position: relative;
                 display: block; /* ยกเลิก flex ตอนพิมพ์เพื่อใช้ Absolute Positioning */
             }
 
+            .quotation-paper h1 { font-size: 36px; }
+            .quotation-paper h2 { font-size: 28px; }
+            .quotation-paper h3 { font-size: 18px; }
+            .quotation-paper h4 { font-size: 16px; }
+            .quotation-paper p, .quotation-paper span, .quotation-paper label {
+                font-size: 12px !important;
+            }
+
             /* เปิดลายน้ำเฉพาะตอนพิมพ์เท่านั้น */
             .quotation-paper::before {
                 content: "";
                 position: absolute;
-                top: 50%;
+                /* Keep watermark fixed on page 1 center, not relative to full content height */
+                top: calc(15mm + ((297mm - 30mm) / 2));
                 left: 50%;
                 transform: translate(-50%, -50%);
                 width: 450px;
                 height: 450px;
-                background-image: url('Sk.jpg'); 
+                background-image: url('uploads/media/Sk.jpg'); 
                 background-repeat: no-repeat;
                 background-position: center;
                 background-size: contain;
@@ -101,9 +114,21 @@
             /* ตรึงส่วนท้าย (ราคา/สถานะ/ลายเซ็น) ไว้ล่างสุดของกระดาษเสมอ */
             .footer-section-container {
                 position: relative;
-                margin-top: 20mm;
+                margin-top: 10mm;
                 z-index: 1;
                 page-break-inside: avoid;
+                break-inside: avoid-page;
+            }
+
+            /* If footer cannot fit in current page, move it to next page and pin to bottom */
+            .quotation-paper.print-footer-new-page .footer-section-container {
+                break-before: page;
+                page-break-before: always;
+                min-height: calc(297mm - 30mm);
+                margin-top: 0 !important;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
             }
 
             .spacer {
@@ -113,14 +138,35 @@
             .quotation-table {
                 page-break-inside: auto;
                 break-inside: auto;
+                width: 100%;
+                table-layout: fixed;
+                border-collapse: collapse;
             }
 
+            .quotation-table th,
+            .quotation-table td {
+                padding: 8px 6px !important;
+                font-size: 12px !important;
+                vertical-align: middle;
+            }
+
+            .quotation-table th:nth-child(1), .quotation-table td:nth-child(1) { width: 8%; text-align: center; }
+            .quotation-table th:nth-child(2), .quotation-table td:nth-child(2) { width: 28%; text-align: left; }
+            .quotation-table th:nth-child(3), .quotation-table td:nth-child(3) { width: 16%; text-align: center; }
+            .quotation-table th:nth-child(4), .quotation-table td:nth-child(4) { width: 16%; text-align: center; }
+            .quotation-table th:nth-child(5), .quotation-table td:nth-child(5) { width: 16%; text-align: right; }
+            .quotation-table th:nth-child(6), .quotation-table td:nth-child(6) { width: 16%; text-align: right; }
+
             .quotation-table thead {
-                display: table-header-group;
+                display: table-header-group !important;
+            }
+
+            .quotation-table tbody {
+                display: table-row-group;
             }
 
             .quotation-table tfoot {
-                display: table-row-group;
+                display: table-footer-group;
             }
 
             .quotation-table tr {
@@ -128,11 +174,24 @@
                 break-inside: avoid;
             }
 
+            .quotation-table .print-hidden-control {
+                display: none !important;
+            }
+
+            .quotation-table .print-field-value {
+                display: inline !important;
+                font-size: 12px !important;
+                color: #111827;
+                white-space: nowrap;
+            }
+
             .input-inline-edit, .select-date-part {
                 border: none !important;
                 appearance: none;
                 background: transparent !important;
                 padding: 0 !important;
+                font-size: 12px !important;
+                min-width: 0 !important;
             }
         }
     </style>
@@ -239,7 +298,7 @@
                     <tfoot>
                         <tr class="add-item-row no-print">
                             <td colspan="6" style="padding-top: 15px;">
-                                <button class="btn-add-item" id="addItemBtn" style="width: 100%; padding: 10px; border: 2px dashed #ccc; cursor: pointer;" onclick="document.getElementById('addItemModal').style.display='block'">+ เพิ่มรายการ</button>
+                                <button class="btn-add-item" id="addItemBtn" style="width: 100%; padding: 10px; border: 2px dashed #ccc; cursor: pointer;">+ เพิ่มรายการ</button>
                             </td>
                         </tr>
                     </tfoot>
@@ -296,42 +355,86 @@
     </main>
     
    <div id="addItemModal" class="modal">
-        <div class="modal-content" style="background: #fff; padding: 30px; border-radius: 8px; max-width: 500px; margin: 50px auto; position: relative;">
-            <span class="close" style="position: absolute; right: 20px; top: 10px; cursor: pointer; font-size: 24px;" onclick="document.getElementById('addItemModal').style.display='none'">&times;</span>
+        <div class="modal-content" style="background: #fff; padding: 24px; border-radius: 12px; max-width: 900px; margin: 30px auto; position: relative;">
+            <span id="closeAddItemModal" class="close" style="position: absolute; right: 20px; top: 10px; cursor: pointer; font-size: 24px;">&times;</span>
             <h2>เพิ่มรายการสินค้า/บริการ</h2>
+
+            <div class="form-group" style="margin-bottom: 14px;">
+                <input
+                    type="text"
+                    id="inventorySearchInput"
+                    placeholder="ค้นหาวัสดุจากคลัง (ชื่อ/SKU/รายละเอียด)"
+                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;"
+                >
+            </div>
+
+            <div style="margin-bottom: 14px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                <div style="font-weight: 700; padding: 8px 10px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">รายการวัสดุจากคลัง</div>
+                <div style="max-height: 220px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: #f3f4f6; z-index: 1;">
+                            <tr>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">SKU</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">วัสดุ</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">รายละเอียด/ขนาด</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e5e7eb;">ประเภท</th>
+                                <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e5e7eb;">คงเหลือ</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e5e7eb;">หน่วย</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryCatalogBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
             <form id="addItemForm">
-                <div class="form-group" style="margin-bottom: 15px;">
-                    <label style="display: block;">เลือกจากคลังวัสดุ (ไม่บังคับ)</label>
-                    <select id="selectMaterial" style="width: 100%; padding: 8px;"></select>
-                </div>
-                <div class="form-group" style="margin-bottom: 15px;">
-                    <label style="display: block;">รายการ</label>
-                    <input type="text" id="itemName" required style="width: 100%; padding: 8px;">
-                </div>
-                <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div class="form-row" style="display: flex; gap: 12px; margin-bottom: 12px;">
                     <div class="form-group" style="flex: 1;">
-                        <label>จำนวน</label>
-                        <input type="number" id="itemQuantity" required min="1" step="any" style="width: 100%; padding: 8px;">
+                        <label style="display: block; font-weight: 700; margin-bottom: 6px;">จำนวน</label>
+                        <input type="number" id="cartQuantity" required min="1" step="any" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
                     </div>
                     <div class="form-group" style="flex: 1;">
-                        <label>หน่วย</label>
-                        <input type="text" id="itemUnit" required placeholder="เช่น แผ่น, เส้น" style="width: 100%; padding: 8px;">
+                        <label style="display: block; font-weight: 700; margin-bottom: 6px;">ราคา/หน่วย</label>
+                        <input type="number" id="cartUnitPrice" required min="0" step="any" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
                     </div>
                 </div>
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label style="display: block;">ราคา/หน่วย</label>
-                    <input type="number" id="itemPrice" required min="0" step="any" style="width: 100%; padding: 8px;">
-                </div>
-                <div class="modal-actions" style="text-align: right;">
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('addItemModal').style.display='none'">ยกเลิก</button>
-                    <button type="submit" class="btn-primary" style="padding: 8px 20px;">เพิ่มรายการ</button>
+
+                <div class="modal-actions" style="text-align: right; margin-bottom: 14px;">
+                    <button type="submit" id="addToPendingBtn" class="btn-primary" style="padding: 8px 20px;">เพิ่ม</button>
                 </div>
             </form>
+
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 12px; margin-top: 4px;">
+                <h4 style="margin: 0 0 10px;">รายการที่เลือก</h4>
+                <div style="max-height: 220px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="background: #f3f4f6; position: sticky; top: 0;">
+                            <tr>
+                                <th style="padding: 8px; text-align: left;">SKU</th>
+                                <th style="padding: 8px; text-align: left;">วัสดุ</th>
+                                <th style="padding: 8px; text-align: left;">รายละเอียด/ขนาด</th>
+                                <th style="padding: 8px; text-align: right;">จำนวน</th>
+                                <th style="padding: 8px; text-align: right;">ราคา/หน่วย</th>
+                                <th style="padding: 8px; text-align: right;">รวม</th>
+                                <th style="padding: 8px; text-align: center; width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingItemsTableBody"></tbody>
+                    </table>
+                </div>
+                <p id="pendingCartSummary" style="margin: 10px 0 0; color: #374151; font-weight: 600;">รวม 0 รายการ | ฿0</p>
+            </div>
+
+            <div class="modal-actions" style="text-align: right; margin-top: 16px;">
+                <button type="button" id="cancelAddItemModal" class="btn-secondary">ยกเลิก</button>
+                <button type="button" id="confirmAddItemsBtn" class="btn-primary" style="padding: 8px 20px;">ยืนยัน</button>
+            </div>
         </div>
     </div>
     
     <script src="js/api.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/utils/export.js"></script>
     <script src="js/pages/quotation.js"></script>
 
     <script>
@@ -378,6 +481,68 @@
             }
             setupDatePicker('q');
             setupDatePicker('p');
+
+            const printableArea = document.getElementById('printableArea');
+            const footerSection = document.querySelector('.footer-section-container');
+            const quotationTable = document.querySelector('.quotation-table');
+
+            function mmToPx(mm) {
+                return (mm * 96) / 25.4;
+            }
+
+            function placeFooterForPrint() {
+                if (!printableArea || !footerSection) return;
+
+                printableArea.classList.remove('print-footer-new-page');
+
+                const printableHeightPx = mmToPx(297 - 30); // A4 height - top/bottom padding (15mm + 15mm)
+                const footerTopPx = footerSection.offsetTop;
+                const footerHeightPx = footerSection.offsetHeight;
+
+                if (printableHeightPx <= 0 || footerHeightPx <= 0) return;
+
+                const usedInCurrentPagePx = footerTopPx % printableHeightPx;
+                const remainInCurrentPagePx = printableHeightPx - usedInCurrentPagePx;
+
+                // If footer does not fit remaining space, force a new page and pin to bottom.
+                if (footerHeightPx > remainInCurrentPagePx) {
+                    printableArea.classList.add('print-footer-new-page');
+                }
+            }
+
+            function simplifyEditableFieldsForPrint() {
+                if (!quotationTable) return;
+
+                const editableFields = quotationTable.querySelectorAll('input, select, textarea');
+                editableFields.forEach(field => {
+                    if (field.classList.contains('print-hidden-control')) return;
+
+                    const value = (field.value || '').trim();
+                    const valueSpan = document.createElement('span');
+                    valueSpan.className = 'print-field-value';
+                    valueSpan.textContent = value;
+
+                    field.classList.add('print-hidden-control');
+                    field.insertAdjacentElement('afterend', valueSpan);
+                });
+            }
+
+            function resetPrintFooterPosition() {
+                if (!printableArea) return;
+                printableArea.classList.remove('print-footer-new-page');
+                if (quotationTable) {
+                    quotationTable.querySelectorAll('.print-field-value').forEach(node => node.remove());
+                    quotationTable.querySelectorAll('.print-hidden-control').forEach(node => {
+                        node.classList.remove('print-hidden-control');
+                    });
+                }
+            }
+
+            window.addEventListener('beforeprint', () => {
+                simplifyEditableFieldsForPrint();
+                placeFooterForPrint();
+            });
+            window.addEventListener('afterprint', resetPrintFooterPosition);
         });
     </script>
 </body>
