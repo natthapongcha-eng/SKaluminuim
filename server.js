@@ -25,7 +25,7 @@ if (process.env.DNS_SERVERS) {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '/'))); // Serve frontend files
 
 // MongoDB Connection
@@ -90,12 +90,29 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/announcement', announcementRoutes);
 
+// Handle invalid JSON payloads for API requests
+app.use((err, req, res, next) => {
+    if (err && err.type === 'entity.too.large') {
+        return res.status(413).json({ success: false, message: 'ไฟล์รูปมีขนาดใหญ่เกินไป (สูงสุด 10MB)' });
+    }
+
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        return res.status(400).json({ success: false, message: 'Invalid JSON payload' });
+    }
+    next(err);
+});
+
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Define Basic Route
 app.get('/api/status', (req, res) => {
     res.json({ status: 'Backend is running', database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected' });
+});
+
+// API 404 fallback should return JSON (not HTML)
+app.use('/api', (req, res) => {
+    res.status(404).json({ success: false, message: `API endpoint not found: ${req.method} ${req.originalUrl}` });
 });
 
 // Start Server
