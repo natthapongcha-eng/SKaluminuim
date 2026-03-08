@@ -2,6 +2,13 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 
+function buildDisplayName(user) {
+    const firstName = (user.firstName || '').trim();
+    const lastName = (user.lastName || '').trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || user.name || '';
+}
+
 // Login
 router.post('/login', async (req, res) => {
     try {
@@ -19,11 +26,171 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 email: user.email,
                 name: user.name,
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                phone: user.phone || '',
+                profileImage: user.profileImage || '',
                 role: user.role
             }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get single user profile
+router.get('/profile/:id', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('-password');
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.json({
+            success: true,
+            user: {
+                id: user._id,
+                email: user.email,
+                name: buildDisplayName(user),
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                phone: user.phone || '',
+                profileImage: user.profileImage || '',
+                role: user.role
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get user profile by email (fallback for old session format)
+router.post(['/profile-by-email', '/profile/by-email'], async (req, res) => {
+    try {
+        const email = (req.body.email || '').trim();
+        const role = (req.body.role || '').trim();
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required' });
+        }
+
+        const query = role ? { email, role } : { email };
+        const user = await User.findOne(query).select('-password');
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.json({
+            success: true,
+            user: {
+                id: user._id,
+                email: user.email,
+                name: buildDisplayName(user),
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                phone: user.phone || '',
+                profileImage: user.profileImage || '',
+                role: user.role
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Update user profile (name/surname/phone only)
+router.put('/profile/:id', async (req, res) => {
+    try {
+        const firstName = (req.body.firstName || '').trim();
+        const lastName = (req.body.lastName || '').trim();
+        const phone = (req.body.phone || '').trim();
+        const profileImage = typeof req.body.profileImage === 'string' ? req.body.profileImage : undefined;
+        const name = `${firstName} ${lastName}`.trim();
+
+        const updateData = { firstName, lastName, phone, name };
+        if (profileImage !== undefined) {
+            updateData.profileImage = profileImage;
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            updateData,
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: user._id,
+                email: user.email,
+                name: buildDisplayName(user),
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                phone: user.phone || '',
+                profileImage: user.profileImage || '',
+                role: user.role
+            }
+        });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+});
+
+// Update user profile by email (fallback for old session format)
+router.put(['/profile-by-email', '/profile/by-email'], async (req, res) => {
+    try {
+        const email = (req.body.email || '').trim();
+        const role = (req.body.role || '').trim();
+        const firstName = (req.body.firstName || '').trim();
+        const lastName = (req.body.lastName || '').trim();
+        const phone = (req.body.phone || '').trim();
+        const profileImage = typeof req.body.profileImage === 'string' ? req.body.profileImage : undefined;
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required' });
+        }
+
+        const name = `${firstName} ${lastName}`.trim();
+        const query = role ? { email, role } : { email };
+
+        const updateData = { firstName, lastName, phone, name };
+        if (profileImage !== undefined) {
+            updateData.profileImage = profileImage;
+        }
+
+        const user = await User.findOneAndUpdate(
+            query,
+            updateData,
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: user._id,
+                email: user.email,
+                name: buildDisplayName(user),
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                phone: user.phone || '',
+                profileImage: user.profileImage || '',
+                role: user.role
+            }
+        });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
     }
 });
 
