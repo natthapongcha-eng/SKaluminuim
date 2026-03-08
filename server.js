@@ -3,12 +3,25 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const dns = require('dns');
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// Improve Atlas connectivity on networks with DNS/IPv6 issues.
+if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
+if (process.env.DNS_SERVERS) {
+    const servers = process.env.DNS_SERVERS.split(',').map(item => item.trim()).filter(Boolean);
+    if (servers.length > 0) {
+        dns.setServers(servers);
+    }
+}
 
 // Middleware
 app.use(cors());
@@ -17,10 +30,43 @@ app.use(express.static(path.join(__dirname, '/'))); // Serve frontend files
 
 // MongoDB Connection
 const mongoURI = process.env.MONGODB_URI;
+const fallbackMongoURI = process.env.MONGODB_URI_FALLBACK;
 
-mongoose.connect(mongoURI)
-    .then(() => console.log('MongoDB Connected Successfully'))
-    .catch(err => console.error('MongoDB Connection Error:', err));
+const mongoOptions = {
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    family: 4
+};
+
+async function connectMongo() {
+    if (!mongoURI) {
+        console.error('MongoDB Connection Error: MONGODB_URI is not set in .env');
+        return;
+    }
+
+    try {
+        await mongoose.connect(mongoURI, mongoOptions);
+        console.log('MongoDB Connected Successfully');
+    } catch (err) {
+        console.error('MongoDB Connection Error:', err);
+
+        if (err && err.code === 'ECONNREFUSED' && err.syscall === 'querySrv') {
+            console.error('SRV DNS query failed. Add MONGODB_URI_FALLBACK if SRV is blocked on this network.');
+        }
+
+        if (fallbackMongoURI) {
+            try {
+                console.log('Trying fallback MongoDB URI...');
+                await mongoose.connect(fallbackMongoURI, mongoOptions);
+                console.log('MongoDB Connected Successfully (fallback URI)');
+            } catch (fallbackErr) {
+                console.error('MongoDB Fallback Connection Error:', fallbackErr);
+            }
+        }
+    }
+}
+
+connectMongo();
 
 // Import Routes
 const authRoutes = require('./routes/auth');
