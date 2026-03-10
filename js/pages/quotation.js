@@ -64,6 +64,13 @@ const QuotationPage = {
         return String(name || '').trim().toLowerCase();
     },
 
+    formatMaterialType(type) {
+        const normalizedType = String(type || '').trim().toUpperCase();
+        if (normalizedType === 'NEW') return 'วัสดุใหม่';
+        if (normalizedType === 'SCRAP') return 'เศษวัสดุ';
+        return type || '-';
+    },
+
     renderInventoryCatalog(query) {
         const tbody = document.getElementById('inventoryCatalogBody');
         if (!tbody) return;
@@ -94,7 +101,7 @@ const QuotationPage = {
                     <td style="padding: 8px; border-bottom: 1px solid #f3f4f6;">${sku}</td>
                     <td style="padding: 8px; border-bottom: 1px solid #f3f4f6;">${item.name || '-'}</td>
                     <td style="padding: 8px; border-bottom: 1px solid #f3f4f6;">${item.specification || '-'}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align:center;">${item.type || '-'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align:center;">${this.formatMaterialType(item.type)}</td>
                     <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align:right;">${quantity}</td>
                     <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align:center;">${unit}</td>
                 </tr>
@@ -232,15 +239,27 @@ const QuotationPage = {
             return;
         }
 
-        this.pendingQuotationItems.push({
-            sku,
-            name,
-            specification,
-            quantity,
-            unit,
-            unitPrice,
-            total: quantity * unitPrice
-        });
+        const incomingTotal = quantity * unitPrice;
+        const existingPendingItem = this.pendingQuotationItems.find(item => item.sku === sku);
+
+        if (existingPendingItem) {
+            const mergedQuantity = Number(existingPendingItem.quantity || 0) + quantity;
+            const mergedTotal = Number(existingPendingItem.total || 0) + incomingTotal;
+
+            existingPendingItem.quantity = mergedQuantity;
+            existingPendingItem.total = mergedTotal;
+            existingPendingItem.unitPrice = mergedQuantity > 0 ? (mergedTotal / mergedQuantity) : 0;
+        } else {
+            this.pendingQuotationItems.push({
+                sku,
+                name,
+                specification,
+                quantity,
+                unit,
+                unitPrice,
+                total: incomingTotal
+            });
+        }
 
         this.renderPendingCart();
         this.clearItemEntryFields();
@@ -315,7 +334,21 @@ const QuotationPage = {
             return;
         }
 
-        this.quotationItems.push(...this.pendingQuotationItems);
+        this.pendingQuotationItems.forEach((pendingItem) => {
+            const existingItem = this.quotationItems.find(item => item.sku === pendingItem.sku);
+
+            if (existingItem) {
+                const mergedQuantity = Number(existingItem.quantity || 0) + Number(pendingItem.quantity || 0);
+                const mergedTotal = Number(existingItem.total || 0) + Number(pendingItem.total || 0);
+
+                existingItem.quantity = mergedQuantity;
+                existingItem.total = mergedTotal;
+                existingItem.unitPrice = mergedQuantity > 0 ? (mergedTotal / mergedQuantity) : 0;
+            } else {
+                this.quotationItems.push({ ...pendingItem });
+            }
+        });
+
         this.pendingQuotationItems = [];
         this.renderQuotationItems();
         this.closeAddItemModal();
@@ -331,41 +364,48 @@ const QuotationPage = {
                 <td>${index + 1}</td>
                 <td>${item.name}</td>
                 <td>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <input
-                            type="text"
-                            inputmode="decimal"
-                            class="quotation-item-edit quotation-item-edit-number"
-                            data-index="${index}"
-                            data-field="quantity"
-                            value="${item.quantity}"
-                        >
-                        <span style="color:#6b7280; font-size:13px; white-space:nowrap;"></span>
-                    </div>
+                    <input
+                        type="text"
+                        inputmode="decimal"
+                        class="quotation-item-edit quotation-item-edit-number"
+                        data-index="${index}"
+                        data-field="quantity"
+                        value="${item.quantity}"
+                    >
                 </td>
                 <td>
                     <input
                         type="text"
-                        class="quotation-item-edit"
+                        class="quotation-item-edit quotation-item-edit-unit"
                         data-index="${index}"
                         data-field="unit"
                         value="${item.unit}"
                     >
                 </td>
                 <td>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <input
-                            type="text"
-                            inputmode="decimal"
-                            class="quotation-item-edit quotation-item-edit-number"
+                    <input
+                        type="text"
+                        inputmode="decimal"
+                        class="quotation-item-edit quotation-item-edit-number"
+                        data-index="${index}"
+                        data-field="unitPrice"
+                        value="${item.unitPrice}"
+                    >
+                </td>
+                <td class="item-total-cell" data-index="${index}">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <span class="item-total-value" data-index="${index}">${item.total.toLocaleString('th-TH')}</span>
+                        <button
+                            type="button"
+                            class="item-remove-btn no-print"
                             data-index="${index}"
-                            data-field="unitPrice"
-                            value="${item.unitPrice}"
+                            title="ลบรายการ"
+                            style="border:none; background:#fee2e2; color:#b91c1c; border-radius:6px; padding:4px 8px; cursor:pointer; font-weight:700;"
                         >
-                        <span style="color:#6b7280; font-size:13px; white-space:nowrap;">฿</span>
+                            ลบ
+                        </button>
                     </div>
                 </td>
-                <td class="item-total-cell" data-index="${index}">${item.total.toLocaleString('th-TH')}</td>
             </tr>
         `).join('');
 
@@ -397,11 +437,20 @@ const QuotationPage = {
                 }
 
                 item.total = (item.quantity || 0) * (item.unitPrice || 0);
-                const totalCell = document.querySelector(`.item-total-cell[data-index="${index}"]`);
+                const totalCell = document.querySelector(`.item-total-value[data-index="${index}"]`);
                 if (totalCell) {
                     totalCell.textContent = item.total.toLocaleString('th-TH');
                 }
                 this.updateQuotationTotal();
+            });
+        });
+
+        // Attach remove listeners
+        document.querySelectorAll('.item-remove-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = Number(e.currentTarget.dataset.index);
+                if (!Number.isInteger(index)) return;
+                this.removeItem(index);
             });
         });
     },
@@ -489,20 +538,26 @@ const QuotationPage = {
     },
 
     // Export to PDF
-    exportToPDF() {
+    async exportToPDF() {
         if (this.quotationItems.length === 0) {
             alert('กรุณาเพิ่มรายการสินค้าก่อน Export PDF');
             return;
         }
 
-        if (!window.ExportUtils || typeof window.ExportUtils.exportUsingPrintLayout !== 'function') {
+        if (!window.ExportUtils || typeof window.ExportUtils.exportPrintSnapshotPdf !== 'function') {
             alert('ระบบ Export PDF ยังไม่พร้อมใช้งาน กรุณารีเฟรชหน้าอีกครั้ง');
             return;
         }
 
         const quotationNumberInput = document.getElementById('quotationNumber');
         const quotationNumber = quotationNumberInput?.value || quotationNumberInput?.textContent || 'QT-001';
-        ExportUtils.exportUsingPrintLayout('printableArea', `quotation_${quotationNumber}.pdf`);
+
+        try {
+            await ExportUtils.exportPrintSnapshotPdf('printableArea', `quotation_${quotationNumber}.pdf`);
+        } catch (error) {
+            console.error('Export snapshot failed, fallback to print:', error);
+            window.print();
+        }
     },
 
     // Get valid until date (30 days from now)

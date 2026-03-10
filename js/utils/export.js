@@ -41,6 +41,7 @@ const ExportUtils = {
     ensureHtml2Pdf: async function(win) {
         if (typeof win.html2pdf !== 'undefined') return;
         await this.loadScriptFromAny(win, [
+            'js/vendor/html2pdf.bundle.min.js',
             'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
             'https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js',
             'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js'
@@ -48,6 +49,54 @@ const ExportUtils = {
         if (typeof win.html2pdf === 'undefined') {
             throw new Error('ไม่พบ html2pdf หลังโหลดสคริปต์');
         }
+    },
+
+    // Clone element while preserving current form state (selected dates, input values, checked states).
+    cloneHtmlWithFormState: function(element) {
+        const clone = element.cloneNode(true);
+        const sourceControls = element.querySelectorAll('input, select, textarea');
+        const cloneControls = clone.querySelectorAll('input, select, textarea');
+
+        sourceControls.forEach((source, index) => {
+            const target = cloneControls[index];
+            if (!target) return;
+
+            if (source instanceof HTMLInputElement && (source.type === 'checkbox' || source.type === 'radio')) {
+                target.checked = source.checked;
+                if (source.checked) {
+                    target.setAttribute('checked', 'checked');
+                } else {
+                    target.removeAttribute('checked');
+                }
+                return;
+            }
+
+            if (source instanceof HTMLSelectElement && target instanceof HTMLSelectElement) {
+                target.value = source.value;
+                Array.from(target.options).forEach((opt, optIndex) => {
+                    opt.selected = Boolean(source.options[optIndex]?.selected);
+                    if (opt.selected) {
+                        opt.setAttribute('selected', 'selected');
+                    } else {
+                        opt.removeAttribute('selected');
+                    }
+                });
+                return;
+            }
+
+            if (source instanceof HTMLTextAreaElement && target instanceof HTMLTextAreaElement) {
+                target.value = source.value;
+                target.textContent = source.value;
+                return;
+            }
+
+            if (source instanceof HTMLInputElement && target instanceof HTMLInputElement) {
+                target.value = source.value;
+                target.setAttribute('value', source.value);
+            }
+        });
+
+        return clone.outerHTML;
     },
 
     // Export table data to Excel
@@ -92,8 +141,8 @@ const ExportUtils = {
 
     // Export element to PDF
     exportToPDF: function(elementId, filename = 'export') {
-        const element = document.getElementById(elementId);
-        if (!element) {
+        const printableElement = document.getElementById(elementId);
+        if (!printableElement) {
             alert('ไม่พบข้อมูลสำหรับ Export');
             return;
         }
@@ -148,12 +197,14 @@ const ExportUtils = {
     },
 
     // Export element as downloadable PDF using print layout styles.
-    exportUsingPrintLayout: async function(elementId, filename = 'export.pdf') {
+    exportUsingPrintLayout: async function(elementId, filename = 'export.pdf', options = {}) {
         const element = document.getElementById(elementId);
         if (!element) {
             alert('ไม่พบข้อมูลสำหรับ Export');
             return;
         }
+
+        const autoDownload = options.autoDownload !== false;
 
         const exportWindow = window.open('', '_blank');
         if (!exportWindow) {
@@ -181,7 +232,7 @@ const ExportUtils = {
         let clonedHTML = '';
         try {
             window.dispatchEvent(new Event('beforeprint'));
-            clonedHTML = element.outerHTML;
+            clonedHTML = this.cloneHtmlWithFormState(element);
         } finally {
             window.dispatchEvent(new Event('afterprint'));
         }
@@ -306,7 +357,240 @@ const ExportUtils = {
         if (printBtn) {
             printBtn.addEventListener('click', () => exportWindow.print());
         }
-        // Do not auto-download here; keep user-triggered click for better browser compatibility.
+
+        if (autoDownload) {
+            setTimeout(() => {
+                downloadPdf();
+            }, 150);
+        }
+    },
+
+    // Export directly from current page without popup window.
+    exportUsingPrintLayoutDirect: async function(elementId, filename = 'export.pdf') {
+        const element = document.getElementById(elementId);
+        if (!element) {
+            alert('ไม่พบข้อมูลสำหรับ Export');
+            return;
+        }
+
+        const safeFilename = String(filename || 'export.pdf').endsWith('.pdf')
+            ? String(filename || 'export.pdf')
+            : `${filename}.pdf`;
+
+        const injectedStyles = [];
+        const originalScrollX = window.scrollX || window.pageXOffset || 0;
+        const originalScrollY = window.scrollY || window.pageYOffset || 0;
+        let printModeActivated = false;
+        try {
+            await this.ensureHtml2Pdf(window);
+
+            // Make print rules apply during canvas rendering.
+            document.querySelectorAll('style').forEach(style => {
+                const css = (style.textContent || '').replace(/@media\s+print/gi, '@media all');
+                const styleTag = document.createElement('style');
+                styleTag.setAttribute('data-export-print-style', 'true');
+                styleTag.textContent = css;
+                document.head.appendChild(styleTag);
+                injectedStyles.push(styleTag);
+            });
+
+            // Activate print-mode transformations on current DOM so exported PDF matches print preview.
+            window.dispatchEvent(new Event('beforeprint'));
+            printModeActivated = true;
+
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+
+            // Ensure watermark image is loaded before canvas capture.
+            await new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+                img.src = 'uploads/media/Sk.jpg';
+            });
+
+            // Capture from top-left consistently to avoid clipped/missing header in PDF.
+            window.scrollTo(0, 0);
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Render only printable area and neutralize current scroll to avoid top blank space.
+            const targetElement = element;
+
+            const options = {
+                margin: [0, 0, 0, 0],
+                filename: safeFilename,
+                image: { type: 'png', quality: 1 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    scrollX: 0,
+                    scrollY: 0,
+                    windowWidth: Math.max(targetElement.scrollWidth, targetElement.clientWidth),
+                    windowHeight: Math.max(targetElement.scrollHeight, targetElement.clientHeight)
+                },
+                jsPDF: {
+                    unit: 'mm',
+                    format: 'a4',
+                    orientation: 'portrait'
+                },
+                pagebreak: {
+                    mode: ['css', 'legacy']
+                }
+            };
+
+            await window.html2pdf().set(options).from(targetElement).save();
+        } catch (error) {
+            console.error('Export PDF error:', error);
+            alert('โหลด PDF ไม่สำเร็จ กดปุ่ม "พิมพ์" แล้วเลือก Save as PDF ชั่วคราวได้');
+        } finally {
+            window.scrollTo(originalScrollX, originalScrollY);
+            if (printModeActivated) {
+                window.dispatchEvent(new Event('afterprint'));
+            }
+            injectedStyles.forEach(styleTag => styleTag.remove());
+        }
+    },
+
+    // Export by rasterizing print layout to image first, then packing image pages into PDF.
+    // This keeps visual output closer to print preview (font/position) at the cost of selectable text.
+    exportPrintSnapshotPdf: async function(elementId, filename = 'export.pdf') {
+        const element = document.getElementById(elementId);
+        if (!element) {
+            alert('ไม่พบข้อมูลสำหรับ Export');
+            return;
+        }
+
+        const safeFilename = String(filename || 'export.pdf').endsWith('.pdf')
+            ? String(filename || 'export.pdf')
+            : `${filename}.pdf`;
+
+        const injectedStyles = [];
+        const originalScrollX = window.scrollX || window.pageXOffset || 0;
+        const originalScrollY = window.scrollY || window.pageYOffset || 0;
+        let captureHost = null;
+        let targetElement = element;
+        let printModeActivated = false;
+
+        try {
+            await this.ensureHtml2Pdf(window);
+
+            document.querySelectorAll('style').forEach(style => {
+                const css = (style.textContent || '').replace(/@media\s+print/gi, '@media all');
+                const styleTag = document.createElement('style');
+                styleTag.setAttribute('data-export-print-style', 'true');
+                styleTag.textContent = css;
+                document.head.appendChild(styleTag);
+                injectedStyles.push(styleTag);
+            });
+
+            window.dispatchEvent(new Event('beforeprint'));
+            printModeActivated = true;
+
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+
+            window.scrollTo(0, 0);
+            await new Promise(resolve => setTimeout(resolve, 220));
+
+            // Render from a detached-at-left clone to avoid x-offset clipping from app layout/sidebar.
+            captureHost = document.createElement('div');
+            captureHost.setAttribute('data-export-capture-host', 'true');
+            captureHost.style.position = 'fixed';
+            captureHost.style.left = '0';
+            captureHost.style.top = '0';
+            captureHost.style.width = 'auto';
+            captureHost.style.background = '#ffffff';
+            captureHost.style.opacity = '1';
+            captureHost.style.pointerEvents = 'none';
+            captureHost.style.zIndex = '-1';
+
+            captureHost.innerHTML = this.cloneHtmlWithFormState(element);
+            document.body.appendChild(captureHost);
+
+            targetElement = captureHost.firstElementChild || element;
+
+            const contentWidthPx = Math.max(targetElement.scrollWidth, targetElement.clientWidth, 1);
+            const a4HeightPxAtCurrentWidth = contentWidthPx * (297 / 210);
+
+            // Measure bottom of meaningful content instead of container height.
+            // This avoids false page 2 when container/flex/min-height leaves extra blank area.
+            const contentNodes = Array.from(targetElement.children).filter(node => {
+                if (!(node instanceof HTMLElement)) return false;
+                if (node.classList.contains('print-watermark')) return false;
+                const style = window.getComputedStyle(node);
+                if (style.display === 'none' || style.visibility === 'hidden') return false;
+                return true;
+            });
+
+            const contentBottomPx = contentNodes.reduce((maxBottom, node) => {
+                const bottom = node.offsetTop + node.offsetHeight;
+                return Math.max(maxBottom, bottom);
+            }, 0);
+
+            const quotationRowCount = targetElement.querySelectorAll('#quotationItems tr, tbody#quotationItems tr').length;
+
+            // html2canvas/html2pdf can overflow by a few pixels; tolerate small overflow and keep single page.
+            const shouldForceSinglePage = quotationRowCount <= 8 || contentBottomPx <= (a4HeightPxAtCurrentWidth + 80);
+
+            const exportWithScale = async (scale) => {
+                const options = {
+                    margin: [0, 0, 0, 0],
+                    filename: safeFilename,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: {
+                        scale,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        scrollX: 0,
+                        scrollY: 0,
+                        windowWidth: Math.max(targetElement.scrollWidth, targetElement.clientWidth),
+                        windowHeight: Math.max(targetElement.scrollHeight, targetElement.clientHeight)
+                    },
+                    jsPDF: {
+                        unit: 'mm',
+                        format: 'a4',
+                        orientation: 'portrait'
+                    },
+                    pagebreak: {
+                        mode: ['css']
+                    }
+                };
+
+                const worker = window.html2pdf().set(options).from(targetElement).toPdf();
+                const pdf = await worker.get('pdf');
+
+                if (shouldForceSinglePage && pdf.internal.getNumberOfPages() > 1) {
+                    for (let page = pdf.internal.getNumberOfPages(); page > 1; page -= 1) {
+                        pdf.deletePage(page);
+                    }
+                }
+
+                // Save from the edited jsPDF instance directly to prevent worker from regenerating extra pages.
+                pdf.save(safeFilename);
+            };
+
+            try {
+                await exportWithScale(1.8);
+            } catch (firstError) {
+                console.warn('Export snapshot retry with lower scale:', firstError);
+                await exportWithScale(1.35);
+            }
+        } catch (error) {
+            console.error('Export print snapshot PDF error:', error);
+            alert('โหลด PDF ไม่สำเร็จ กดปุ่ม "พิมพ์" แล้วเลือก Save as PDF ชั่วคราวได้');
+        } finally {
+            if (captureHost && captureHost.parentNode) {
+                captureHost.parentNode.removeChild(captureHost);
+            }
+            window.scrollTo(originalScrollX, originalScrollY);
+            if (printModeActivated) {
+                window.dispatchEvent(new Event('afterprint'));
+            }
+            injectedStyles.forEach(styleTag => styleTag.remove());
+        }
     },
 
     // Export quotation to PDF with better formatting
