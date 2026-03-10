@@ -1407,11 +1407,17 @@ body.profile-ready #userRole {
 
 .quotation-item-edit-number {
     text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.quotation-item-edit-unit {
+    text-align: center;
 }
 
 .item-total-cell {
     font-weight: 700;
     color: var(--primary-blue);
+    font-variant-numeric: tabular-nums;
 }
 
 .quotation-summary {
