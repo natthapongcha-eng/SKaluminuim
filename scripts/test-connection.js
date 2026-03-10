@@ -1,12 +1,33 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const dns = require('dns');
+
+if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
+if (process.env.DNS_SERVERS) {
+    const servers = process.env.DNS_SERVERS.split(',').map(item => item.trim()).filter(Boolean);
+    if (servers.length > 0) {
+        dns.setServers(servers);
+    }
+}
+
+const mongoOptions = {
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    family: 4
+};
 
 async function testConnection() {
     console.log('=== Testing MongoDB Connection ===');
-    console.log('URI:', process.env.MONGODB_URI);
+    const maskedURI = process.env.MONGODB_URI
+        ? process.env.MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:****@')
+        : '(missing)';
+    console.log('URI:', maskedURI);
     
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
+        await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
         console.log('✓ Connected to MongoDB successfully!\n');
         
         // List all collections
@@ -53,6 +74,16 @@ async function testConnection() {
         
     } catch (error) {
         console.error('✗ Error:', error.message);
+
+        if (error && error.code === 'ECONNREFUSED' && error.syscall === 'querySrv' && process.env.MONGODB_URI_FALLBACK) {
+            console.log('Trying fallback URI from MONGODB_URI_FALLBACK...');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI_FALLBACK, mongoOptions);
+                console.log('✓ Connected to MongoDB successfully with fallback URI!');
+            } catch (fallbackError) {
+                console.error('✗ Fallback Error:', fallbackError.message);
+            }
+        }
     } finally {
         await mongoose.disconnect();
         console.log('\nDisconnected from MongoDB');
