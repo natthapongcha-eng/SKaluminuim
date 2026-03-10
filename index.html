@@ -1,49 +1,836 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SK Aluminium - Login</title>
-    <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SK Aluminium - Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue-900: #0a1628;
+    --blue-800: #0d2040;
+    --blue-700: #0f2d5a;
+    --blue-600: #1a3f7a;
+    --blue-500: #1e4fc2;
+    --blue-400: #2563eb;
+    --blue-300: #3b82f6;
+    --blue-200: #93c5fd;
+    --blue-100: #dbeafe;
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.4);
+    --white: #ffffff;
+    --glass: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.12);
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Outfit', 'Sarabun', sans-serif;
+    background: var(--blue-900);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── Animated background ── */
+  .bg-scene {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* Gradient mesh */
+  .bg-scene::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(30,79,194,0.55) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 70% at 80% 90%, rgba(56,189,248,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 50% 50%, rgba(13,32,64,0.9) 0%, var(--blue-900) 100%);
+  }
+
+  /* Floating hexagonal grid */
+  .hex-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(
+        60deg,
+        rgba(255,255,255,0.025) 0px,
+        rgba(255,255,255,0.025) 1px,
+        transparent 1px,
+        transparent 30px
+      ),
+      repeating-linear-gradient(
+        -60deg,
+        rgba(255,255,255,0.025) 0px,
+        rgba(255,255,255,0.025) 1px,
+        transparent 1px,
+        transparent 30px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        rgba(255,255,255,0.02) 0px,
+        rgba(255,255,255,0.02) 1px,
+        transparent 1px,
+        transparent 30px
+      );
+    animation: gridShift 20s linear infinite;
+  }
+
+  @keyframes gridShift {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(30px); }
+  }
+
+  /* Glowing orbs */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    animation: orbFloat 8s ease-in-out infinite;
+  }
+  .orb-1 {
+    width: 400px; height: 400px;
+    background: rgba(37,99,235,0.3);
+    top: -100px; left: -100px;
+    animation-delay: 0s;
+  }
+  .orb-2 {
+    width: 300px; height: 300px;
+    background: rgba(56,189,248,0.15);
+    bottom: -80px; right: -80px;
+    animation-delay: -3s;
+  }
+  .orb-3 {
+    width: 200px; height: 200px;
+    background: rgba(30,79,194,0.2);
+    top: 50%; right: 10%;
+    animation-delay: -5s;
+  }
+
+  @keyframes orbFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%       { transform: translate(20px, -20px) scale(1.05); }
+    66%       { transform: translate(-15px, 10px) scale(0.97); }
+  }
+
+  /* Particle dots */
+  .particles {
+    position: absolute;
+    inset: 0;
+  }
+  .particle {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    animation: particleFade 6s ease-in-out infinite;
+  }
+
+  @keyframes particleFade {
+    0%   { opacity: 0; transform: translateY(0) scale(0); }
+    20%  { opacity: 0.6; transform: translateY(-20px) scale(1); }
+    80%  { opacity: 0.3; transform: translateY(-80px) scale(0.8); }
+    100% { opacity: 0; transform: translateY(-120px) scale(0); }
+  }
+
+  /* ── Left panel branding ── */
+  .page-wrap {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 920px;
+    padding: 20px;
+    display: flex;
+    gap: 0;
+    min-height: 580px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px var(--glass-border),
+      0 40px 100px rgba(0,0,0,0.6),
+      0 0 80px rgba(37,99,235,0.15);
+    animation: cardIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(40px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Branding side */
+  .brand-side {
+    flex: 1;
+    background: linear-gradient(145deg, rgba(30,79,194,0.8), rgba(13,32,64,0.95));
+    backdrop-filter: blur(20px);
+    border-right: 1px solid var(--glass-border);
+    padding: 50px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .brand-side::before {
+    content: '';
+    position: absolute;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(56,189,248,0.15) 0%, transparent 70%);
+    top: -80px; right: -80px;
+    border-radius: 50%;
+  }
+
+  .brand-side::after {
+    content: '';
+    position: absolute;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(37,99,235,0.2) 0%, transparent 70%);
+    bottom: -60px; left: -60px;
+    border-radius: 50%;
+  }
+
+  .logo-mark {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, var(--blue-400), var(--accent));
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 28px;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(56,189,248,0.3);
+    animation: logoPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes logoPulse {
+    0%, 100% { box-shadow: 0 8px 32px rgba(56,189,248,0.3); }
+    50%       { box-shadow: 0 8px 48px rgba(56,189,248,0.55); }
+  }
+
+  .logo-mark svg {
+    width: 36px; height: 36px;
+    fill: var(--white);
+  }
+
+  .brand-name {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--white);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+
+  .brand-sub {
+    font-size: 0.85rem;
+    color: var(--blue-200);
+    font-weight: 300;
+    letter-spacing: 0.02em;
+    margin-bottom: 40px;
+  }
+
+  .brand-features {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: featureSlide 0.6s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  .feature-item:nth-child(1) { animation-delay: 0.3s; }
+  .feature-item:nth-child(2) { animation-delay: 0.45s; }
+  .feature-item:nth-child(3) { animation-delay: 0.6s; }
+
+  @keyframes featureSlide {
+    from { opacity: 0; transform: translateX(-20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .feature-icon {
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+
+  .feature-text {
+    font-size: 0.82rem;
+    color: var(--blue-100);
+    font-weight: 400;
+  }
+
+  .brand-footer {
+    margin-top: auto;
+    padding-top: 40px;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.3);
+    font-family: 'Sarabun', sans-serif;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Login form side ── */
+  .form-side {
+    width: 380px;
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.97);
+    backdrop-filter: blur(20px);
+    padding: 48px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .form-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--blue-900);
+    margin-bottom: 6px;
+  }
+
+  .form-subtitle {
+    font-size: 0.83rem;
+    color: #64748b;
+    margin-bottom: 34px;
+    font-weight: 400;
+  }
+
+  /* Error banner */
+  .error-banner {
+    display: none;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 0.83rem;
+    color: #dc2626;
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25%       { transform: translateX(-6px); }
+    75%       { transform: translateX(6px); }
+  }
+
+  /* Field groups */
+  .field {
+    margin-bottom: 20px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .input-wrap {
+    position: relative;
+  }
+
+  .input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    transition: color 0.2s;
+  }
+
+  .input-icon svg { width: 17px; height: 17px; }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 12px 44px 12px 44px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-family: 'Outfit', 'Sarabun', sans-serif;
+    font-size: 0.9rem;
+    color: #1e293b;
+    background: #f8fafc;
+    transition: all 0.25s ease;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .field select {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+  }
+
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--blue-400);
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.1);
+  }
+
+  .field input:focus ~ .input-icon,
+  .input-wrap:focus-within .input-icon {
+    color: var(--blue-400);
+  }
+
+  /* Toggle password */
+  .toggle-pw {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    transition: color 0.2s;
+  }
+  .toggle-pw:hover { color: var(--blue-400); }
+  .toggle-pw svg { width: 17px; height: 17px; }
+
+  /* Remember + Forgot */
+  .remember-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .remember-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .custom-check {
+    width: 18px; height: 18px;
+    border: 2px solid #cbd5e1;
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    background: #f8fafc;
+  }
+
+  #rememberMe:checked + .custom-check {
+    background: var(--blue-400);
+    border-color: var(--blue-400);
+  }
+
+  #rememberMe:checked + .custom-check::after {
+    content: '';
+    width: 5px; height: 9px;
+    border: 2px solid white;
+    border-top: none; border-left: none;
+    transform: rotate(45deg) translateY(-1px);
+    display: block;
+  }
+
+  #rememberMe { display: none; }
+
+  .remember-text {
+    font-size: 0.83rem;
+    color: #475569;
+  }
+
+  .forgot-link {
+    font-size: 0.83rem;
+    color: var(--blue-400);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  .forgot-link:hover { color: var(--blue-700); }
+
+  /* Login button */
+  .btn-login {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--blue-500) 0%, var(--blue-400) 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(37,99,235,0.35);
+  }
+
+  .btn-login::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* Ripple */
+  .btn-login::after {
+    content: '';
+    position: absolute;
+    width: 0; height: 0;
+    background: rgba(255,255,255,0.3);
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.5s ease, height 0.5s ease, opacity 0.5s ease;
+    opacity: 0;
+  }
+
+  .btn-login:active::after {
+    width: 300px; height: 300px;
+    opacity: 0;
+    transition: 0s;
+  }
+
+  .btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(37,99,235,0.45);
+  }
+
+  .btn-login:active { transform: translateY(0); }
+
+  /* Loading state */
+  .btn-login.loading .btn-text { display: none; }
+  .btn-login .spinner {
+    display: none;
+    width: 20px; height: 20px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+  }
+  .btn-login.loading .spinner { display: block; }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Role badges */
+  .role-badges {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .role-badge {
+    flex: 1;
+    padding: 8px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    background: #f8fafc;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .role-badge span.icon { font-size: 18px; }
+
+  .role-badge.active {
+    border-color: var(--blue-400);
+    background: rgba(37,99,235,0.06);
+    color: var(--blue-600);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+  }
+
+  /* Progress bar */
+  .strength-bar {
+    display: none;
+    margin-top: 8px;
+    height: 3px;
+    border-radius: 99px;
+    background: #e2e8f0;
+    overflow: hidden;
+  }
+
+  .strength-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.3s, background 0.3s;
+    width: 0%;
+  }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+  }
+
+  .divider span {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+
+  /* Footer */
+  .form-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: 'Sarabun', sans-serif;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    .brand-side { display: none; }
+    .page-wrap { max-width: 440px; border-radius: 20px; }
+    .form-side { width: 100%; padding: 40px 28px; }
+  }
+</style>
 </head>
-<body class="login-page">
-    <div class="login-container">
-        <div class="login-box">
-            <div class="login-header">
-                <h1>SK ALUMINIUM</h1>
-                <p>Glass & Aluminum Business Management System</p>
-            </div>
-            
-            <form id="loginForm" class="login-form">
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required placeholder="example@email.com">
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required placeholder="••••••••">
-                </div>
-                
-                <div class="form-group">
-                    <label for="role">Role</label>
-                    <select id="role" name="role" required>
-                        <option value="">Select Role</option>
-                        <option value="CEO">CEO</option>
-                        <option value="EMPLOYEE">Employee</option>
-                    </select>
-                </div>
-                
-                <button type="submit" class="btn-login">Login</button>
-            </form>
-            
-            <div class="login-footer">
-                <p>ระบบบริหารจัดการธุรกิจกระจกและอลูมิเนียม</p>
-            </div>
-        </div>
+<body>
+
+<!-- Background scene -->
+<div class="bg-scene">
+  <div class="hex-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="particles" id="particles"></div>
+</div>
+
+<!-- Main card -->
+<div class="page-wrap">
+
+  <!-- Left: Branding -->
+  <div class="brand-side">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
     </div>
-    
-    <script src="js/api.js"></script>
-    <script src="js/main.js"></script>
+    <div class="brand-name">SK ALUMINIUM</div>
+    <div class="brand-sub">Glass &amp; Aluminum Business Management System</div>
+
+    <div class="brand-features">
+      <div class="feature-item">
+        <div class="feature-icon">📊</div>
+        <div class="feature-text">ระบบจัดการสินค้าและคลังสินค้าอัจฉริยะ</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">📋</div>
+        <div class="feature-text">บันทึกการสั่งซื้อและใบเสนอราคาแบบเรียลไทม์</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-text">ระบบรักษาความปลอดภัยระดับองค์กร</div>
+      </div>
+    </div>
+
+    <div class="brand-footer">© 2024 SK Aluminium Co., Ltd. · ระบบบริหารจัดการธุรกิจกระจกและอลูมิเนียม</div>
+  </div>
+
+  <!-- Right: Form -->
+  <div class="form-side">
+    <div class="form-title">เข้าสู่ระบบ</div>
+    <div class="form-subtitle">กรุณาเลือก Role และกรอกข้อมูลเพื่อเข้าใช้งาน</div>
+
+    <!-- Error -->
+    <div class="error-banner" id="errorBanner">
+      ⚠️ อีเมล รหัสผ่าน หรือ Role ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง
+    </div>
+
+    <!-- ✅ ใช้ <form id="loginForm"> เพื่อให้ main.js หาเจอและ addEventListener('submit') ทำงานได้ -->
+    <form id="loginForm">
+
+      <!-- Role selector (visual badges) + hidden select id="role" ที่ main.js อ่านค่า -->
+      <div class="field">
+        <label>เลือก Role</label>
+        <div class="role-badges">
+          <div class="role-badge active" data-role="CEO" onclick="selectRole(this)">
+            <span class="icon">👔</span>
+            CEO
+          </div>
+          <div class="role-badge" data-role="EMPLOYEE" onclick="selectRole(this)">
+            <span class="icon">👷</span>
+            Employee
+          </div>
+        </div>
+        <!-- id="role" ตรงกับที่ main.js ใช้: document.getElementById('role').value -->
+        <select id="role" name="role" required style="display:none">
+          <option value="">Select Role</option>
+          <option value="CEO" selected>CEO</option>
+          <option value="EMPLOYEE">Employee</option>
+        </select>
+      </div>
+
+      <!-- Email -->
+      <div class="field">
+        <label>อีเมล</label>
+        <div class="input-wrap">
+          <span class="input-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="4" width="20" height="16" rx="3"/>
+              <path d="M2 7l10 7 10-7"/>
+            </svg>
+          </span>
+          <input type="email" id="email" name="email" placeholder="example@email.com" autocomplete="email" required>
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="field">
+        <label>รหัสผ่าน</label>
+        <div class="input-wrap">
+          <span class="input-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+          </span>
+          <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" oninput="checkStrength(this.value)" required>
+          <button class="toggle-pw" type="button" onclick="togglePw()" id="toggleBtn">
+            <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <div class="strength-bar" id="strengthBar">
+          <div class="strength-fill" id="strengthFill"></div>
+        </div>
+      </div>
+
+      <!-- Remember + Forgot -->
+      <div class="remember-row">
+        <label class="remember-label">
+          <input type="checkbox" id="rememberMe">
+          <div class="custom-check"></div>
+          <span class="remember-text">จดจำฉันไว้</span>
+        </label>
+        <a href="#" class="forgot-link">ลืมรหัสผ่าน?</a>
+      </div>
+
+      <!-- ✅ type="submit" เพื่อให้ form submit event ยิงได้ตามที่ main.js รอ -->
+      <button class="btn-login" type="submit" id="loginBtn">
+        <span class="btn-text">เข้าสู่ระบบ</span>
+        <div class="spinner"></div>
+      </button>
+
+      <div class="form-footer">
+        ระบบบริหารจัดการธุรกิจกระจกและอลูมิเนียม<br>
+        เข้าถึงได้เฉพาะผู้ใช้ที่ได้รับอนุญาตเท่านั้น
+      </div>
+
+    </form>
+  </div>
+
+</div>
+
+<script>
+  /* ── Floating particles ── */
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `
+      left: ${Math.random() * 100}%;
+      top: ${Math.random() * 100}%;
+      animation-delay: ${Math.random() * 6}s;
+      animation-duration: ${4 + Math.random() * 5}s;
+      opacity: ${0.3 + Math.random() * 0.5};
+    `;
+    container.appendChild(p);
+  }
+
+  /* ── Role selector ── */
+  /* ✅ sync ค่าเข้า <select id="role"> ที่ main.js อ่านผ่าน document.getElementById('role').value */
+  function selectRole(el) {
+    document.querySelectorAll('.role-badge').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    const roleSelect = document.getElementById('role');
+    roleSelect.value = el.dataset.role;
+  }
+
+  /* ── Toggle password ── */
+  let pwVisible = false;
+  function togglePw() {
+    pwVisible = !pwVisible;
+    const input = document.getElementById('password');
+    input.type = pwVisible ? 'text' : 'password';
+    document.getElementById('eyeIcon').innerHTML = pwVisible
+      ? `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`
+      : `<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>`;
+  }
+
+  /* ── Password strength ── */
+  function checkStrength(val) {
+    const bar = document.getElementById('strengthBar');
+    const fill = document.getElementById('strengthFill');
+    if (!val) { bar.style.display = 'none'; return; }
+    bar.style.display = 'block';
+    let score = 0;
+    if (val.length >= 8) score++;
+    if (/[A-Z]/.test(val)) score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[^A-Za-z0-9]/.test(val)) score++;
+    const configs = [
+      { w: '20%', c: '#ef4444' },
+      { w: '45%', c: '#f97316' },
+      { w: '70%', c: '#eab308' },
+      { w: '100%', c: '#22c55e' }
+    ];
+    const cfg = configs[Math.min(score - 1, 3)] || configs[0];
+    fill.style.width = cfg.w;
+    fill.style.background = cfg.c;
+  }
+
+</script>
+
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
