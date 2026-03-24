@@ -1,4 +1,4 @@
-# ระบบบริหารจัดการธุรกิจกระจกและอลูมิเนียม กุดี้
+# ระบบบริหารจัดการธุรกิจกระจกและอลูมิเนียม Repo กุกลับมาแล้ว 3/25/2026
 # SK Aluminium - Glass & Aluminum Business Management System
 
 ![SK Aluminium](https://img.shields.io/badge/Version-1.0.0-blue)
