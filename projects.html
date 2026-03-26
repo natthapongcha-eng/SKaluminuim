@@ -283,6 +283,32 @@
             </form>
         </div>
     </div>
+
+    <div id="projectDetailsModal" class="modal">
+        <div class="modal-content large">
+            <span class="close">&times;</span>
+            <h2 id="projectDetailTitle">รายละเอียดโครงการ</h2>
+            <div id="projectDetailMeta" class="project-detail-meta"></div>
+            <div id="projectDetailSummary" class="project-detail-summary"></div>
+            <div class="project-detail-table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>วัสดุ</th>
+                            <th>รายละเอียด/ขนาด</th>
+                            <th>จำนวน</th>
+                            <th>รวม</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projectDetailMaterials"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="closeProjectDetailsBtn">Close</button>
+            </div>
+        </div>
+    </div>
     
     <script src="js/api.js"></script>
     <script src="js/utils/export.js"></script>

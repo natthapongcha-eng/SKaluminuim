@@ -249,6 +249,9 @@ const ProjectsPage = {
             const customerName = project.customerId?.name || '-';
             const statusBadge = this.getStatusBadge(project.status);
             const paymentBadge = this.getPaymentBadge(project.paymentStatus);
+            const totalCost = Math.max(0, Number(project.totalCost || 0));
+            const totalPrice = Math.max(0, Number(project.totalPrice || 0));
+            const profit = Math.max(0, totalPrice - totalCost);
 
             return `
                 <div class="project-card" data-id="${project._id}">
@@ -266,20 +269,21 @@ const ProjectsPage = {
                     <div class="project-cost">
                         <div class="cost-item">
                             <span>Cost:</span>
-                            <span>THB ${Number(project.totalCost || 0).toLocaleString('th-TH')}</span>
+                            <span>THB ${totalCost.toLocaleString('th-TH')}</span>
                         </div>
                         <div class="cost-item">
                             <span>Sell:</span>
-                            <span>THB ${Number(project.totalPrice || 0).toLocaleString('th-TH')}</span>
+                            <span>THB ${totalPrice.toLocaleString('th-TH')}</span>
                         </div>
                         <div class="cost-item profit">
                             <span>Profit:</span>
-                            <span>THB ${Number((project.totalPrice || 0) - (project.totalCost || 0)).toLocaleString('th-TH')}</span>
+                            <span>THB ${profit.toLocaleString('th-TH')}</span>
                         </div>
                     </div>
                     <div class="project-payment">${paymentBadge}</div>
                     <div class="project-actions">
                         <button class="btn-secondary view-btn" data-id="${project._id}">View</button>
+                        <button class="btn-danger delete-btn" data-id="${project._id}">Delete</button>
                         <button class="btn-primary edit-btn" data-id="${project._id}">Edit</button>
                     </div>
                 </div>
@@ -318,6 +322,10 @@ const ProjectsPage = {
         document.querySelectorAll('.project-card .view-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.viewProject(e.currentTarget.dataset.id));
         });
+
+        document.querySelectorAll('.project-card .delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.deleteProject(e.currentTarget.dataset.id));
+        });
     },
 
     updateStats() {
@@ -350,6 +358,14 @@ const ProjectsPage = {
 
         document.querySelector('#addProjectMaterialModal .close')?.addEventListener('click', () => {
             closeModal('addProjectMaterialModal');
+        });
+
+        document.querySelector('#projectDetailsModal .close')?.addEventListener('click', () => {
+            closeModal('projectDetailsModal');
+        });
+
+        document.getElementById('closeProjectDetailsBtn')?.addEventListener('click', () => {
+            closeModal('projectDetailsModal');
         });
 
         document.getElementById('addProjectBtn')?.addEventListener('click', () => {
@@ -419,10 +435,10 @@ const ProjectsPage = {
         try {
             if (this.currentProjectId) {
                 await api.projects.update(this.currentProjectId, formData);
-                alert('Project updated');
+                alert('แก้ไขข้อมูลโครงการเรียบร้อย');
             } else {
                 await api.projects.create(formData);
-                alert('Project created');
+                alert('สร้างโครงการเรียบร้อย');
             }
 
             closeModal('addProjectModal');
@@ -485,8 +501,99 @@ const ProjectsPage = {
         const project = this.projects.find(p => p._id === id);
         if (!project) return;
 
+        this.openProjectDetailsModal(project);
+    },
+
+    openProjectDetailsModal(project) {
         const customerName = project.customerId?.name || '-';
-        alert(`Project details:\n\n${project.name || '-'}\nCustomer: ${customerName}\nTeam: ${project.team || '-'}\nStart: ${project.startDate ? new Date(project.startDate).toLocaleDateString('th-TH') : '-'}\nEnd: ${project.endDate ? new Date(project.endDate).toLocaleDateString('th-TH') : '-'}\nStatus: ${project.status || '-'}\nTotal cost: THB ${Number(project.totalCost || 0).toLocaleString('th-TH')}`);
+        const detailTitle = document.getElementById('projectDetailTitle');
+        const detailMeta = document.getElementById('projectDetailMeta');
+        const detailSummary = document.getElementById('projectDetailSummary');
+        const detailMaterials = document.getElementById('projectDetailMaterials');
+
+        if (detailTitle) {
+            detailTitle.textContent = project.name || 'Project Details';
+        }
+
+        if (detailMeta) {
+            detailMeta.innerHTML = `
+                <span><strong>Customer:</strong> ${customerName}</span>
+                <span><strong>Team:</strong> ${project.team || '-'}</span>
+                <span><strong>Start:</strong> ${project.startDate ? new Date(project.startDate).toLocaleDateString('th-TH') : '-'}</span>
+                <span><strong>End:</strong> ${project.endDate ? new Date(project.endDate).toLocaleDateString('th-TH') : '-'}</span>
+            `;
+        }
+
+        const materialItems = Array.isArray(project.materials) ? project.materials : [];
+        const totalQty = materialItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+        const totalCost = Math.max(0, Number(project.totalCost || 0));
+
+        if (detailSummary) {
+            detailSummary.innerHTML = `
+                <div class="project-detail-stat">
+                    <span>Materials</span>
+                    <strong>${materialItems.length} items</strong>
+                </div>
+                <div class="project-detail-stat">
+                    <span>Total Quantity</span>
+                    <strong>${totalQty.toLocaleString('th-TH')}</strong>
+                </div>
+                <div class="project-detail-stat">
+                    <span>Total Cost</span>
+                    <strong>THB ${totalCost.toLocaleString('th-TH')}</strong>
+                </div>
+            `;
+        }
+
+        if (detailMaterials) {
+            if (!materialItems.length) {
+                detailMaterials.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-materials">No materials in this project</td>
+                    </tr>
+                `;
+            } else {
+                detailMaterials.innerHTML = materialItems.map((item, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${item.name || '-'}</td>
+                        <td>${item.specification || '-'}</td>
+                        <td>${Number(item.qty || 0).toLocaleString('th-TH')} ${item.unit || ''}</td>
+                        <td>THB ${Number(item.total || 0).toLocaleString('th-TH')}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        openModal('projectDetailsModal');
+    },
+
+    async deleteProject(id) {
+        const project = this.projects.find(p => p._id === id);
+        if (!project) return;
+
+        let confirmed = false;
+        if (typeof showStyledConfirm === 'function') {
+            confirmed = await showStyledConfirm({
+                title: 'Delete Project',
+                message: `Do you want to delete "${project.name || 'this project'}"?`,
+                confirmText: 'Delete',
+                cancelText: 'Cancel',
+                variant: 'danger'
+            });
+        } else {
+            confirmed = window.confirm(`Delete "${project.name || 'this project'}"?`);
+        }
+
+        if (!confirmed) return;
+
+        try {
+            await api.projects.delete(id);
+            await this.loadProjects();
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            alert(`Error: ${error.message}`);
+        }
     },
 
     filterProjects() {
@@ -529,9 +636,6 @@ const ProjectsPage = {
         const data = this.projects.map(p => ({
             'Project Name': p.name || '-',
             'Customer': p.customerId?.name || '-',
-            'Team': p.team || '-',
-            'Start Date': p.startDate ? new Date(p.startDate).toLocaleDateString('th-TH') : '-',
-            'End Date': p.endDate ? new Date(p.endDate).toLocaleDateString('th-TH') : '-',
             'Cost': p.totalCost || 0,
             'Selling Price': p.totalPrice || 0,
             'Profit': (p.totalPrice || 0) - (p.totalCost || 0),
