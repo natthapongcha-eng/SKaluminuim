@@ -1348,7 +1348,7 @@ if (document.getElementById('checkInBtn')) {
 }
 
 // ===== Media Page =====
-if (document.getElementById('uploadMediaBtn')) {
+if (document.getElementById('uploadMediaBtn') && !document.body.classList.contains('media-managed-page')) {
     const uploadMediaBtn = document.getElementById('uploadMediaBtn');
     const uploadMediaModal = document.getElementById('uploadMediaModal');
     const uploadMediaForm = document.getElementById('uploadMediaForm');

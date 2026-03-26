@@ -10,6 +10,11 @@ const quotationItemSchema = new mongoose.Schema({
 
 const quotationSchema = new mongoose.Schema({
     quotationNumber: { type: String, required: true, unique: true },
+    quotationCategory: {
+        type: String,
+        enum: ['general', 'project', 'material', 'service'],
+        default: 'general'
+    },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
     customerName: { type: String, required: true },
     customerAddress: { type: String },
@@ -19,6 +24,10 @@ const quotationSchema = new mongoose.Schema({
     discount: { type: Number, default: 0 },
     vat: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
+    attachmentName: { type: String, default: '' },
+    attachmentPath: { type: String, default: '' },
+    attachmentMimeType: { type: String, default: '' },
+    attachmentSize: { type: Number, default: 0 },
     status: { type: String, enum: ['draft', 'sent', 'approved', 'rejected'], default: 'draft' },
     notes: { type: String },
     validUntil: { type: Date },

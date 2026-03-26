@@ -6,7 +6,7 @@
     <title>SK Aluminium - Media Management</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="dashboard-page">
+<body class="dashboard-page media-managed-page">
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -60,13 +60,18 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="content-header">
-            <h1>จัดการรูปภาพโครงการ (Media Management)</h1>
+            <h1>จัดการรูปภาพโครงการและใบเสนอราคา (Media Management)</h1>
             <button class="btn-primary" id="uploadMediaBtn">📷 อัปโหลดรูปภาพ</button>
         </div>
         
         <!-- Filter Section -->
         <div class="filter-section">
             <div class="filter-group">
+                <select id="filterMediaSource">
+                    <option value="all">แหล่งข้อมูลทั้งหมด</option>
+                    <option value="project">รูปโครงการ</option>
+                    <option value="quotation">รูปใบเสนอราคา</option>
+                </select>
                 <select id="filterProject">
                     <option value="all">โครงการทั้งหมด</option>
                     <option value="1">โครงการติดตั้งกระจกบ้านคุณสมชาย</option>
@@ -214,6 +219,13 @@
             <h2>อัปโหลดรูปภาพ</h2>
             <form id="uploadMediaForm">
                 <div class="form-group">
+                    <label>แหล่งรูปภาพ</label>
+                    <select id="mediaUploadType" required>
+                        <option value="project">รูปโครงการ</option>
+                        <option value="quotation">รูปใบเสนอราคา</option>
+                    </select>
+                </div>
+                <div class="form-group" id="mediaProjectGroup">
                     <label>เลือกโครงการ</label>
                     <select id="mediaProject" required>
                         <option value="">เลือกโครงการ</option>
@@ -222,7 +234,13 @@
                         <option value="3">โครงการติดตั้งประตูอลูมิเนียมคอนโด XYZ</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="mediaQuotationGroup" style="display: none;">
+                    <label>เลือกใบเสนอราคา</label>
+                    <select id="mediaQuotation">
+                        <option value="">เลือกใบเสนอราคา</option>
+                    </select>
+                </div>
+                <div class="form-group" id="mediaCategoryGroup">
                     <label>ประเภทรูปภาพ</label>
                     <select id="mediaCategory" required>
                         <option value="">เลือกประเภท</option>
@@ -267,6 +285,37 @@
             <div class="image-info">
                 <p id="imageProjectName">โครงการ...</p>
                 <p id="imageDate">วันที่...</p>
+                <p id="imageDescription">หมายเหตุ...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Success Modal -->
+    <div id="deleteSuccessModal" class="modal">
+        <div class="modal-content success-modal-content small">
+            <span class="close">&times;</span>
+            <div class="success-modal-body">
+                <div class="success-icon">✓</div>
+                <h3>ลบรูปภาพสำเร็จ</h3>
+                <p>ระบบลบรูปภาพเรียบร้อยแล้ว</p>
+                <div class="success-modal-actions">
+                    <button type="button" class="btn-primary" id="closeDeleteSuccessBtn">ตกลง</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Success Modal -->
+    <div id="uploadSuccessModal" class="modal">
+        <div class="modal-content success-modal-content small">
+            <span class="close">&times;</span>
+            <div class="success-modal-body">
+                <div class="success-icon">↑</div>
+                <h3>อัปโหลดรูปภาพสำเร็จ</h3>
+                <p id="uploadSuccessMessage">ระบบอัปโหลดรูปภาพเรียบร้อยแล้ว</p>
+                <div class="success-modal-actions">
+                    <button type="button" class="btn-primary" id="closeUploadSuccessBtn">ตกลง</button>
+                </div>
             </div>
         </div>
     </div>

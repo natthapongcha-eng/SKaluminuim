@@ -1,18 +1,77 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const Quotation = require('../models/Quotation');
+
+const quotationUploadDir = path.join(__dirname, '..', 'uploads', 'quotations');
+if (!fs.existsSync(quotationUploadDir)) {
+    fs.mkdirSync(quotationUploadDir, { recursive: true });
+}
+
+const quotationStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, quotationUploadDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `qt-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+});
+
+const quotationFileFilter = (req, file, cb) => {
+    const allowedMime = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/webp'
+    ];
+    if (allowedMime.includes(file.mimetype)) {
+        return cb(null, true);
+    }
+    return cb(new Error('Only PDF, JPG, PNG, and WEBP files are allowed'), false);
+};
+
+const uploadQuotationFile = multer({
+    storage: quotationStorage,
+    fileFilter: quotationFileFilter,
+    limits: { fileSize: 15 * 1024 * 1024 }
+});
 
 function isObjectId(id) {
     return /^[0-9a-fA-F]{24}$/.test(String(id || ''));
 }
 
+// Upload quotation attachment
+router.post('/upload-file', uploadQuotationFile.single('quotationFile'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        return res.status(201).json({
+            message: 'File uploaded successfully',
+            file: {
+                name: req.file.originalname,
+                path: `/uploads/quotations/${req.file.filename}`,
+                mimeType: req.file.mimetype,
+                size: req.file.size
+            }
+        });
+    } catch (error) {
+        return res.status(400).json({ message: error.message });
+    }
+});
+
 // Get all quotations
 router.get('/', async (req, res) => {
     try {
-        const { status, search } = req.query;
+        const { status, search, quotationCategory } = req.query;
         let query = {};
         
         if (status) query.status = status;
+        if (quotationCategory) query.quotationCategory = quotationCategory;
         if (search) {
             query.$or = [
                 { quotationNumber: { $regex: search, $options: 'i' } },
