@@ -184,17 +184,6 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
         for (const file of req.files) {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
             const storedFilename = uniqueSuffix + path.extname(file.originalname);
-            const backupDirectory = mediaType === 'quotation'
-                ? path.join(QUOTATION_MEDIA_BACKUP_ROOT, String(quotationId), 'attachments')
-                : path.join(MEDIA_BACKUP_ROOT, String(projectId), normalizedStage);
-            ensureDirectoryExists(backupDirectory);
-
-            const backupFilePath = path.join(backupDirectory, storedFilename);
-            fs.writeFileSync(backupFilePath, file.buffer);
-
-            const backupPath = mediaType === 'quotation'
-                ? `/uploads/media/by-quotation/${quotationId}/attachments/${storedFilename}`
-                : `/uploads/media/by-project/${projectId}/${normalizedStage}/${storedFilename}`;
 
             const media = new Media({
                 filename: storedFilename,
@@ -204,7 +193,7 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
                 mediaType,
                 imageData: file.buffer,
                 storageType: 'database',
-                path: backupPath,
+                path: '',
                 stage: normalizedStage,
                 projectId: mediaType === 'project' ? projectId : undefined,
                 quotationId: mediaType === 'quotation' ? quotationId : undefined,
