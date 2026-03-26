@@ -17,7 +17,6 @@ const quotationSchema = new mongoose.Schema({
     items: [quotationItemSchema],
     subtotal: { type: Number, default: 0 },
     discount: { type: Number, default: 0 },
-    vat: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
     status: { type: String, enum: ['draft', 'sent', 'approved', 'rejected'], default: 'draft' },
     notes: { type: String },

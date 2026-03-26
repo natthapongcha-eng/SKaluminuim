@@ -73,17 +73,23 @@ router.get('/next/number', async (req, res) => {
 // Create quotation
 router.post('/', async (req, res) => {
     try {
+        // Backward compatibility for old clients that still send "customer".
+        if (!req.body.customerId && req.body.customer) {
+            req.body.customerId = req.body.customer;
+        }
+
         // Calculate totals
         const items = req.body.items || [];
         const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
-        const discount = req.body.discount || 0;
-        const vat = (subtotal - discount) * 0.07;
-        const totalAmount = subtotal - discount + vat;
+        const discount = Number(req.body.discount || 0);
+        const totalAmount = subtotal - discount;
+
+        // Force VAT to be ignored even if old clients still send it.
+        delete req.body.vat;
         
         const quotation = new Quotation({
             ...req.body,
             subtotal,
-            vat,
             totalAmount
         });
         
@@ -101,13 +107,20 @@ router.put('/:id', async (req, res) => {
             return res.status(400).json({ message: 'Invalid quotation id' });
         }
 
-        // Recalculate totals if items changed
-        if (req.body.items) {
-            const items = req.body.items;
-            req.body.subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
-            req.body.vat = (req.body.subtotal - (req.body.discount || 0)) * 0.07;
-            req.body.totalAmount = req.body.subtotal - (req.body.discount || 0) + req.body.vat;
+        // Backward compatibility for old clients that still send "customer".
+        if (!req.body.customerId && req.body.customer) {
+            req.body.customerId = req.body.customer;
         }
+
+        // Recalculate totals if items or discount changed
+        if (req.body.items || req.body.discount !== undefined) {
+            const items = req.body.items || [];
+            req.body.subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+            req.body.discount = Number(req.body.discount || 0);
+            req.body.totalAmount = req.body.subtotal - req.body.discount;
+        }
+
+        delete req.body.vat;
         
         const quotation = await Quotation.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json(quotation);

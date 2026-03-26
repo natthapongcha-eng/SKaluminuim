@@ -473,8 +473,7 @@ const QuotationPage = {
 
         // Update summary
         const subtotal = total;
-        const vat = total * 0.07;
-        const grandTotal = total + vat;
+        const grandTotal = subtotal;
 
         const summaryEl = document.getElementById('quotationSummary');
         if (summaryEl) {
@@ -482,10 +481,6 @@ const QuotationPage = {
                 <div class="summary-row">
                     <span>รวมเป็นเงิน:</span>
                     <span>฿${subtotal.toLocaleString('th-TH')}</span>
-                </div>
-                <div class="summary-row">
-                    <span>ภาษีมูลค่าเพิ่ม 7%:</span>
-                    <span>฿${vat.toLocaleString('th-TH', { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div class="summary-row total">
                     <span>รวมทั้งสิ้น:</span>
@@ -510,7 +505,7 @@ const QuotationPage = {
 
         const quotationData = {
             quotationNumber: document.getElementById('quotationNumber')?.value || 'QT-001',
-            customer: document.getElementById('selectCustomer')?.value || null,
+            customerId: document.getElementById('selectCustomer')?.value || null,
             customerName: customerName,
             customerAddress: document.getElementById('customerAddress')?.textContent,
             customerPhone: document.getElementById('customerPhone')?.textContent,
@@ -522,8 +517,7 @@ const QuotationPage = {
                 total: item.total
             })),
             subtotal: this.quotationItems.reduce((sum, item) => sum + item.total, 0),
-            vat: this.quotationItems.reduce((sum, item) => sum + item.total, 0) * 0.07,
-            total: this.quotationItems.reduce((sum, item) => sum + item.total, 0) * 1.07,
+            totalAmount: this.quotationItems.reduce((sum, item) => sum + item.total, 0),
             status: 'draft',
             createdBy: JSON.parse(sessionStorage.getItem('user'))?.id
         };
