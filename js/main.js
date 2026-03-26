@@ -1271,31 +1271,7 @@ if (document.getElementById('addMaterialBtn')) {
 
 // ===== Projects Page =====
 if (document.getElementById('addProjectBtn')) {
-    const addProjectBtn = document.getElementById('addProjectBtn');
-    const addProjectModal = document.getElementById('addProjectModal');
-    const addProjectForm = document.getElementById('addProjectForm');
-    const cancelAddProject = document.getElementById('cancelAddProject');
-    
-    addProjectBtn?.addEventListener('click', function() {
-        openModal('addProjectModal');
-    });
-    
-    cancelAddProject?.addEventListener('click', function() {
-        closeModal('addProjectModal');
-    });
-    
-    addProjectForm?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        alert('สร้างโครงการเรียบร้อย');
-        closeModal('addProjectModal');
-        addProjectForm.reset();
-    });
-    
-    // Add material to project
-    document.getElementById('addMaterialToProject')?.addEventListener('click', function() {
-        alert('เพิ่มวัสดุเข้าโครงการ (ฟีเจอร์นี้จะเชื่อมต่อกับระบบ inventory)');
-    });
+    // Handled by js/pages/projects.js
 }
 
 // ===== Customers Page =====
@@ -1948,3 +1924,4 @@ if ('serviceWorker' in navigator) {
     // Will be implemented later for offline support
     console.log('Service Worker support detected');
 }
+

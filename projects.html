@@ -69,9 +69,10 @@
             <div class="filter-group">
                 <input type="text" id="searchProject" placeholder="ค้นหาโครงการ...">
                 <select id="filterPaymentStatus">
-                    <option value="all">สถานะทั้งหมด</option>
-                    <option value="PAID">ชำระแล้ว</option>
-                    <option value="UNPAID">ค้างชำระ</option>
+                    <option value="all">All Payments</option>
+                    <option value="paid">Paid</option>
+                    <option value="partial">Partial</option>
+                    <option value="unpaid">Unpaid</option>
                 </select>
                 <select id="filterStatus">
                     <option value="all">สถานะโครงการ</option>
@@ -87,21 +88,21 @@
             <div class="stat-card">
                 <div class="stat-icon">📊</div>
                 <div class="stat-info">
-                    <h3>45</h3>
+                    <h3>0</h3>
                     <p>โครงการทั้งหมด</p>
                 </div>
             </div>
             <div class="stat-card warning">
                 <div class="stat-icon">🏗️</div>
                 <div class="stat-info">
-                    <h3>12</h3>
+                    <h3>0</h3>
                     <p>กำลังดำเนินการ</p>
                 </div>
             </div>
             <div class="stat-card success">
                 <div class="stat-icon">✓</div>
                 <div class="stat-info">
-                    <h3>33</h3>
+                    <h3>0</h3>
                     <p>เสร็จสิ้น</p>
                 </div>
             </div>
@@ -115,109 +116,7 @@
         </div>
         
         <!-- Projects Grid -->
-        <div class="projects-grid">
-            <div class="project-card">
-                <div class="project-header">
-                    <h3>โครงการติดตั้งกระจกบ้านคุณสมชาย</h3>
-                    <span class="badge badge-success">เสร็จสิ้น</span>
-                </div>
-                <div class="project-info">
-                    <p><strong>ลูกค้า:</strong> คุณสมชาย ใจดี</p>
-                    <p><strong>ทีมงาน:</strong> ทีม A</p>
-                    <p><strong>วันที่เริ่ม:</strong> 1 มี.ค. 2568</p>
-                    <p><strong>วันที่เสร็จ:</strong> 15 มี.ค. 2568</p>
-                </div>
-                <div class="project-cost">
-                    <div class="cost-item">
-                        <span>ต้นทุน:</span>
-                        <span>฿15,000</span>
-                    </div>
-                    <div class="cost-item">
-                        <span>ราคาขาย:</span>
-                        <span>฿25,000</span>
-                    </div>
-                    <div class="cost-item profit">
-                        <span>กำไร:</span>
-                        <span>฿10,000</span>
-                    </div>
-                </div>
-                <div class="project-payment">
-                    <span class="payment-status paid">✓ ชำระแล้ว</span>
-                </div>
-                <div class="project-actions">
-                    <button class="btn-secondary">ดูรายละเอียด</button>
-                    <button class="btn-primary">แก้ไข</button>
-                </div>
-            </div>
-            
-            <div class="project-card">
-                <div class="project-header">
-                    <h3>โครงการติดตั้งอลูมิเนียมออฟฟิศ ABC</h3>
-                    <span class="badge badge-warning">กำลังดำเนินการ</span>
-                </div>
-                <div class="project-info">
-                    <p><strong>ลูกค้า:</strong> บริษัท ABC จำกัด</p>
-                    <p><strong>ทีมงาน:</strong> ทีม B</p>
-                    <p><strong>วันที่เริ่ม:</strong> 10 มี.ค. 2568</p>
-                    <p><strong>วันที่คาดว่าเสร็จ:</strong> 25 มี.ค. 2568</p>
-                </div>
-                <div class="project-cost">
-                    <div class="cost-item">
-                        <span>ต้นทุน:</span>
-                        <span>฿45,000</span>
-                    </div>
-                    <div class="cost-item">
-                        <span>ราคาขาย:</span>
-                        <span>฿75,000</span>
-                    </div>
-                    <div class="cost-item profit">
-                        <span>กำไร:</span>
-                        <span>฿30,000</span>
-                    </div>
-                </div>
-                <div class="project-payment">
-                    <span class="payment-status unpaid">⏳ ค้างชำระ</span>
-                </div>
-                <div class="project-actions">
-                    <button class="btn-secondary">ดูรายละเอียด</button>
-                    <button class="btn-primary">แก้ไข</button>
-                </div>
-            </div>
-            
-            <div class="project-card">
-                <div class="project-header">
-                    <h3>โครงการติดตั้งประตูอลูมิเนียมคอนโด XYZ</h3>
-                    <span class="badge badge-info">วางแผน</span>
-                </div>
-                <div class="project-info">
-                    <p><strong>ลูกค้า:</strong> คอนโด XYZ</p>
-                    <p><strong>ทีมงาน:</strong> ทีม C</p>
-                    <p><strong>วันที่เริ่ม:</strong> 20 มี.ค. 2568</p>
-                    <p><strong>วันที่คาดว่าเสร็จ:</strong> 5 เม.ย. 2568</p>
-                </div>
-                <div class="project-cost">
-                    <div class="cost-item">
-                        <span>ต้นทุน:</span>
-                        <span>฿60,000</span>
-                    </div>
-                    <div class="cost-item">
-                        <span>ราคาขาย:</span>
-                        <span>฿95,000</span>
-                    </div>
-                    <div class="cost-item profit">
-                        <span>กำไร:</span>
-                        <span>฿35,000</span>
-                    </div>
-                </div>
-                <div class="project-payment">
-                    <span class="payment-status unpaid">⏳ ค้างชำระ</span>
-                </div>
-                <div class="project-actions">
-                    <button class="btn-secondary">ดูรายละเอียด</button>
-                    <button class="btn-primary">แก้ไข</button>
-                </div>
-            </div>
-        </div>
+        <div class="projects-grid"></div>
     </main>
     
     <!-- Add Project Modal -->
@@ -234,24 +133,22 @@
                     <div class="form-group">
                         <label>เลือกลูกค้า</label>
                         <select id="projectCustomer" required>
-                            <option value="">เลือกลูกค้า</option>
-                            <option value="1">คุณสมชาย ใจดี</option>
-                            <option value="2">บริษัท ABC จำกัด</option>
+                            <option value="">???????????</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label>ทีมงาน</label>
-                        <input type="text" id="projectTeam" required>
+                        <input type="text" id="projectTeam">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>วันที่เริ่ม</label>
-                        <input type="date" id="projectStartDate" required>
+                        <input type="date" id="projectStartDate">
                     </div>
                     <div class="form-group">
                         <label>วันที่คาดว่าเสร็จ</label>
-                        <input type="date" id="projectEndDate" required>
+                        <input type="date" id="projectEndDate">
                     </div>
                 </div>
                 <div class="form-group">
@@ -279,7 +176,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>ต้นทุนรวม</label>
-                        <input type="number" id="projectCost" placeholder="0">
+                        <input type="number" id="projectCost" placeholder="0" readonly>
                     </div>
                 </div>
                 <div class="form-row">
@@ -294,8 +191,9 @@
                     <div class="form-group">
                         <label>สถานะการชำระเงิน</label>
                         <select id="projectPaymentStatus">
-                            <option value="UNPAID">ค้างชำระ</option>
-                            <option value="PAID">ชำระแล้ว</option>
+                            <option value="unpaid">Unpaid</option>
+                            <option value="partial">Partial</option>
+                            <option value="paid">Paid</option>
                         </select>
                     </div>
                 </div>
