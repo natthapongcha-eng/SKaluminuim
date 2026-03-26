@@ -1,4 +1,4 @@
-// ===== Projects Page Controller =====
+﻿// ===== Projects Page Controller =====
 const ProjectsPage = {
     projects: [],
     customers: [],
@@ -6,6 +6,21 @@ const ProjectsPage = {
     projectMaterials: [],
     selectedMaterial: null,
     currentProjectId: null,
+    currentProjectStatus: null,
+    currentStatusProjectId: null,
+    menuEventsBound: false,
+    pendingActions: new Set(),
+    STATUS_LABELS: {
+        planning: '\u0e27\u0e32\u0e07\u0e41\u0e1c\u0e19',
+        'in-progress': '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23',
+        completed: '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19',
+        cancelled: '\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01'
+    },
+    PAYMENT_LABELS: {
+        paid: '\u0e0a\u0e33\u0e23\u0e30\u0e41\u0e25\u0e49\u0e27',
+        partial: '\u0e0a\u0e33\u0e23\u0e30\u0e1a\u0e32\u0e07\u0e2a\u0e48\u0e27\u0e19',
+        unpaid: '\u0e04\u0e49\u0e32\u0e07\u0e0a\u0e33\u0e23\u0e30'
+    },
 
     async init() {
         await Promise.all([
@@ -13,8 +28,154 @@ const ProjectsPage = {
             this.loadCustomers(),
             this.loadMaterials()
         ]);
+        this.localizeStatusLabels();
         this.setupEventListeners();
+        this.bindGlobalMenuHandlers();
         this.renderProjectMaterialsList();
+    },
+
+    bindGlobalMenuHandlers() {
+        if (this.menuEventsBound) return;
+        this.menuEventsBound = true;
+
+        document.addEventListener('click', (event) => {
+            const insideMenu = event.target.closest('.project-action-menu-wrap');
+            if (!insideMenu) {
+                this.closeAllActionMenus();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                this.closeAllActionMenus();
+            }
+        });
+    },
+
+    closeAllActionMenus() {
+        document.querySelectorAll('.project-action-menu-wrap.open').forEach((menu) => {
+            menu.classList.remove('open');
+        });
+    },
+
+    localizeStatusLabels() {
+        ['filterStatus', 'statusUpdateValue'].forEach((id) => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            Array.from(select.options).forEach((opt) => {
+                if (opt.value === 'all') return;
+                if (this.STATUS_LABELS[opt.value]) {
+                    opt.textContent = this.STATUS_LABELS[opt.value];
+                }
+            });
+        });
+
+        ['filterPaymentStatus', 'statusPaymentValue'].forEach((id) => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            Array.from(select.options).forEach((opt) => {
+                if (opt.value === 'all') return;
+                if (this.PAYMENT_LABELS[opt.value]) {
+                    opt.textContent = this.PAYMENT_LABELS[opt.value];
+                }
+            });
+        });
+    },
+
+    notify(message, type = 'success') {
+        let toast = document.getElementById('projectToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'projectToast';
+            toast.className = 'project-toast';
+            document.body.appendChild(toast);
+        }
+
+        toast.classList.remove('success', 'error', 'info', 'active');
+        toast.classList.add(type);
+        toast.textContent = message;
+        requestAnimationFrame(() => toast.classList.add('active'));
+
+        clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => toast.classList.remove('active'), 2400);
+    },
+
+    async confirm(options) {
+        if (typeof showStyledConfirm === 'function') {
+            return showStyledConfirm(options);
+        }
+        return window.confirm(options?.message || 'Confirm?');
+    },
+
+    getCurrentUserId() {
+        if (typeof currentUser === 'undefined') return null;
+        return currentUser.id || currentUser._id || null;
+    },
+
+    setProjectActionState(projectId, disabled) {
+        const card = document.querySelector(`.project-card[data-id="${projectId}"]`);
+        if (!card) return;
+        card.querySelectorAll('button').forEach(btn => {
+            btn.disabled = !!disabled;
+            btn.classList.toggle('is-busy', !!disabled);
+        });
+    },
+
+    async withActionLock(actionKey, projectId, work) {
+        if (this.pendingActions.has(actionKey)) {
+            return null;
+        }
+
+        this.pendingActions.add(actionKey);
+        if (projectId) this.setProjectActionState(projectId, true);
+
+        try {
+            return await work();
+        } finally {
+            this.pendingActions.delete(actionKey);
+            if (projectId) this.setProjectActionState(projectId, false);
+        }
+    },
+
+    async applyManualStockOut(project) {
+        const materials = Array.isArray(project?.materials) ? project.materials : [];
+        for (const item of materials) {
+            const materialId = item.materialId || item.id;
+            const qty = Number(item.qty || 0);
+            if (!materialId || qty <= 0) continue;
+
+            try {
+                await api.inventory.stockOut(materialId, {
+                    quantity: qty,
+                    reason: 'Auto stock-out from project status update (fallback mode)',
+                    projectId: project._id,
+                    userId: this.getCurrentUserId()
+                });
+            } catch (error) {
+                const itemName = item.name || materialId;
+                throw new Error(`ตัดสต๊อกไม่สำเร็จ: ${itemName} (${error.message})`);
+            }
+        }
+    },
+
+    async applyManualStockRestore(project) {
+        const materials = Array.isArray(project?.materials) ? project.materials : [];
+        for (const item of materials) {
+            const materialId = item.materialId || item.id;
+            const qty = Number(item.qty || 0);
+            if (!materialId || qty <= 0) continue;
+
+            try {
+                await api.inventory.stockIn(materialId, {
+                    quantity: qty,
+                    reason: 'Auto stock-restore from project cancel (fallback mode)',
+                    userId: this.getCurrentUserId()
+                });
+            } catch (error) {
+                const itemName = item.name || materialId;
+                throw new Error(`คืนสต๊อกไม่สำเร็จ: ${itemName} (${error.message})`);
+            }
+        }
     },
 
     async loadMaterials() {
@@ -86,6 +247,13 @@ const ProjectsPage = {
     },
 
     async openMaterialModal() {
+        const isMaterialLocked = this.currentProjectId
+            && ['in-progress', 'completed'].includes(this.currentProjectStatus || '');
+        if (isMaterialLocked) {
+            this.notify('ไม่สามารถเพิ่มวัสดุได้ เมื่อโครงการอยู่ระหว่างดำเนินการหรือเสร็จสิ้น', 'error');
+            return;
+        }
+
         await this.loadMaterials();
 
         const searchInput = document.getElementById('modalMaterialSearch');
@@ -183,6 +351,12 @@ const ProjectsPage = {
     attachMaterialRowEvents() {
         document.querySelectorAll('#projectMaterialsList .remove-material-btn, #modalMaterialsList .remove-material-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                const isMaterialLocked = this.currentProjectId
+                    && ['in-progress', 'completed'].includes(this.currentProjectStatus || '');
+                if (isMaterialLocked) {
+                    this.notify('ไม่สามารถลบวัสดุได้ เมื่อโครงการอยู่ระหว่างดำเนินการหรือเสร็จสิ้น', 'error');
+                    return;
+                }
                 const idx = parseInt(e.currentTarget.dataset.index, 10);
                 if (!Number.isNaN(idx)) {
                     this.projectMaterials.splice(idx, 1);
@@ -251,13 +425,39 @@ const ProjectsPage = {
             const paymentBadge = this.getPaymentBadge(project.paymentStatus);
             const totalCost = Math.max(0, Number(project.totalCost || 0));
             const totalPrice = Math.max(0, Number(project.totalPrice || 0));
-            const profit = Math.max(0, totalPrice - totalCost);
+            const rawProfit = totalPrice - totalCost;
+            const isSuccessful = project.status === 'completed' && project.paymentStatus === 'paid';
+            const profit = isSuccessful ? rawProfit : -Math.abs(totalCost - totalPrice);
+            const profitClass = isSuccessful ? '' : 'loss';
+            const cancelLocked = isSuccessful;
 
             return `
                 <div class="project-card" data-id="${project._id}">
                     <div class="project-header">
                         <h3>${project.name || `Project #${String(project._id).slice(-6)}`}</h3>
                         ${statusBadge}
+                    </div>
+                    <div class="project-action-menu-wrap project-action-menu-wrap-top" data-id="${project._id}">
+                        <button class="project-action-menu-toggle" data-id="${project._id}" aria-label="เปิดเมนูการจัดการ" title="เมนูการจัดการ">
+                            <span></span><span></span><span></span>
+                        </button>
+                        <div class="project-action-menu">
+                            <button class="project-menu-item view-btn" data-id="${project._id}" data-tooltip="ดูรายการวัสดุและจำนวนที่ใช้" title="ดูวัสดุ">
+                                <span class="icon-char">\u{1F441}</span><span>ดูวัสดุ</span>
+                            </button>
+                            <button class="project-menu-item edit-btn" data-id="${project._id}" data-tooltip="แก้ไขข้อมูลพื้นฐานของโครงการ" title="แก้ไขข้อมูลโครงการ">
+                                <span class="icon-char">\u270E</span><span>แก้ไข</span>
+                            </button>
+                            <button class="project-menu-item status-btn" data-id="${project._id}" data-tooltip="เปลี่ยนสถานะโครงการและสถานะชำระเงิน" title="อัปเดตสถานะโครงการ">
+                                <span class="icon-char">\u21BB</span><span>อัปเดตสถานะ</span>
+                            </button>
+                            <button class="project-menu-item cancel-btn" data-id="${project._id}" data-tooltip="${cancelLocked ? 'โครงการเสร็จสิ้นและชำระแล้ว ไม่สามารถยกเลิกได้' : 'ยกเลิกโครงการและคืนสต๊อก'}" title="${cancelLocked ? 'โครงการเสร็จสิ้นและชำระแล้ว ไม่สามารถยกเลิกได้' : 'ยกเลิกโครงการและคืนสต๊อก'}" ${cancelLocked ? 'disabled' : ''}>
+                                <span class="icon-char">\u21A9</span><span>ยกเลิกโครงการ</span>
+                            </button>
+                            <button class="project-menu-item delete-btn danger" data-id="${project._id}" data-tooltip="ลบโครงการถาวร" title="ลบโครงการ">
+                                <span class="icon-char">\u{1F5D1}</span><span>ลบโครงการ</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="project-info">
                         <p><strong>Customer:</strong> ${customerName}</p>
@@ -275,17 +475,12 @@ const ProjectsPage = {
                             <span>Sell:</span>
                             <span>THB ${totalPrice.toLocaleString('th-TH')}</span>
                         </div>
-                        <div class="cost-item profit">
+                        <div class="cost-item profit ${profitClass}">
                             <span>Profit:</span>
                             <span>THB ${profit.toLocaleString('th-TH')}</span>
                         </div>
                     </div>
                     <div class="project-payment">${paymentBadge}</div>
-                    <div class="project-actions">
-                        <button class="btn-secondary view-btn" data-id="${project._id}">View</button>
-                        <button class="btn-danger delete-btn" data-id="${project._id}">Delete</button>
-                        <button class="btn-primary edit-btn" data-id="${project._id}">Edit</button>
-                    </div>
                 </div>
             `;
         }).join('');
@@ -295,10 +490,10 @@ const ProjectsPage = {
 
     getStatusBadge(status) {
         const badges = {
-            'planning': '<span class="badge badge-planning">Planning</span>',
-            'in-progress': '<span class="badge badge-warning">In Progress</span>',
-            'completed': '<span class="badge badge-success">Completed</span>',
-            'cancelled': '<span class="badge badge-danger">Cancelled</span>'
+            planning: `<span class="badge badge-planning">${this.STATUS_LABELS.planning}</span>`,
+            'in-progress': `<span class="badge badge-warning">${this.STATUS_LABELS['in-progress']}</span>`,
+            completed: `<span class="badge badge-success">${this.STATUS_LABELS.completed}</span>`,
+            cancelled: `<span class="badge badge-danger">${this.STATUS_LABELS.cancelled}</span>`
         };
 
         return badges[status] || '<span class="badge">-</span>';
@@ -306,15 +501,28 @@ const ProjectsPage = {
 
     getPaymentBadge(paymentStatus) {
         const badges = {
-            paid: '<span class="payment-status paid">Paid</span>',
-            partial: '<span class="payment-status partial">Partial</span>',
-            unpaid: '<span class="payment-status unpaid">Unpaid</span>'
+            paid: `<span class="payment-status paid">${this.PAYMENT_LABELS.paid}</span>`,
+            partial: `<span class="payment-status partial">${this.PAYMENT_LABELS.partial}</span>`,
+            unpaid: `<span class="payment-status unpaid">${this.PAYMENT_LABELS.unpaid}</span>`
         };
 
         return badges[paymentStatus] || badges.unpaid;
     },
 
     attachProjectEventListeners() {
+        document.querySelectorAll('.project-action-menu-toggle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wrap = e.currentTarget.closest('.project-action-menu-wrap');
+                if (!wrap) return;
+                const isOpen = wrap.classList.contains('open');
+                this.closeAllActionMenus();
+                if (!isOpen) {
+                    wrap.classList.add('open');
+                }
+            });
+        });
+
         document.querySelectorAll('.project-card .edit-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.editProject(e.currentTarget.dataset.id));
         });
@@ -323,8 +531,20 @@ const ProjectsPage = {
             btn.addEventListener('click', (e) => this.viewProject(e.currentTarget.dataset.id));
         });
 
+        document.querySelectorAll('.project-card .status-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.openStatusModal(e.currentTarget.dataset.id));
+        });
+
+        document.querySelectorAll('.project-card .cancel-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.cancelProject(e.currentTarget.dataset.id));
+        });
+
         document.querySelectorAll('.project-card .delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.deleteProject(e.currentTarget.dataset.id));
+        });
+
+        document.querySelectorAll('.project-action-menu .project-menu-item').forEach(btn => {
+            btn.addEventListener('click', () => this.closeAllActionMenus());
         });
     },
 
@@ -350,10 +570,13 @@ const ProjectsPage = {
             await this.saveProject();
         });
 
+        document.getElementById('statusUpdateForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.submitStatusUpdate();
+        });
+
         document.querySelector('#addProjectModal .close')?.addEventListener('click', () => {
-            closeModal('addProjectModal');
-            this.projectMaterials = [];
-            this.renderProjectMaterialsList();
+            this.closeProjectFormModal();
         });
 
         document.querySelector('#addProjectMaterialModal .close')?.addEventListener('click', () => {
@@ -364,15 +587,30 @@ const ProjectsPage = {
             closeModal('projectDetailsModal');
         });
 
+        document.querySelector('#statusUpdateModal .close')?.addEventListener('click', () => {
+            closeModal('statusUpdateModal');
+        });
+
         document.getElementById('closeProjectDetailsBtn')?.addEventListener('click', () => {
             closeModal('projectDetailsModal');
         });
 
+        document.getElementById('cancelStatusUpdate')?.addEventListener('click', () => {
+            closeModal('statusUpdateModal');
+        });
+
+        document.getElementById('cancelAddProject')?.addEventListener('click', () => {
+            this.closeProjectFormModal();
+        });
+
         document.getElementById('addProjectBtn')?.addEventListener('click', () => {
             this.currentProjectId = null;
+            this.currentProjectStatus = null;
             this.projectMaterials = [];
             this.renderProjectMaterialsList();
             document.getElementById('addProjectForm')?.reset();
+            const submitBtn = document.querySelector('#addProjectForm button[type="submit"]');
+            if (submitBtn) submitBtn.textContent = '\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23';
             openModal('addProjectModal');
         });
 
@@ -405,17 +643,25 @@ const ProjectsPage = {
         });
     },
 
+    closeProjectFormModal() {
+        closeModal('addProjectModal');
+        this.currentProjectId = null;
+        this.currentProjectStatus = null;
+        this.projectMaterials = [];
+        this.renderProjectMaterialsList();
+    },
+
     async saveProject() {
         const name = document.getElementById('projectName')?.value?.trim();
         const customerId = document.getElementById('projectCustomer')?.value;
 
         if (!name) {
-            alert('Please enter project name');
+            this.notify('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e01\u0e23\u0e2d\u0e01\u0e0a\u0e37\u0e48\u0e2d\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23', 'error');
             return;
         }
 
         if (!customerId) {
-            alert('Please select customer');
+            this.notify('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32', 'error');
             return;
         }
 
@@ -423,8 +669,6 @@ const ProjectsPage = {
             name,
             customerId,
             totalPrice: 0,
-            status: document.getElementById('projectStatus')?.value || 'planning',
-            paymentStatus: document.getElementById('projectPaymentStatus')?.value || 'unpaid',
             team: document.getElementById('projectTeam')?.value || '',
             startDate: document.getElementById('projectStartDate')?.value || null,
             endDate: document.getElementById('projectEndDate')?.value || null,
@@ -432,25 +676,24 @@ const ProjectsPage = {
             materials: this.projectMaterials.map(item => ({ id: item.id, qty: item.qty }))
         };
 
-        try {
-            if (this.currentProjectId) {
-                await api.projects.update(this.currentProjectId, formData);
-                alert('แก้ไขข้อมูลโครงการเรียบร้อย');
-            } else {
-                await api.projects.create(formData);
-                alert('สร้างโครงการเรียบร้อย');
-            }
+        await this.withActionLock(`save:${this.currentProjectId || 'new'}`, null, async () => {
+            try {
+                if (this.currentProjectId) {
+                    await api.projects.update(this.currentProjectId, formData);
+                    this.notify('\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e01\u0e32\u0e23\u0e41\u0e01\u0e49\u0e44\u0e02\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e41\u0e25\u0e49\u0e27');
+                } else {
+                    await api.projects.create(formData);
+                    this.notify('\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e41\u0e25\u0e49\u0e27');
+                }
 
-            closeModal('addProjectModal');
-            document.getElementById('addProjectForm')?.reset();
-            this.projectMaterials = [];
-            this.currentProjectId = null;
-            this.renderProjectMaterialsList();
-            await this.loadProjects();
-        } catch (error) {
-            console.error('Error saving project:', error);
-            alert(`Error: ${error.message}`);
-        }
+                this.closeProjectFormModal();
+                document.getElementById('addProjectForm')?.reset();
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Error saving project:', error);
+                this.notify(error.message || '\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error');
+            }
+        });
     },
 
     editProject(id) {
@@ -458,6 +701,7 @@ const ProjectsPage = {
         if (!project) return;
 
         this.currentProjectId = id;
+        this.currentProjectStatus = project.status || null;
         this.projectMaterials = Array.isArray(project.materials)
             ? project.materials.map(m => ({
                 id: m.materialId || m.id,
@@ -482,8 +726,6 @@ const ProjectsPage = {
             projectStartDate: project.startDate ? String(project.startDate).split('T')[0] : '',
             projectEndDate: project.endDate ? String(project.endDate).split('T')[0] : '',
             projectCost: project.totalCost || 0,
-            projectStatus: project.status,
-            projectPaymentStatus: project.paymentStatus,
             projectDescription: project.description || ''
         };
 
@@ -493,6 +735,9 @@ const ProjectsPage = {
                 el.value = value;
             }
         });
+
+        const submitBtn = document.querySelector('#addProjectForm button[type="submit"]');
+        if (submitBtn) submitBtn.textContent = '\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23';
 
         openModal('addProjectModal');
     },
@@ -521,6 +766,8 @@ const ProjectsPage = {
                 <span><strong>Team:</strong> ${project.team || '-'}</span>
                 <span><strong>Start:</strong> ${project.startDate ? new Date(project.startDate).toLocaleDateString('th-TH') : '-'}</span>
                 <span><strong>End:</strong> ${project.endDate ? new Date(project.endDate).toLocaleDateString('th-TH') : '-'}</span>
+                <span><strong>Status:</strong> ${this.STATUS_LABELS[project.status] || '-'}</span>
+                <span><strong>Payment:</strong> ${this.PAYMENT_LABELS[project.paymentStatus] || '-'}</span>
             `;
         }
 
@@ -568,32 +815,132 @@ const ProjectsPage = {
         openModal('projectDetailsModal');
     },
 
+    openStatusModal(id) {
+        const project = this.projects.find(p => p._id === id);
+        if (!project) return;
+
+        this.currentStatusProjectId = id;
+
+        const title = document.getElementById('statusProjectTitle');
+        if (title) {
+            title.textContent = `${project.name || 'Project'} (${this.STATUS_LABELS[project.status] || '-'})`;
+        }
+
+        const statusEl = document.getElementById('statusUpdateValue');
+        const paymentEl = document.getElementById('statusPaymentValue');
+        if (statusEl) statusEl.value = project.status || 'planning';
+        if (paymentEl) paymentEl.value = project.paymentStatus || 'unpaid';
+
+        openModal('statusUpdateModal');
+    },
+
+    async submitStatusUpdate() {
+        if (!this.currentStatusProjectId) return;
+
+        const currentProject = this.projects.find(p => p._id === this.currentStatusProjectId);
+        if (!currentProject) return;
+        const status = document.getElementById('statusUpdateValue')?.value || 'planning';
+        const paymentStatus = document.getElementById('statusPaymentValue')?.value || 'unpaid';
+
+        const confirmed = await this.confirm({
+            title: '\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30',
+            message: '\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e01\u0e32\u0e23\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e2b\u0e23\u0e37\u0e2d\u0e44\u0e21\u0e48?',
+            confirmText: '\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15',
+            cancelText: '\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01',
+            variant: 'info'
+        });
+        if (!confirmed) return;
+
+        await this.withActionLock(`status:${this.currentStatusProjectId}`, this.currentStatusProjectId, async () => {
+            try {
+                const updated = await api.projects.updateStatus(this.currentStatusProjectId, {
+                    status,
+                    paymentStatus,
+                    userId: this.getCurrentUserId()
+                });
+
+                // If backend is old and status endpoint fell back to PUT, sync inventory manually.
+                if (updated?.__fallbackUsed) {
+                    const wasInProgress = currentProject.status === 'in-progress';
+                    const wasCancelled = currentProject.status === 'cancelled';
+                    const toInProgress = status === 'in-progress';
+                    const toCancelled = status === 'cancelled';
+
+                    if (!wasInProgress && toInProgress) {
+                        await this.applyManualStockOut(currentProject);
+                    }
+                    if (!wasCancelled && toCancelled) {
+                        await this.applyManualStockRestore(currentProject);
+                    }
+                }
+
+                closeModal('statusUpdateModal');
+                this.notify('\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e41\u0e25\u0e49\u0e27');
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Error updating status:', error);
+                this.notify(error.message || '\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error');
+            }
+        });
+    },
+
+    async cancelProject(id) {
+        const project = this.projects.find(p => p._id === id);
+        if (!project) return;
+        if (project.status === 'completed' && project.paymentStatus === 'paid') {
+            this.notify('โครงการเสร็จสิ้นและชำระเงินแล้ว ไม่สามารถยกเลิกได้', 'error');
+            return;
+        }
+
+        const confirmed = await this.confirm({
+            title: '\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23',
+            message: '\u0e01\u0e23\u0e13\u0e35\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e08\u0e30\u0e04\u0e37\u0e19\u0e2a\u0e15\u0e4a\u0e2d\u0e01\u0e17\u0e35\u0e48\u0e40\u0e04\u0e22\u0e15\u0e31\u0e14\u0e44\u0e1b\u0e41\u0e25\u0e49\u0e27 \u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e2b\u0e23\u0e37\u0e2d\u0e44\u0e21\u0e48?',
+            confirmText: '\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23',
+            cancelText: '\u0e01\u0e25\u0e31\u0e1a',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+
+        await this.withActionLock(`cancel:${id}`, id, async () => {
+            try {
+                const updated = await api.projects.cancel(id, { userId: this.getCurrentUserId() });
+
+                if (updated?.__fallbackUsed) {
+                    await this.applyManualStockRestore(project);
+                }
+
+                this.notify('\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e41\u0e25\u0e30\u0e04\u0e37\u0e19\u0e2a\u0e15\u0e4a\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27');
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Error cancelling project:', error);
+                this.notify(error.message || '\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error');
+            }
+        });
+    },
+
     async deleteProject(id) {
         const project = this.projects.find(p => p._id === id);
         if (!project) return;
 
-        let confirmed = false;
-        if (typeof showStyledConfirm === 'function') {
-            confirmed = await showStyledConfirm({
-                title: 'Delete Project',
-                message: `Do you want to delete "${project.name || 'this project'}"?`,
-                confirmText: 'Delete',
-                cancelText: 'Cancel',
-                variant: 'danger'
-            });
-        } else {
-            confirmed = window.confirm(`Delete "${project.name || 'this project'}"?`);
-        }
-
+        const confirmed = await this.confirm({
+            title: 'Delete Project',
+            message: `Do you want to delete "${project.name || 'this project'}"?`,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            variant: 'danger'
+        });
         if (!confirmed) return;
 
-        try {
-            await api.projects.delete(id);
-            await this.loadProjects();
-        } catch (error) {
-            console.error('Error deleting project:', error);
-            alert(`Error: ${error.message}`);
-        }
+        await this.withActionLock(`delete:${id}`, id, async () => {
+            try {
+                await api.projects.delete(id);
+                this.notify('Project deleted');
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Error deleting project:', error);
+                this.notify(error.message || 'Unable to delete project', 'error');
+            }
+        });
     },
 
     filterProjects() {
@@ -652,3 +999,4 @@ document.addEventListener('DOMContentLoaded', () => {
         ProjectsPage.init();
     }
 });
+

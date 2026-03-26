@@ -15,11 +15,7 @@ const projectMaterialSchema = new mongoose.Schema({
 }, { _id: false });
 
 const projectSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
+    name: { type: String, required: true, trim: true },
     customerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Customer',
@@ -40,16 +36,13 @@ const projectSchema = new mongoose.Schema({
     team: { type: String, default: '' },
     startDate: { type: Date },
     endDate: { type: Date },
-    budget: { type: Number, default: 0 },
-    assignedTeam: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }],
+    assignedTeam: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     description: { type: String },
-    materials: {
-        type: [projectMaterialSchema],
-        default: []
-    },
+    materials: { type: [projectMaterialSchema], default: [] },
+    stockDeducted: { type: Boolean, default: false },
+    stockDeductedAt: { type: Date },
+    stockRestored: { type: Boolean, default: false },
+    stockRestoredAt: { type: Date },
     createdAt: { type: Date, default: Date.now }
 });
 
