@@ -147,6 +147,63 @@ const api = {
                 body: JSON.stringify(projectData)
             });
         },
+        async updateStatus(id, statusData) {
+            try {
+                return await api.request(`/projects/${id}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify(statusData)
+                });
+            } catch (error) {
+                const message = String(error?.message || '');
+                const isMissingEndpoint = message.includes('API endpoint not found')
+                    || message.includes('/status')
+                    || message.includes('(404)');
+
+                if (!isMissingEndpoint) {
+                    throw error;
+                }
+
+                const fallbackPayload = {
+                    status: statusData?.status,
+                    paymentStatus: statusData?.paymentStatus
+                };
+
+                const updated = await api.request(`/projects/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(fallbackPayload)
+                });
+                if (updated && typeof updated === 'object') {
+                    updated.__fallbackUsed = true;
+                }
+                return updated;
+            }
+        },
+        async cancel(id, payload = {}) {
+            try {
+                return await api.request(`/projects/${id}/cancel`, {
+                    method: 'PATCH',
+                    body: JSON.stringify(payload)
+                });
+            } catch (error) {
+                const message = String(error?.message || '');
+                const isMissingEndpoint = message.includes('API endpoint not found')
+                    || message.includes('/cancel')
+                    || message.includes('(404)');
+
+                if (!isMissingEndpoint) {
+                    throw error;
+                }
+
+                const updated = await api.request(`/projects/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: 'cancelled' })
+                });
+                if (updated && typeof updated === 'object') {
+                    updated.__fallbackUsed = true;
+                }
+                return updated;
+            }
+        },
         async delete(id) {
             return api.request(`/projects/${id}`, {
                 method: 'DELETE'

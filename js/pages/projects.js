@@ -1,27 +1,186 @@
-// ===== Projects Page Controller =====
+﻿// ===== Projects Page Controller =====
 const ProjectsPage = {
     projects: [],
     customers: [],
-    materials: [],            // list of inventory items
-    projectMaterials: [],     // materials added to current project form
-    selectedMaterial: null,   // item picked from search results
+    materials: [],
+    projectMaterials: [],
+    selectedMaterial: null,
     currentProjectId: null,
+    currentProjectStatus: null,
+    currentStatusProjectId: null,
+    menuEventsBound: false,
+    pendingActions: new Set(),
+    STATUS_LABELS: {
+        planning: '\u0e27\u0e32\u0e07\u0e41\u0e1c\u0e19',
+        'in-progress': '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23',
+        completed: '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19',
+        cancelled: '\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01'
+    },
+    PAYMENT_LABELS: {
+        paid: '\u0e0a\u0e33\u0e23\u0e30\u0e41\u0e25\u0e49\u0e27',
+        partial: '\u0e0a\u0e33\u0e23\u0e30\u0e1a\u0e32\u0e07\u0e2a\u0e48\u0e27\u0e19',
+        unpaid: '\u0e04\u0e49\u0e32\u0e07\u0e0a\u0e33\u0e23\u0e30'
+    },
 
-    // Initialize projects page
     async init() {
         await Promise.all([
             this.loadProjects(),
             this.loadCustomers(),
             this.loadMaterials()
         ]);
+        this.localizeStatusLabels();
         this.setupEventListeners();
+        this.bindGlobalMenuHandlers();
+        this.renderProjectMaterialsList();
     },
 
-    // Load available materials from inventory for dropdown
+    bindGlobalMenuHandlers() {
+        if (this.menuEventsBound) return;
+        this.menuEventsBound = true;
+
+        document.addEventListener('click', (event) => {
+            const insideMenu = event.target.closest('.project-action-menu-wrap');
+            if (!insideMenu) {
+                this.closeAllActionMenus();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                this.closeAllActionMenus();
+            }
+        });
+    },
+
+    closeAllActionMenus() {
+        document.querySelectorAll('.project-action-menu-wrap.open').forEach((menu) => {
+            menu.classList.remove('open');
+        });
+    },
+
+    localizeStatusLabels() {
+        ['filterStatus', 'statusUpdateValue'].forEach((id) => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            Array.from(select.options).forEach((opt) => {
+                if (opt.value === 'all') return;
+                if (this.STATUS_LABELS[opt.value]) {
+                    opt.textContent = this.STATUS_LABELS[opt.value];
+                }
+            });
+        });
+
+        ['filterPaymentStatus', 'statusPaymentValue'].forEach((id) => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            Array.from(select.options).forEach((opt) => {
+                if (opt.value === 'all') return;
+                if (this.PAYMENT_LABELS[opt.value]) {
+                    opt.textContent = this.PAYMENT_LABELS[opt.value];
+                }
+            });
+        });
+    },
+
+    notify(message, type = 'success') {
+        let toast = document.getElementById('projectToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'projectToast';
+            toast.className = 'project-toast';
+            document.body.appendChild(toast);
+        }
+
+        toast.classList.remove('success', 'error', 'info', 'active');
+        toast.classList.add(type);
+        toast.textContent = message;
+        requestAnimationFrame(() => toast.classList.add('active'));
+
+        clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => toast.classList.remove('active'), 2400);
+    },
+
+    async confirm(options) {
+        if (typeof showStyledConfirm === 'function') {
+            return showStyledConfirm(options);
+        }
+        return window.confirm(options?.message || 'Confirm?');
+    },
+
+    getCurrentUserId() {
+        if (typeof currentUser === 'undefined') return null;
+        return currentUser.id || currentUser._id || null;
+    },
+
+    setProjectActionState(projectId, disabled) {
+        const card = document.querySelector(`.project-card[data-id="${projectId}"]`);
+        if (!card) return;
+        card.querySelectorAll('button').forEach(btn => {
+            btn.disabled = !!disabled;
+            btn.classList.toggle('is-busy', !!disabled);
+        });
+    },
+
+    async withActionLock(actionKey, projectId, work) {
+        if (this.pendingActions.has(actionKey)) {
+            return null;
+        }
+
+        this.pendingActions.add(actionKey);
+        if (projectId) this.setProjectActionState(projectId, true);
+
+        try {
+            return await work();
+        } finally {
+            this.pendingActions.delete(actionKey);
+            if (projectId) this.setProjectActionState(projectId, false);
+        }
+    },
+
+    async applyManualStockOut(project) {
+        const materials = Array.isArray(project?.materials) ? project.materials : [];
+        for (const item of materials) {
+            const materialId = item.materialId || item.id;
+            const qty = Number(item.qty || 0);
+            if (!materialId || qty <= 0) continue;
+
+            try {
+                await api.inventory.stockOut(materialId, {
+                    quantity: qty,
+                    reason: 'Auto stock-out from project status update (fallback mode)',
+                    projectId: project._id,
+                    userId: this.getCurrentUserId()
+                });
+            } catch (error) {
+                const itemName = item.name || materialId;
+                throw new Error(`ตัดสต๊อกไม่สำเร็จ: ${itemName} (${error.message})`);
+            }
+        }
+    },
+
+    async applyManualStockRestore(project) {
+        const materials = Array.isArray(project?.materials) ? project.materials : [];
+        for (const item of materials) {
+            const materialId = item.materialId || item.id;
+            const qty = Number(item.qty || 0);
+            if (!materialId || qty <= 0) continue;
+
+            try {
+                await api.inventory.stockIn(materialId, {
+                    quantity: qty,
+                    reason: 'Auto stock-restore from project cancel (fallback mode)',
+                    userId: this.getCurrentUserId()
+                });
+            } catch (error) {
+                const itemName = item.name || materialId;
+                throw new Error(`คืนสต๊อกไม่สำเร็จ: ${itemName} (${error.message})`);
+            }
+        }
+    },
+
     async loadMaterials() {
         try {
             const mats = await api.inventory.getAll();
-            // ensure array
             this.materials = Array.isArray(mats) ? mats : [];
         } catch (error) {
             console.error('Error loading materials:', error);
@@ -29,7 +188,6 @@ const ProjectsPage = {
         }
     },
 
-    // Render search results table based on materials list (or filtered subset)
     renderSearchResults(results) {
         const tbody = document.querySelector('#materialSearchResults tbody');
         if (!tbody) return;
@@ -38,7 +196,7 @@ const ProjectsPage = {
         const isEmptyQuery = !searchInput || searchInput.value.trim() === '';
 
         if (!results || results.length === 0) {
-            const msg = isEmptyQuery ? 'พิมพ์ค้นหาเพื่อแสดงรายการ' : 'ไม่พบรายการ';
+            const msg = isEmptyQuery ? 'Type to search materials' : 'No materials found';
             tbody.innerHTML = `
                 <tr class="empty-state">
                     <td colspan="6" style="text-align:center;color:#666;">${msg}</td>
@@ -47,25 +205,21 @@ const ProjectsPage = {
             return;
         }
 
-        tbody.innerHTML = results.map(item => {
-            return `
-                <tr data-id="${item._id}" class="search-row">
-                    <td>${item._id.slice(-6).toUpperCase()}</td>
-                    <td>${item.name}</td>
-                    <td>${item.specification || '-'}</td>
-                    <td>${item.type}</td>
-                    <td>${item.quantity} ${item.unit || ''}</td>
-                    <td>${item.unit || ''}</td>
-                </tr>
-            `;
-        }).join('');
+        tbody.innerHTML = results.map(item => `
+            <tr data-id="${item._id}" class="search-row">
+                <td>${String(item._id).slice(-6).toUpperCase()}</td>
+                <td>${item.name || '-'}</td>
+                <td>${item.specification || '-'}</td>
+                <td>${item.type || '-'}</td>
+                <td>${item.quantity || 0} ${item.unit || ''}</td>
+                <td>${item.unit || ''}</td>
+            </tr>
+        `).join('');
 
-        // attach click listeners
         document.querySelectorAll('#materialSearchResults .search-row').forEach(row => {
             row.addEventListener('click', (e) => {
                 const id = e.currentTarget.dataset.id;
                 this.selectMaterialById(id);
-                // highlight selected row
                 document.querySelectorAll('#materialSearchResults .search-row').forEach(r => r.classList.remove('selected'));
                 e.currentTarget.classList.add('selected');
             });
@@ -74,109 +228,122 @@ const ProjectsPage = {
 
     selectMaterialById(id) {
         this.selectedMaterial = this.materials.find(m => m._id === id) || null;
+
         const noSelect = document.getElementById('materialNotSelected');
         if (noSelect) noSelect.style.display = 'none';
+
         const preview = document.getElementById('selectedMaterialPreview');
+        const priceInput = document.getElementById('projectMaterialPrice');
+
         if (this.selectedMaterial) {
-            // prefill price
-            const priceInput = document.getElementById('projectMaterialPrice');
-            if (priceInput) priceInput.value = this.selectedMaterial.unitPrice || '';
+            if (priceInput) priceInput.value = this.selectedMaterial.unitPrice || 0;
             if (preview) {
-                preview.textContent = `เลือก: ${this.selectedMaterial.name}` +
+                preview.textContent = `Selected: ${this.selectedMaterial.name}` +
                     (this.selectedMaterial.specification ? ` (${this.selectedMaterial.specification})` : '');
             }
-        } else {
-            if (preview) preview.textContent = '';
+        } else if (preview) {
+            preview.textContent = '';
         }
     },
 
-
-    // Open the material modal and reset values
     async openMaterialModal() {
-        // reload inventory each time so new items are available
+        const isMaterialLocked = this.currentProjectId
+            && ['in-progress', 'completed'].includes(this.currentProjectStatus || '');
+        if (isMaterialLocked) {
+            this.notify('ไม่สามารถเพิ่มวัสดุได้ เมื่อโครงการอยู่ระหว่างดำเนินการหรือเสร็จสิ้น', 'error');
+            return;
+        }
+
         await this.loadMaterials();
-        // clear search box and message
+
         const searchInput = document.getElementById('modalMaterialSearch');
         const notFound = document.getElementById('materialNotFound');
         const noSelect = document.getElementById('materialNotSelected');
+        const preview = document.getElementById('selectedMaterialPreview');
+        const qtyInput = document.getElementById('projectMaterialQty');
+        const priceInput = document.getElementById('projectMaterialPrice');
+
         if (searchInput) searchInput.value = '';
         if (notFound) notFound.style.display = 'none';
         if (noSelect) noSelect.style.display = 'none';
-        this.selectedMaterial = null;
-        const preview = document.getElementById('selectedMaterialPreview');
         if (preview) preview.textContent = '';
+        if (qtyInput) qtyInput.value = '';
+        if (priceInput) priceInput.value = '';
+
+        this.selectedMaterial = null;
         this.renderSearchResults([]);
-        document.getElementById('projectMaterialQty').value = '';
-        document.getElementById('projectMaterialPrice').value = '';
         openModal('addProjectMaterialModal');
     },
 
-    // Add chosen material to projectMaterials array
     addMaterialToProject() {
-        const qty = parseFloat(document.getElementById('projectMaterialQty').value) || 0;
-        const price = parseFloat(document.getElementById('projectMaterialPrice').value) || 0;
+        const qty = parseFloat(document.getElementById('projectMaterialQty')?.value) || 0;
+
         if (!this.selectedMaterial) {
             const noSelect = document.getElementById('materialNotSelected');
             if (noSelect) noSelect.style.display = 'block';
             return;
         }
+
         if (qty <= 0) return;
 
         const mat = this.selectedMaterial;
-        const sku = mat._id.slice(-6).toUpperCase();
-        const total = qty * price;
+        const price = parseFloat(document.getElementById('projectMaterialPrice')?.value) || Number(mat.unitPrice || 0);
 
-        this.projectMaterials.push({
+        const item = {
             id: mat._id,
-            sku,
-            name: mat.name,
+            sku: String(mat._id).slice(-6).toUpperCase(),
+            name: mat.name || '-',
             spec: mat.specification || '',
             unit: mat.unit || '',
             qty,
             price,
-            total
-        });
+            total: qty * price
+        };
+
+        this.projectMaterials.push(item);
         this.renderProjectMaterialsList();
-        // keep modal open for next item, clear qty & price
-        document.getElementById('projectMaterialQty').value = '';
-        document.getElementById('projectMaterialPrice').value = mat.unitPrice || '';
-        // clear selected item/highlight so user can choose again
-        this.selectedMaterial = null;
+
+        const qtyInput = document.getElementById('projectMaterialQty');
+        const priceInput = document.getElementById('projectMaterialPrice');
         const preview = document.getElementById('selectedMaterialPreview');
+
+        if (qtyInput) qtyInput.value = '';
+        if (priceInput) priceInput.value = mat.unitPrice || 0;
         if (preview) preview.textContent = '';
+
+        this.selectedMaterial = null;
         document.querySelectorAll('#materialSearchResults .search-row').forEach(r => r.classList.remove('selected'));
     },
 
-    // Render rows inside materials table on project form and in modal
     renderProjectMaterialsList() {
-        // helper to render a specific table body
         const renderBody = (selector) => {
             const tbody = document.querySelector(`${selector} tbody`);
             if (!tbody) return;
+
             if (this.projectMaterials.length === 0) {
                 tbody.innerHTML = `
                     <tr class="empty-state">
-                        <td colspan="6">ยังไม่มีวัสดุ</td>
+                        <td colspan="7">No materials added</td>
                     </tr>
                 `;
-            } else {
-                tbody.innerHTML = this.projectMaterials.map((m, i) => `
-                    <tr data-index="${i}">
-                        <td>${m.sku}</td>
-                        <td>${m.name}</td>
-                        <td>${m.spec || '-'}</td>
-                        <td>${m.qty} ${m.unit || ''}</td>
-                        <td>฿${m.price.toLocaleString('th-TH')}</td>
-                        <td>฿${m.total.toLocaleString('th-TH')}</td>
-                        <td><button type="button" class="btn-icon remove-material-btn" data-index="${i}">✖️</button></td>
-                    </tr>
-                `).join('');
+                return;
             }
+
+            tbody.innerHTML = this.projectMaterials.map((m, i) => `
+                <tr data-index="${i}">
+                    <td>${m.sku}</td>
+                    <td>${m.name}</td>
+                    <td>${m.spec || '-'}</td>
+                    <td>${m.qty} ${m.unit || ''}</td>
+                    <td>THB ${Number(m.price || 0).toLocaleString('th-TH')}</td>
+                    <td>THB ${Number(m.total || 0).toLocaleString('th-TH')}</td>
+                    <td><button type="button" class="btn-icon remove-material-btn" data-index="${i}">x</button></td>
+                </tr>
+            `).join('');
         };
 
         renderBody('#projectMaterialsList');
         renderBody('#modalMaterialsList');
-
         this.attachMaterialRowEvents();
         this.updateCostFromMaterials();
     },
@@ -184,8 +351,14 @@ const ProjectsPage = {
     attachMaterialRowEvents() {
         document.querySelectorAll('#projectMaterialsList .remove-material-btn, #modalMaterialsList .remove-material-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.target.dataset.index);
-                if (!isNaN(idx)) {
+                const isMaterialLocked = this.currentProjectId
+                    && ['in-progress', 'completed'].includes(this.currentProjectStatus || '');
+                if (isMaterialLocked) {
+                    this.notify('ไม่สามารถลบวัสดุได้ เมื่อโครงการอยู่ระหว่างดำเนินการหรือเสร็จสิ้น', 'error');
+                    return;
+                }
+                const idx = parseInt(e.currentTarget.dataset.index, 10);
+                if (!Number.isNaN(idx)) {
                     this.projectMaterials.splice(idx, 1);
                     this.renderProjectMaterialsList();
                 }
@@ -194,97 +367,120 @@ const ProjectsPage = {
     },
 
     updateCostFromMaterials() {
-        const sum = this.projectMaterials.reduce((a, m) => a + m.total, 0);
+        const sum = this.projectMaterials.reduce((a, m) => a + Number(m.total || 0), 0);
         const costInput = document.getElementById('projectCost');
         if (costInput) costInput.value = sum;
     },
 
-
-    // Load projects from API
     async loadProjects() {
         try {
             const projects = await api.projects.getAll();
-            this.projects = projects;
-            this.renderProjectsGrid(projects);
+            this.projects = Array.isArray(projects) ? projects : [];
+            this.renderProjectsGrid(this.projects);
             this.updateStats();
         } catch (error) {
             console.error('Error loading projects:', error);
             this.projects = [];
+            this.renderProjectsGrid([]);
+            this.updateStats();
         }
     },
 
-    // Load customers for dropdown
     async loadCustomers() {
         try {
             const customers = await api.customers.getAll();
-            this.customers = customers;
+            this.customers = Array.isArray(customers) ? customers : [];
             this.populateCustomerDropdown();
         } catch (error) {
             console.error('Error loading customers:', error);
+            this.customers = [];
+            this.populateCustomerDropdown();
         }
     },
 
-    // Populate customer dropdown in form
     populateCustomerDropdown() {
         const select = document.getElementById('projectCustomer');
         if (!select) return;
 
-        select.innerHTML = '<option value="">เลือกลูกค้า</option>' +
-            this.customers.map(c => `<option value="${c._id}">${c.customerName}</option>`).join('');
+        select.innerHTML = '<option value="">Select customer</option>' +
+            this.customers.map(c => `<option value="${c._id}">${c.name || '-'}</option>`).join('');
     },
 
-    // Render projects grid
     renderProjectsGrid(projects) {
         const grid = document.querySelector('.projects-grid');
         if (!grid) return;
 
-        if (projects.length === 0) {
+        if (!projects.length) {
             grid.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 60px; color: #666;">
-                    ยังไม่มีโครงการ คลิก "+ สร้างโครงการใหม่" เพื่อเริ่มต้น
+                    No projects yet. Click "+ Create Project" to start.
                 </div>
             `;
             return;
         }
 
         grid.innerHTML = projects.map(project => {
+            const customerName = project.customerId?.name || '-';
             const statusBadge = this.getStatusBadge(project.status);
             const paymentBadge = this.getPaymentBadge(project.paymentStatus);
-            const customerName = project.customerId?.customerName || 'ไม่ระบุ';
-            const teamNames = (project.assignedTeam || []).map(t => t.username || t).join(', ') || 'ไม่ระบุ';
-            
+            const totalCost = Math.max(0, Number(project.totalCost || 0));
+            const totalPrice = Math.max(0, Number(project.totalPrice || 0));
+            const rawProfit = totalPrice - totalCost;
+            const isSuccessful = project.status === 'completed' && project.paymentStatus === 'paid';
+            const profit = isSuccessful ? rawProfit : -Math.abs(totalCost - totalPrice);
+            const profitClass = isSuccessful ? '' : 'loss';
+            const cancelLocked = isSuccessful;
+
             return `
                 <div class="project-card" data-id="${project._id}">
                     <div class="project-header">
-                        <h3>โครงการ #${project._id.slice(-6)}</h3>
+                        <h3>${project.name || `Project #${String(project._id).slice(-6)}`}</h3>
                         ${statusBadge}
                     </div>
+                    <div class="project-action-menu-wrap project-action-menu-wrap-top" data-id="${project._id}">
+                        <button class="project-action-menu-toggle" data-id="${project._id}" aria-label="เปิดเมนูการจัดการ" title="เมนูการจัดการ">
+                            <span></span><span></span><span></span>
+                        </button>
+                        <div class="project-action-menu">
+                            <button class="project-menu-item view-btn" data-id="${project._id}" data-tooltip="ดูรายการวัสดุและจำนวนที่ใช้" title="ดูวัสดุ">
+                                <span class="icon-char">\u{1F441}</span><span>ดูวัสดุ</span>
+                            </button>
+                            <button class="project-menu-item edit-btn" data-id="${project._id}" data-tooltip="แก้ไขข้อมูลพื้นฐานของโครงการ" title="แก้ไขข้อมูลโครงการ">
+                                <span class="icon-char">\u270E</span><span>แก้ไข</span>
+                            </button>
+                            <button class="project-menu-item status-btn" data-id="${project._id}" data-tooltip="เปลี่ยนสถานะโครงการและสถานะชำระเงิน" title="อัปเดตสถานะโครงการ">
+                                <span class="icon-char">\u21BB</span><span>อัปเดตสถานะ</span>
+                            </button>
+                            <button class="project-menu-item cancel-btn" data-id="${project._id}" data-tooltip="${cancelLocked ? 'โครงการเสร็จสิ้นและชำระแล้ว ไม่สามารถยกเลิกได้' : 'ยกเลิกโครงการและคืนสต๊อก'}" title="${cancelLocked ? 'โครงการเสร็จสิ้นและชำระแล้ว ไม่สามารถยกเลิกได้' : 'ยกเลิกโครงการและคืนสต๊อก'}" ${cancelLocked ? 'disabled' : ''}>
+                                <span class="icon-char">\u21A9</span><span>ยกเลิกโครงการ</span>
+                            </button>
+                            <button class="project-menu-item delete-btn danger" data-id="${project._id}" data-tooltip="ลบโครงการถาวร" title="ลบโครงการ">
+                                <span class="icon-char">\u{1F5D1}</span><span>ลบโครงการ</span>
+                            </button>
+                        </div>
+                    </div>
                     <div class="project-info">
-                        <p><strong>ลูกค้า:</strong> ${customerName}</p>
-                        <p><strong>ทีมงาน:</strong> ${teamNames}</p>
-                        <p><strong>วันที่สร้าง:</strong> ${project.createdAt ? new Date(project.createdAt).toLocaleDateString('th-TH') : '-'}</p>
+                        <p><strong>Customer:</strong> ${customerName}</p>
+                        <p><strong>Team:</strong> ${project.team || '-'}</p>
+                        <p><strong>Start:</strong> ${project.startDate ? new Date(project.startDate).toLocaleDateString('th-TH') : '-'}</p>
+                        <p><strong>End:</strong> ${project.endDate ? new Date(project.endDate).toLocaleDateString('th-TH') : '-'}</p>
+                        <p><strong>Created:</strong> ${project.createdAt ? new Date(project.createdAt).toLocaleDateString('th-TH') : '-'}</p>
                     </div>
                     <div class="project-cost">
                         <div class="cost-item">
-                            <span>ต้นทุน:</span>
-                            <span>฿${(project.totalCost || 0).toLocaleString('th-TH')}</span>
+                            <span>Cost:</span>
+                            <span>THB ${totalCost.toLocaleString('th-TH')}</span>
                         </div>
                         <div class="cost-item">
-                            <span>ราคาขาย:</span>
-                            <span>฿${(project.totalPrice || 0).toLocaleString('th-TH')}</span>
+                            <span>Sell:</span>
+                            <span>THB ${totalPrice.toLocaleString('th-TH')}</span>
                         </div>
-                        <div class="cost-item profit">
-                            <span>กำไร:</span>
-                            <span>฿${((project.totalPrice || 0) - (project.totalCost || 0)).toLocaleString('th-TH')}</span>
+                        <div class="cost-item profit ${profitClass}">
+                            <span>Profit:</span>
+                            <span>THB ${profit.toLocaleString('th-TH')}</span>
                         </div>
                     </div>
-                    <div class="project-payment">
-                        ${paymentBadge}
-                    </div>
-                    <div class="project-actions">
-                        <button class="btn-secondary view-btn" data-id="${project._id}">ดูรายละเอียด</button>
-                        <button class="btn-primary edit-btn" data-id="${project._id}">แก้ไข</button>
-                    </div>
+                    <div class="project-payment">${paymentBadge}</div>
                 </div>
             `;
         }).join('');
@@ -292,132 +488,151 @@ const ProjectsPage = {
         this.attachProjectEventListeners();
     },
 
-    // Get status badge HTML
     getStatusBadge(status) {
         const badges = {
-            'รอดำเนินการ': '<span class="badge badge-planning">รอดำเนินการ</span>',
-            'กำลังดำเนินการ': '<span class="badge badge-warning">กำลังดำเนินการ</span>',
-            'เสร็จสิ้น': '<span class="badge badge-success">เสร็จสิ้น</span>',
-            'ยกเลิก': '<span class="badge badge-danger">ยกเลิก</span>'
+            planning: `<span class="badge badge-planning">${this.STATUS_LABELS.planning}</span>`,
+            'in-progress': `<span class="badge badge-warning">${this.STATUS_LABELS['in-progress']}</span>`,
+            completed: `<span class="badge badge-success">${this.STATUS_LABELS.completed}</span>`,
+            cancelled: `<span class="badge badge-danger">${this.STATUS_LABELS.cancelled}</span>`
         };
+
         return badges[status] || '<span class="badge">-</span>';
     },
 
-    // Get payment status badge HTML
     getPaymentBadge(paymentStatus) {
         const badges = {
-            'paid': '<span class="payment-status paid">✓ ชำระแล้ว</span>',
-            'partial': '<span class="payment-status partial">⏳ ชำระบางส่วน</span>',
-            'unpaid': '<span class="payment-status unpaid">✗ ยังไม่ชำระ</span>'
+            paid: `<span class="payment-status paid">${this.PAYMENT_LABELS.paid}</span>`,
+            partial: `<span class="payment-status partial">${this.PAYMENT_LABELS.partial}</span>`,
+            unpaid: `<span class="payment-status unpaid">${this.PAYMENT_LABELS.unpaid}</span>`
         };
-        return badges[paymentStatus] || badges['unpaid'];
+
+        return badges[paymentStatus] || badges.unpaid;
     },
 
-    // Attach event listeners to project cards
     attachProjectEventListeners() {
-        document.querySelectorAll('.project-card .edit-btn').forEach(btn => {
+        document.querySelectorAll('.project-action-menu-toggle').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                this.editProject(e.target.dataset.id);
+                e.stopPropagation();
+                const wrap = e.currentTarget.closest('.project-action-menu-wrap');
+                if (!wrap) return;
+                const isOpen = wrap.classList.contains('open');
+                this.closeAllActionMenus();
+                if (!isOpen) {
+                    wrap.classList.add('open');
+                }
             });
+        });
+
+        document.querySelectorAll('.project-card .edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.editProject(e.currentTarget.dataset.id));
         });
 
         document.querySelectorAll('.project-card .view-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.viewProject(e.target.dataset.id);
-            });
+            btn.addEventListener('click', (e) => this.viewProject(e.currentTarget.dataset.id));
+        });
+
+        document.querySelectorAll('.project-card .status-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.openStatusModal(e.currentTarget.dataset.id));
+        });
+
+        document.querySelectorAll('.project-card .cancel-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.cancelProject(e.currentTarget.dataset.id));
+        });
+
+        document.querySelectorAll('.project-card .delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.deleteProject(e.currentTarget.dataset.id));
+        });
+
+        document.querySelectorAll('.project-action-menu .project-menu-item').forEach(btn => {
+            btn.addEventListener('click', () => this.closeAllActionMenus());
         });
     },
 
-    // Update stats cards
     updateStats() {
         const total = this.projects.length;
-        const inProgress = this.projects.filter(p => p.status === 'กำลังดำเนินการ').length;
-        const completed = this.projects.filter(p => p.status === 'เสร็จสิ้น').length;
-        const totalRevenue = this.projects.reduce((sum, p) => sum + (p.totalPrice || 0), 0);
+        const inProgress = this.projects.filter(p => p.status === 'in-progress').length;
+        const completed = this.projects.filter(p => p.status === 'completed').length;
+        const totalRevenue = this.projects.reduce((sum, p) => sum + Number(p.totalPrice || 0), 0);
 
         const statCards = document.querySelectorAll('.stat-card .stat-info h3');
         if (statCards.length >= 4) {
             statCards[0].textContent = total;
             statCards[1].textContent = inProgress;
             statCards[2].textContent = completed;
-            statCards[3].textContent = `฿${(totalRevenue / 1000).toFixed(0)}K`;
+            statCards[3].textContent = `THB ${(totalRevenue / 1000).toFixed(0)}K`;
         }
     },
 
-    // Setup event listeners
     setupEventListeners() {
-        // Add Project Form
         const addProjectForm = document.getElementById('addProjectForm');
-        if (addProjectForm) {
-            addProjectForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                await this.saveProject();
-            });
-        }
-
-        // make sure closing modal clears material entries
-        const addProjModalClose = document.querySelector('#addProjectModal .close');
-        addProjModalClose?.addEventListener('click', () => {
-            closeModal('addProjectModal');
-            this.projectMaterials = [];
-            this.renderProjectMaterialsList();
+        addProjectForm?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.saveProject();
         });
 
-        const materialModalClose = document.querySelector('#addProjectMaterialModal .close');
-        materialModalClose?.addEventListener('click', () => {
-            // behave like cancel: clear the temporary list and selected item
-            this.projectMaterials = [];
-            this.renderProjectMaterialsList();
-            this.selectedMaterial = null;
-            const preview = document.getElementById('selectedMaterialPreview');
-            if (preview) preview.textContent = '';
+        document.getElementById('statusUpdateForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.submitStatusUpdate();
+        });
+
+        document.querySelector('#addProjectModal .close')?.addEventListener('click', () => {
+            this.closeProjectFormModal();
+        });
+
+        document.querySelector('#addProjectMaterialModal .close')?.addEventListener('click', () => {
             closeModal('addProjectMaterialModal');
         });
 
-        // Add material button and modal interactions
-        const addMaterialBtn = document.getElementById('addMaterialToProject');
-        addMaterialBtn?.addEventListener('click', () => this.openMaterialModal());
+        document.querySelector('#projectDetailsModal .close')?.addEventListener('click', () => {
+            closeModal('projectDetailsModal');
+        });
 
-        // When opening the create-project modal, make sure the material list is cleared
-        const addProjBtn = document.getElementById('addProjectBtn');
-        addProjBtn?.addEventListener('click', () => {
+        document.querySelector('#statusUpdateModal .close')?.addEventListener('click', () => {
+            closeModal('statusUpdateModal');
+        });
+
+        document.getElementById('closeProjectDetailsBtn')?.addEventListener('click', () => {
+            closeModal('projectDetailsModal');
+        });
+
+        document.getElementById('cancelStatusUpdate')?.addEventListener('click', () => {
+            closeModal('statusUpdateModal');
+        });
+
+        document.getElementById('cancelAddProject')?.addEventListener('click', () => {
+            this.closeProjectFormModal();
+        });
+
+        document.getElementById('addProjectBtn')?.addEventListener('click', () => {
+            this.currentProjectId = null;
+            this.currentProjectStatus = null;
             this.projectMaterials = [];
             this.renderProjectMaterialsList();
             document.getElementById('addProjectForm')?.reset();
+            const submitBtn = document.querySelector('#addProjectForm button[type="submit"]');
+            if (submitBtn) submitBtn.textContent = '\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23';
+            openModal('addProjectModal');
         });
 
-        const addMaterialForm = document.getElementById('addProjectMaterialForm');
-        addMaterialForm?.addEventListener('submit', (e) => {
+        document.getElementById('addMaterialToProject')?.addEventListener('click', () => this.openMaterialModal());
+
+        document.getElementById('addProjectMaterialForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.addMaterialToProject();
         });
 
-        // after adding items, user can finish
-        const doneBtn = document.getElementById('doneProjectMaterials');
-        doneBtn?.addEventListener('click', () => {
+        document.getElementById('doneProjectMaterials')?.addEventListener('click', () => {
             closeModal('addProjectMaterialModal');
         });
 
-        // clear search filtering when modal opens
-        const materialSearch = document.getElementById('modalMaterialSearch');
-        materialSearch?.addEventListener('input', (e) => {
+        document.getElementById('cancelAddProjectMaterial')?.addEventListener('click', () => {
+            closeModal('addProjectMaterialModal');
+        });
+
+        document.getElementById('modalMaterialSearch')?.addEventListener('input', (e) => {
             this.filterMaterialOptions(e.target.value);
         });
 
-        const cancelAddMaterial = document.getElementById('cancelAddProjectMaterial');
-        cancelAddMaterial?.addEventListener('click', () => {
-            // cancel will discard the whole selection
-            this.projectMaterials = [];
-            this.renderProjectMaterialsList();
-            this.selectedMaterial = null;
-            const preview = document.getElementById('selectedMaterialPreview');
-            if (preview) preview.textContent = '';
-            closeModal('addProjectMaterialModal');
-        });
-
-
-
-        // Search and Filter
         const searchInput = document.getElementById('searchProject');
         const filterPayment = document.getElementById('filterPaymentStatus');
         const filterStatus = document.getElementById('filterStatus');
@@ -428,142 +643,360 @@ const ProjectsPage = {
         });
     },
 
-    // Save project (create or update)
-    async saveProject() {
-        // make sure cost matches materials list
-        this.updateCostFromMaterials();
-        const formData = {
-            customerId: document.getElementById('projectCustomer')?.value || null,
-            totalCost: parseFloat(document.getElementById('projectCost')?.value) || 0,
-            totalPrice: 0,  // will be set later in Quotation
-            status: document.getElementById('projectStatus')?.value || 'รอดำเนินการ',
-            paymentStatus: document.getElementById('projectPaymentStatus')?.value || 'unpaid',
-            description: document.getElementById('projectDescription')?.value,
-            materials: this.projectMaterials // may be persisted later
-        };
-
-        try {
-            if (this.currentProjectId) {
-                await api.projects.update(this.currentProjectId, formData);
-                alert('แก้ไขโครงการเรียบร้อย');
-            } else {
-                await api.projects.create(formData);
-                alert('สร้างโครงการเรียบร้อย');
-            }
-            
-            closeModal('addProjectModal');
-            document.getElementById('addProjectForm')?.reset();
-            // clear material list
-            this.projectMaterials = [];
-            this.renderProjectMaterialsList();
-            this.currentProjectId = null;
-            await this.loadProjects();
-        } catch (error) {
-            console.error('Error saving project:', error);
-            alert('เกิดข้อผิดพลาด: ' + error.message);
-        }
+    closeProjectFormModal() {
+        closeModal('addProjectModal');
+        this.currentProjectId = null;
+        this.currentProjectStatus = null;
+        this.projectMaterials = [];
+        this.renderProjectMaterialsList();
     },
 
-    // Edit project
+    async saveProject() {
+        const name = document.getElementById('projectName')?.value?.trim();
+        const customerId = document.getElementById('projectCustomer')?.value;
+
+        if (!name) {
+            this.notify('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e01\u0e23\u0e2d\u0e01\u0e0a\u0e37\u0e48\u0e2d\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23', 'error');
+            return;
+        }
+
+        if (!customerId) {
+            this.notify('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32', 'error');
+            return;
+        }
+
+        const formData = {
+            name,
+            customerId,
+            totalPrice: 0,
+            team: document.getElementById('projectTeam')?.value || '',
+            startDate: document.getElementById('projectStartDate')?.value || null,
+            endDate: document.getElementById('projectEndDate')?.value || null,
+            description: document.getElementById('projectDescription')?.value || '',
+            materials: this.projectMaterials.map(item => ({ id: item.id, qty: item.qty }))
+        };
+
+        await this.withActionLock(`save:${this.currentProjectId || 'new'}`, null, async () => {
+            try {
+                if (this.currentProjectId) {
+                    await api.projects.update(this.currentProjectId, formData);
+                    this.notify('\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e01\u0e32\u0e23\u0e41\u0e01\u0e49\u0e44\u0e02\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e41\u0e25\u0e49\u0e27');
+                } else {
+                    await api.projects.create(formData);
+                    this.notify('\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e41\u0e25\u0e49\u0e27');
+                }
+
+                this.closeProjectFormModal();
+                document.getElementById('addProjectForm')?.reset();
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Error saving project:', error);
+                this.notify(error.message || '\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error');
+            }
+        });
+    },
+
     editProject(id) {
         const project = this.projects.find(p => p._id === id);
         if (!project) return;
 
         this.currentProjectId = id;
+        this.currentProjectStatus = project.status || null;
+        this.projectMaterials = Array.isArray(project.materials)
+            ? project.materials.map(m => ({
+                id: m.materialId || m.id,
+                sku: String(m.materialId || m.id || '').slice(-6).toUpperCase(),
+                name: m.name || '-',
+                spec: m.specification || '',
+                unit: m.unit || '',
+                qty: Number(m.qty || 0),
+                price: Number(m.unitPrice || 0),
+                total: Number(m.total || 0)
+            }))
+            : [];
 
-        // reset any existing material entries
-        this.projectMaterials = [];
         this.renderProjectMaterialsList();
 
-        // Fill form with project data
+        const projectCustomer = typeof project.customerId === 'object' ? project.customerId?._id : project.customerId;
+
         const fields = {
-            'projectName': project.name,
-            'projectCustomer': project.customer?._id || project.customer,
-            'projectTeam': project.team,
-            'projectStartDate': project.startDate?.split('T')[0],
-            'projectEndDate': project.endDate?.split('T')[0],
-            'projectCost': project.cost,
-            'projectSellingPrice': project.sellingPrice,
-            'projectStatus': project.status,
-            'projectPaymentStatus': project.paymentStatus,
-            'projectDescription': project.description
+            projectName: project.name,
+            projectCustomer,
+            projectTeam: project.team || '',
+            projectStartDate: project.startDate ? String(project.startDate).split('T')[0] : '',
+            projectEndDate: project.endDate ? String(project.endDate).split('T')[0] : '',
+            projectCost: project.totalCost || 0,
+            projectDescription: project.description || ''
         };
 
         Object.entries(fields).forEach(([fieldId, value]) => {
             const el = document.getElementById(fieldId);
-            if (el && value !== undefined) el.value = value;
+            if (el && value !== undefined && value !== null) {
+                el.value = value;
+            }
         });
+
+        const submitBtn = document.querySelector('#addProjectForm button[type="submit"]');
+        if (submitBtn) submitBtn.textContent = '\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23';
 
         openModal('addProjectModal');
     },
 
-    // View project details
     viewProject(id) {
         const project = this.projects.find(p => p._id === id);
         if (!project) return;
 
-        alert(`รายละเอียดโครงการ:\n\n${project.name}\nลูกค้า: ${project.customerName || '-'}\nสถานะ: ${project.status}\nราคา: ฿${project.sellingPrice?.toLocaleString('th-TH')}`);
+        this.openProjectDetailsModal(project);
     },
 
-    // Filter projects
+    openProjectDetailsModal(project) {
+        const customerName = project.customerId?.name || '-';
+        const detailTitle = document.getElementById('projectDetailTitle');
+        const detailMeta = document.getElementById('projectDetailMeta');
+        const detailSummary = document.getElementById('projectDetailSummary');
+        const detailMaterials = document.getElementById('projectDetailMaterials');
+
+        if (detailTitle) {
+            detailTitle.textContent = project.name || 'Project Details';
+        }
+
+        if (detailMeta) {
+            detailMeta.innerHTML = `
+                <span><strong>Customer:</strong> ${customerName}</span>
+                <span><strong>Team:</strong> ${project.team || '-'}</span>
+                <span><strong>Start:</strong> ${project.startDate ? new Date(project.startDate).toLocaleDateString('th-TH') : '-'}</span>
+                <span><strong>End:</strong> ${project.endDate ? new Date(project.endDate).toLocaleDateString('th-TH') : '-'}</span>
+                <span><strong>Status:</strong> ${this.STATUS_LABELS[project.status] || '-'}</span>
+                <span><strong>Payment:</strong> ${this.PAYMENT_LABELS[project.paymentStatus] || '-'}</span>
+            `;
+        }
+
+        const materialItems = Array.isArray(project.materials) ? project.materials : [];
+        const totalQty = materialItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+        const totalCost = Math.max(0, Number(project.totalCost || 0));
+
+        if (detailSummary) {
+            detailSummary.innerHTML = `
+                <div class="project-detail-stat">
+                    <span>Materials</span>
+                    <strong>${materialItems.length} items</strong>
+                </div>
+                <div class="project-detail-stat">
+                    <span>Total Quantity</span>
+                    <strong>${totalQty.toLocaleString('th-TH')}</strong>
+                </div>
+                <div class="project-detail-stat">
+                    <span>Total Cost</span>
+                    <strong>THB ${totalCost.toLocaleString('th-TH')}</strong>
+                </div>
+            `;
+        }
+
+        if (detailMaterials) {
+            if (!materialItems.length) {
+                detailMaterials.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-materials">No materials in this project</td>
+                    </tr>
+                `;
+            } else {
+                detailMaterials.innerHTML = materialItems.map((item, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${item.name || '-'}</td>
+                        <td>${item.specification || '-'}</td>
+                        <td>${Number(item.qty || 0).toLocaleString('th-TH')} ${item.unit || ''}</td>
+                        <td>THB ${Number(item.total || 0).toLocaleString('th-TH')}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        openModal('projectDetailsModal');
+    },
+
+    openStatusModal(id) {
+        const project = this.projects.find(p => p._id === id);
+        if (!project) return;
+
+        this.currentStatusProjectId = id;
+
+        const title = document.getElementById('statusProjectTitle');
+        if (title) {
+            title.textContent = `${project.name || 'Project'} (${this.STATUS_LABELS[project.status] || '-'})`;
+        }
+
+        const statusEl = document.getElementById('statusUpdateValue');
+        const paymentEl = document.getElementById('statusPaymentValue');
+        if (statusEl) statusEl.value = project.status || 'planning';
+        if (paymentEl) paymentEl.value = project.paymentStatus || 'unpaid';
+
+        openModal('statusUpdateModal');
+    },
+
+    async submitStatusUpdate() {
+        if (!this.currentStatusProjectId) return;
+
+        const currentProject = this.projects.find(p => p._id === this.currentStatusProjectId);
+        if (!currentProject) return;
+        const status = document.getElementById('statusUpdateValue')?.value || 'planning';
+        const paymentStatus = document.getElementById('statusPaymentValue')?.value || 'unpaid';
+
+        const confirmed = await this.confirm({
+            title: '\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30',
+            message: '\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e01\u0e32\u0e23\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e2b\u0e23\u0e37\u0e2d\u0e44\u0e21\u0e48?',
+            confirmText: '\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15',
+            cancelText: '\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01',
+            variant: 'info'
+        });
+        if (!confirmed) return;
+
+        await this.withActionLock(`status:${this.currentStatusProjectId}`, this.currentStatusProjectId, async () => {
+            try {
+                const updated = await api.projects.updateStatus(this.currentStatusProjectId, {
+                    status,
+                    paymentStatus,
+                    userId: this.getCurrentUserId()
+                });
+
+                // If backend is old and status endpoint fell back to PUT, sync inventory manually.
+                if (updated?.__fallbackUsed) {
+                    const wasInProgress = currentProject.status === 'in-progress';
+                    const wasCancelled = currentProject.status === 'cancelled';
+                    const toInProgress = status === 'in-progress';
+                    const toCancelled = status === 'cancelled';
+
+                    if (!wasInProgress && toInProgress) {
+                        await this.applyManualStockOut(currentProject);
+                    }
+                    if (!wasCancelled && toCancelled) {
+                        await this.applyManualStockRestore(currentProject);
+                    }
+                }
+
+                closeModal('statusUpdateModal');
+                this.notify('\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e41\u0e25\u0e49\u0e27');
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Error updating status:', error);
+                this.notify(error.message || '\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error');
+            }
+        });
+    },
+
+    async cancelProject(id) {
+        const project = this.projects.find(p => p._id === id);
+        if (!project) return;
+        if (project.status === 'completed' && project.paymentStatus === 'paid') {
+            this.notify('โครงการเสร็จสิ้นและชำระเงินแล้ว ไม่สามารถยกเลิกได้', 'error');
+            return;
+        }
+
+        const confirmed = await this.confirm({
+            title: '\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23',
+            message: '\u0e01\u0e23\u0e13\u0e35\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e08\u0e30\u0e04\u0e37\u0e19\u0e2a\u0e15\u0e4a\u0e2d\u0e01\u0e17\u0e35\u0e48\u0e40\u0e04\u0e22\u0e15\u0e31\u0e14\u0e44\u0e1b\u0e41\u0e25\u0e49\u0e27 \u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e2b\u0e23\u0e37\u0e2d\u0e44\u0e21\u0e48?',
+            confirmText: '\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23',
+            cancelText: '\u0e01\u0e25\u0e31\u0e1a',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+
+        await this.withActionLock(`cancel:${id}`, id, async () => {
+            try {
+                const updated = await api.projects.cancel(id, { userId: this.getCurrentUserId() });
+
+                if (updated?.__fallbackUsed) {
+                    await this.applyManualStockRestore(project);
+                }
+
+                this.notify('\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e41\u0e25\u0e30\u0e04\u0e37\u0e19\u0e2a\u0e15\u0e4a\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27');
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Error cancelling project:', error);
+                this.notify(error.message || '\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error');
+            }
+        });
+    },
+
+    async deleteProject(id) {
+        const project = this.projects.find(p => p._id === id);
+        if (!project) return;
+
+        const confirmed = await this.confirm({
+            title: 'Delete Project',
+            message: `Do you want to delete "${project.name || 'this project'}"?`,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+
+        await this.withActionLock(`delete:${id}`, id, async () => {
+            try {
+                await api.projects.delete(id);
+                this.notify('Project deleted');
+                await this.loadProjects();
+            } catch (error) {
+                console.error('Error deleting project:', error);
+                this.notify(error.message || 'Unable to delete project', 'error');
+            }
+        });
+    },
+
     filterProjects() {
         const search = document.getElementById('searchProject')?.value.toLowerCase() || '';
         const payment = document.getElementById('filterPaymentStatus')?.value || 'all';
         const status = document.getElementById('filterStatus')?.value || 'all';
 
         const filtered = this.projects.filter(project => {
-            const matchSearch = project.name.toLowerCase().includes(search) ||
-                               (project.customerName || '').toLowerCase().includes(search);
+            const projectName = String(project.name || '').toLowerCase();
+            const customerName = String(project.customerId?.name || '').toLowerCase();
+            const matchSearch = projectName.includes(search) || customerName.includes(search);
             const matchPayment = payment === 'all' || project.paymentStatus === payment;
             const matchStatus = status === 'all' || project.status === status;
-            
             return matchSearch && matchPayment && matchStatus;
         });
 
         this.renderProjectsGrid(filtered);
     },
 
-    // Filter materials options inside modal based on search query and render table
     filterMaterialOptions(query) {
-        const normalized = query.trim().toLowerCase();
+        const normalized = String(query || '').trim().toLowerCase();
         const notFound = document.getElementById('materialNotFound');
+
         let filtered = this.materials;
         if (normalized) {
-            filtered = this.materials.filter(m => m.name.toLowerCase().includes(normalized));
+            filtered = this.materials.filter(m => String(m.name || '').toLowerCase().includes(normalized));
         }
-        if (filtered.length === 0 && normalized) {
-            if (notFound) notFound.style.display = 'block';
-        } else if (notFound) {
-            notFound.style.display = 'none';
+
+        if (notFound) {
+            notFound.style.display = filtered.length === 0 && normalized ? 'block' : 'none';
         }
-        // hide selection warning when query changes
+
         const noSelect = document.getElementById('materialNotSelected');
         if (noSelect) noSelect.style.display = 'none';
+
         this.renderSearchResults(filtered);
     },
 
-    // Export to Excel
     exportToExcel() {
         const data = this.projects.map(p => ({
-            'ชื่อโครงการ': p.name,
-            'ลูกค้า': p.customerName || '-',
-            'ทีมงาน': p.team || '-',
-            'วันเริ่ม': p.startDate ? new Date(p.startDate).toLocaleDateString('th-TH') : '-',
-            'วันเสร็จ': p.endDate ? new Date(p.endDate).toLocaleDateString('th-TH') : '-',
-            'ต้นทุน': p.cost || 0,
-            'ราคาขาย': p.sellingPrice || 0,
-            'กำไร': (p.sellingPrice || 0) - (p.cost || 0),
-            'สถานะ': p.status,
-            'การชำระเงิน': p.paymentStatus === 'PAID' ? 'ชำระแล้ว' : 'ค้างชำระ'
+            'Project Name': p.name || '-',
+            'Customer': p.customerId?.name || '-',
+            'Cost': p.totalCost || 0,
+            'Selling Price': p.totalPrice || 0,
+            'Profit': (p.totalPrice || 0) - (p.totalCost || 0),
+            'Status': p.status || '-',
+            'Payment': p.paymentStatus || 'unpaid'
         }));
 
         ExportUtils.exportToExcel(data, 'projects');
     }
 };
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('addProjectBtn')) {
         ProjectsPage.init();
     }
 });
+
