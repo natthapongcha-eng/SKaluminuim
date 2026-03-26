@@ -315,20 +315,34 @@
   /* Error banner */
   .error-banner {
     display: none;
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    border-radius: 10px;
-    padding: 12px 16px;
+    background: linear-gradient(135deg, #fef2f2 0%, #fde8e8 100%);
+    border: 1.5px solid #fc8181;
+    border-radius: 12px;
+    padding: 14px 16px;
     margin-bottom: 20px;
-    font-size: 0.83rem;
-    color: #dc2626;
-    animation: shake 0.4s ease;
+    font-size: 0.9rem;
+    color: #c41e3a;
+    font-weight: 500;
+    line-height: 1.5;
+    animation: slideDown 0.3s ease-out, shake 0.4s ease 0.1s;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.12);
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
-    25%       { transform: translateX(-6px); }
-    75%       { transform: translateX(6px); }
+    25%       { transform: translateX(-4px); }
+    75%       { transform: translateX(4px); }
   }
 
   /* Field groups */
@@ -607,7 +621,7 @@
 
     <!-- Error -->
     <div class="error-banner" id="errorBanner">
-      ⚠️ อีเมล รหัสผ่าน หรือ Role ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง
+      Login failed. Please check your email, password, and role.
     </div>
 
     <!-- ✅ ใช้ <form id="loginForm"> เพื่อให้ main.js หาเจอและ addEventListener('submit') ทำงานได้ -->

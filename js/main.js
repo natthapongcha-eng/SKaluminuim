@@ -1177,10 +1177,15 @@ function applyRBAC(user) {
     if (!user) return;
 
     currentUser = user;
+    const normalizedRole = String(user.role || '').trim().toUpperCase();
+    const path = window.location.pathname.toLowerCase();
+    const isAttendancePage = path.endsWith('attendance.html');
 
     const userRoleElements = document.querySelectorAll('#userRole');
     userRoleElements.forEach(el => {
-        const roleLabel = user.role === 'CEO' ? 'CEO' : 'Employee';
+        const roleLabel = normalizedRole === 'CEO'
+            ? 'CEO'
+            : (normalizedRole === 'ADMIN' ? 'Admin' : 'Employee');
         const displayName = getUserDisplayName(user);
         const avatar = getUserAvatar(user);
 
@@ -1196,8 +1201,18 @@ function applyRBAC(user) {
 
     setProfileHydrated(true);
 
-    // Hide CEO-only elements for employees
-    if (user.role === 'EMPLOYEE') {
+    // Restrict employee access to attendance page and hide employee-inaccessible navigation.
+    if (normalizedRole === 'EMPLOYEE') {
+        const attendanceLinks = document.querySelectorAll('a[href="attendance.html"]');
+        attendanceLinks.forEach(el => {
+            el.style.display = 'none';
+        });
+
+        if (isAttendancePage) {
+            window.location.href = 'dashboard.html';
+            return;
+        }
+
         const ceoOnlyElements = document.querySelectorAll('.ceo-only');
         ceoOnlyElements.forEach(el => {
             el.style.display = 'none';
@@ -1304,72 +1319,7 @@ if (document.getElementById('addCustomerBtn')) {
 }
 
 // ===== Attendance Page =====
-if (document.getElementById('checkInBtn')) {
-    const checkInBtn = document.getElementById('checkInBtn');
-    const checkOutBtn = document.getElementById('checkOutBtn');
-    const attendanceModal = document.getElementById('attendanceModal');
-    const confirmAttendance = document.getElementById('confirmAttendance');
-    const cancelAttendance = document.getElementById('cancelAttendance');
-    
-    // Update current time
-    function updateCurrentTime() {
-        const currentTimeEl = document.getElementById('currentTime');
-        if (currentTimeEl) {
-            const now = new Date();
-            currentTimeEl.textContent = formatTime(now);
-        }
-    }
-    
-    setInterval(updateCurrentTime, 1000);
-    updateCurrentTime();
-    
-    // Update current date display
-    const currentDateDisplay = document.getElementById('currentDateDisplay');
-    if (currentDateDisplay) {
-        const now = new Date();
-        const daysOfWeek = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
-        const dayName = daysOfWeek[now.getDay()];
-        currentDateDisplay.textContent = `วัน${dayName}ที่ ${formatDate(now)}`;
-    }
-    
-    checkInBtn?.addEventListener('click', function() {
-        document.getElementById('attendanceModalTitle').textContent = 'ยืนยันการเข้างาน';
-        document.getElementById('attendanceModalMessage').textContent = 'คุณต้องการบันทึกเวลาเข้างานใช่หรือไม่?';
-        
-        const now = new Date();
-        document.getElementById('confirmTime').textContent = formatTime(now);
-        document.getElementById('confirmDate').textContent = formatDate(now);
-        
-        openModal('attendanceModal');
-    });
-    
-    checkOutBtn?.addEventListener('click', function() {
-        document.getElementById('attendanceModalTitle').textContent = 'ยืนยันการออกงาน';
-        document.getElementById('attendanceModalMessage').textContent = 'คุณต้องการบันทึกเวลาออกงานใช่หรือไม่?';
-        
-        const now = new Date();
-        document.getElementById('confirmTime').textContent = formatTime(now);
-        document.getElementById('confirmDate').textContent = formatDate(now);
-        
-        openModal('attendanceModal');
-    });
-    
-    confirmAttendance?.addEventListener('click', function() {
-        const note = document.getElementById('attendanceNote').value;
-        alert('บันทึกเวลาเรียบร้อย');
-        closeModal('attendanceModal');
-        document.getElementById('attendanceNote').value = '';
-    });
-    
-    cancelAttendance?.addEventListener('click', function() {
-        closeModal('attendanceModal');
-    });
-    
-    // Export attendance
-    document.getElementById('exportAttendanceBtn')?.addEventListener('click', function() {
-        alert('กำลัง Export ไฟล์ Excel... (ฟีเจอร์นี้จะเชื่อมต่อกับ backend ในภายหลัง)');
-    });
-}
+// Handled by js/pages/attendance.js
 
 // ===== Media Page =====
 if (document.getElementById('uploadMediaBtn')) {
@@ -1559,44 +1509,98 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ===== Login Page Logic =====
+    let loginErrorTimeout = null;
+
     const loginForm = document.getElementById('loginForm');
+
+    function clearLoginError() {
+        const errorBanner = document.getElementById('errorBanner');
+        if (!errorBanner) return;
+
+        if (loginErrorTimeout) {
+            clearTimeout(loginErrorTimeout);
+            loginErrorTimeout = null;
+        }
+
+        errorBanner.style.display = 'none';
+        errorBanner.textContent = '';
+    }
+
+    function showLoginError(message) {
+        const errorBanner = document.getElementById('errorBanner');
+        if (!errorBanner) return;
+
+        if (loginErrorTimeout) {
+            clearTimeout(loginErrorTimeout);
+        }
+
+        errorBanner.textContent = message;
+        errorBanner.style.display = 'block';
+
+        // Re-trigger CSS animation every time a new error is shown.
+        errorBanner.style.animation = 'none';
+        void errorBanner.offsetWidth;
+        errorBanner.style.animation = 'slideDown 0.3s ease-out, shake 0.4s ease 0.1s';
+
+        loginErrorTimeout = setTimeout(() => {
+            errorBanner.style.display = 'none';
+            loginErrorTimeout = null;
+        }, 5000);
+    }
+
     if (loginForm) {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault(); // ปกติฟอร์ม HTML พอส่งข้อมูลเสร็จมันจะทำการ Reload หน้าใหม่ บรรทัดนี้สั่งให้มันอยู่เฉยๆ เพื่อให้ JavaScript จัดการเอง
-            
-            const email = document.getElementById('email').value;
+
+            clearLoginError(); // Cleanup error เดิมทุกครั้งก่อนยิง login ใหม่
+
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
             const role = document.getElementById('role').value;
-            
-            if (email && password && role) {
-                const btn = loginForm.querySelector('button[type="submit"]');
-                const originalText = btn.textContent;
-                btn.textContent = 'กำลังเข้าสู่ระบบ...';
-                btn.disabled = true;
-                
-                try {
-                    // Call API for login
-                    const response = await api.auth.login(email, password, role);
-                    // await จะบอกให้โปรแกรม "หยุดรอ" ที่บรรทัดนี้ก่อน จนกว่าจะได้คำตอบจาก Server จริงๆ ถึงจะเอาคำตอบนั้นไปเก็บไว้ในตัวแปร 
-                    if (response.success) {
-                        // Store user info in sessionStorage
-                        saveSessionUser(response.user);
-                        
-                        // Redirect to dashboard
-                        window.location.href = 'dashboard.html';
-                    } else {
-                        alert(response.message || 'เข้าสู่ระบบไม่สำเร็จ');
-                        btn.textContent = originalText;
-                        btn.disabled = false;
-                    }
-                } catch (error) {
-                    console.error('Login error:', error);
-                    alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง');
-                    btn.textContent = originalText;
-                    btn.disabled = false;
+            const btn = loginForm.querySelector('button[type="submit"]');
+
+            // Validate required fields before sending request
+            if (!email || !password) {
+                showLoginError('Please fill in both email and password.');
+                return;
+            }
+
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            try {
+                // Call API for login
+                const response = await api.auth.login(email, password, role);
+                if (response.success) {
+                    // Store user info in sessionStorage
+                    saveSessionUser(response.user);
+                    // Redirect to dashboard
+                    window.location.href = 'dashboard.html';
+                    return;
                 }
-            } else {
-                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+
+                showLoginError(response.message || 'Login failed: email, password, or role is incorrect.');
+            } catch (error) {
+                console.error('Login error:', error);
+
+                const status = error?.response?.status;
+                const serverMessage = error?.response?.data?.message;
+
+                // Handle server-side validation/auth errors (400/401)
+                if (status === 400 || status === 401) {
+                    const normalizedMessage = serverMessage === 'Invalid credentials'
+                        ? 'Login failed: email, password, or role is incorrect.'
+                        : serverMessage;
+                    showLoginError(normalizedMessage || 'Login failed: email, password, or role is incorrect.');
+                } else if (!error?.response) {
+                    // No response at all (network error)
+                    showLoginError('Cannot connect to the server. Please try again.');
+                } else {
+                    showLoginError(serverMessage || error?.message || 'Login failed. Please try again.');
+                }
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
             }
         });
     }

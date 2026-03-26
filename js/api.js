@@ -21,9 +21,15 @@ const api = {
             
             if (!response.ok) {
                 const fallbackMessage = typeof data === 'string'
-                    ? `API request failed (${response.status})`
-                    : 'API request failed';
-                throw new Error(data?.message || fallbackMessage);
+                    ? data
+                    : `API request failed (${response.status})`;
+                const apiError = new Error(data?.message || fallbackMessage || 'API request failed');
+                apiError.response = {
+                    status: response.status,
+                    data: isJson ? data : { message: fallbackMessage }
+                };
+                apiError.status = response.status;
+                throw apiError;
             }
 
             if (!isJson) {
@@ -222,16 +228,59 @@ const api = {
             const query = new URLSearchParams(params).toString();
             return api.request(`/attendance${query ? '?' + query : ''}`);
         },
-        async checkIn(userId, userName, note = '') {
+        async getDay(date, actor = {}) {
+            const query = new URLSearchParams({
+                date,
+                actorId: actor.id || '',
+                actorRole: actor.role || ''
+            }).toString();
+            return api.request(`/attendance/day?${query}`);
+        },
+        async getAvailableEmployees(date, actor = {}) {
+            const query = new URLSearchParams({
+                date,
+                actorId: actor.id || '',
+                actorRole: actor.role || ''
+            }).toString();
+            return api.request(`/attendance/employees/available?${query}`);
+        },
+        async checkIn(employeeId, employeeName, note = '', date, actor = {}) {
             return api.request('/attendance/check-in', {
                 method: 'POST',
-                body: JSON.stringify({ userId, userName, note })
+                body: JSON.stringify({
+                    employeeId,
+                    employeeName,
+                    note,
+                    date,
+                    actorId: actor.id,
+                    actorRole: actor.role,
+                    actorName: actor.name || actor.email || ''
+                })
             });
         },
-        async checkOut(userId, note = '') {
+        async checkOut(employeeId, note = '', date, actor = {}) {
             return api.request('/attendance/check-out', {
                 method: 'POST',
-                body: JSON.stringify({ userId, note })
+                body: JSON.stringify({
+                    employeeId,
+                    note,
+                    date,
+                    actorId: actor.id,
+                    actorRole: actor.role,
+                    actorName: actor.name || actor.email || ''
+                })
+            });
+        },
+        async updateCheckout(recordId, checkOutTime, note = '', actor = {}) {
+            return api.request(`/attendance/${recordId}/checkout`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    checkOutTime,
+                    note,
+                    actorId: actor.id,
+                    actorRole: actor.role,
+                    actorName: actor.name || actor.email || ''
+                })
             });
         },
         async getToday(userId) {
@@ -240,6 +289,14 @@ const api = {
         async getStats(params = {}) {
             const query = new URLSearchParams(params).toString();
             return api.request(`/attendance/stats/summary${query ? '?' + query : ''}`);
+        },
+        async getCalendarSummary(month, actor = {}) {
+            const query = new URLSearchParams({
+                month,
+                actorId: actor.id || '',
+                actorRole: actor.role || ''
+            }).toString();
+            return api.request(`/attendance/calendar/summary?${query}`);
         }
     },
     
