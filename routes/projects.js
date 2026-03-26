@@ -2,30 +2,255 @@ const express = require('express');
 const router = express.Router();
 const Project = require('../models/Project');
 const Customer = require('../models/Customer');
+const Material = require('../models/Inventory');
+const StockLog = require('../models/StockLog');
+
+const STATUS_VALUES = new Set(['planning', 'in-progress', 'completed', 'cancelled']);
+const PAYMENT_VALUES = new Set(['unpaid', 'partial', 'paid']);
+const LOCKED_CANCEL_STATUS = { status: 'completed', paymentStatus: 'paid' };
+
+function normalizeStatus(status) {
+    return STATUS_VALUES.has(status) ? status : 'planning';
+}
+
+function normalizePaymentStatus(paymentStatus) {
+    return PAYMENT_VALUES.has(paymentStatus) ? paymentStatus : 'unpaid';
+}
+
+function isCompletedAndPaid(projectLike) {
+    return projectLike?.status === LOCKED_CANCEL_STATUS.status
+        && projectLike?.paymentStatus === LOCKED_CANCEL_STATUS.paymentStatus;
+}
+
+function parseTotalPrice(value) {
+    const totalPrice = Number(value || 0);
+    return Number.isFinite(totalPrice) && totalPrice >= 0 ? totalPrice : 0;
+}
+
+function parseOptionalDate(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function sumMaterialCost(materials = []) {
+    return materials.reduce((sum, item) => sum + Number(item.total || 0), 0);
+}
+
+async function validateCustomer(customerId) {
+    if (!customerId) {
+        throw new Error('customerId is required');
+    }
+
+    const customerExists = await Customer.exists({ _id: customerId });
+    if (!customerExists) {
+        throw new Error('Customer not found');
+    }
+}
+
+async function buildProjectMaterials(inputMaterials = []) {
+    if (!Array.isArray(inputMaterials) || inputMaterials.length === 0) {
+        return [];
+    }
+
+    const requestedItems = inputMaterials
+        .map(item => {
+            const materialId = item?.materialId || item?.id;
+            const qty = Number(item?.qty || item?.quantity || 0);
+            return { materialId, qty };
+        })
+        .filter(item => item.materialId && Number.isFinite(item.qty) && item.qty > 0);
+
+    if (requestedItems.length === 0) {
+        return [];
+    }
+
+    const materialIds = [...new Set(requestedItems.map(item => String(item.materialId)))];
+    const materials = await Material.find({ _id: { $in: materialIds } })
+        .select('name specification unit unitPrice')
+        .lean();
+
+    const materialMap = new Map(materials.map(item => [String(item._id), item]));
+
+    const missingIds = materialIds.filter(id => !materialMap.has(id));
+    if (missingIds.length > 0) {
+        throw new Error('Some selected materials were not found in inventory');
+    }
+
+    return requestedItems.map(item => {
+        const material = materialMap.get(String(item.materialId));
+        const unitPrice = Number(material.unitPrice || 0);
+        const total = unitPrice * item.qty;
+
+        return {
+            materialId: material._id,
+            name: material.name,
+            specification: material.specification || '',
+            unit: material.unit || '',
+            qty: item.qty,
+            unitPrice,
+            total
+        };
+    });
+}
+
+async function deductStockForProject(project, userId) {
+    const materials = Array.isArray(project.materials) ? project.materials : [];
+    if (materials.length === 0) {
+        project.stockDeducted = true;
+        project.stockRestored = false;
+        project.stockDeductedAt = new Date();
+        project.stockRestoredAt = null;
+        return;
+    }
+
+    const materialIds = materials.map(item => item.materialId);
+    const inventoryItems = await Material.find({ _id: { $in: materialIds } });
+    const inventoryMap = new Map(inventoryItems.map(item => [String(item._id), item]));
+
+    for (const used of materials) {
+        const stockItem = inventoryMap.get(String(used.materialId));
+        const qty = Number(used.qty || 0);
+
+        if (!stockItem) {
+            throw new Error(`Material not found in inventory: ${used.name || used.materialId}`);
+        }
+        if (stockItem.quantity < qty) {
+            throw new Error(`Insufficient stock for ${stockItem.name}`);
+        }
+    }
+
+    for (const used of materials) {
+        const stockItem = inventoryMap.get(String(used.materialId));
+        const qty = Number(used.qty || 0);
+        const previousStock = stockItem.quantity;
+
+        stockItem.quantity -= qty;
+        stockItem.lastUpdated = Date.now();
+        await stockItem.save();
+
+        await StockLog.create({
+            inventoryId: stockItem._id,
+            itemName: stockItem.name,
+            type: 'out',
+            quantity: qty,
+            previousStock,
+            newStock: stockItem.quantity,
+            projectId: project._id,
+            reason: 'Auto stock-out when project moved to in-progress',
+            createdBy: userId
+        });
+    }
+
+    project.stockDeducted = true;
+    project.stockRestored = false;
+    project.stockDeductedAt = new Date();
+    project.stockRestoredAt = null;
+}
+
+async function restoreStockForProject(project, userId) {
+    const materials = Array.isArray(project.materials) ? project.materials : [];
+    if (materials.length === 0) {
+        project.stockRestored = true;
+        project.stockRestoredAt = new Date();
+        return;
+    }
+
+    const materialIds = materials.map(item => item.materialId);
+    const inventoryItems = await Material.find({ _id: { $in: materialIds } });
+    const inventoryMap = new Map(inventoryItems.map(item => [String(item._id), item]));
+
+    for (const used of materials) {
+        const stockItem = inventoryMap.get(String(used.materialId));
+        const qty = Number(used.qty || 0);
+
+        if (!stockItem) {
+            throw new Error(`Material not found in inventory: ${used.name || used.materialId}`);
+        }
+
+        const previousStock = stockItem.quantity;
+        stockItem.quantity += qty;
+        stockItem.lastUpdated = Date.now();
+        await stockItem.save();
+
+        await StockLog.create({
+            inventoryId: stockItem._id,
+            itemName: stockItem.name,
+            type: 'in',
+            quantity: qty,
+            previousStock,
+            newStock: stockItem.quantity,
+            projectId: project._id,
+            reason: 'Auto stock-restore when project cancelled',
+            createdBy: userId
+        });
+    }
+
+    project.stockRestored = true;
+    project.stockRestoredAt = new Date();
+}
 
 // Get all projects
 router.get('/', async (req, res) => {
     try {
         const { status, paymentStatus, search } = req.query;
-        let query = {};
-        
-        if (status) query.status = status;
-        if (paymentStatus) query.paymentStatus = paymentStatus;
-        
+        const query = {};
+
+        if (STATUS_VALUES.has(status)) query.status = status;
+        if (PAYMENT_VALUES.has(paymentStatus)) query.paymentStatus = paymentStatus;
+
         let projects = await Project.find(query)
-            .populate('customerId', 'customerName customerPhone address')
+            .populate('customerId', 'name phone address')
             .populate('assignedTeam', 'username role')
             .sort({ createdAt: -1 });
-        
-        // Filter by customer name if search is provided
+
         if (search) {
-            const searchLower = search.toLowerCase();
-            projects = projects.filter(p => 
-                p.customerId?.customerName?.toLowerCase().includes(searchLower)
-            );
+            const keyword = search.toLowerCase();
+            projects = projects.filter(project => {
+                const projectName = String(project.name || '').toLowerCase();
+                const customerName = String(project.customerId?.name || '').toLowerCase();
+                return projectName.includes(keyword) || customerName.includes(keyword);
+            });
         }
-        
+
         res.json(projects);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get summary stats
+router.get('/stats/summary', async (req, res) => {
+    try {
+        const total = await Project.countDocuments();
+        const planning = await Project.countDocuments({ status: 'planning' });
+        const inProgress = await Project.countDocuments({ status: 'in-progress' });
+        const completed = await Project.countDocuments({ status: 'completed' });
+
+        const financials = await Project.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalCost: { $sum: '$totalCost' },
+                    totalPrice: { $sum: '$totalPrice' }
+                }
+            }
+        ]);
+
+        const unpaidCount = await Project.countDocuments({ paymentStatus: 'unpaid' });
+        const partialCount = await Project.countDocuments({ paymentStatus: 'partial' });
+        const paidCount = await Project.countDocuments({ paymentStatus: 'paid' });
+
+        res.json({
+            total,
+            planning,
+            inProgress,
+            completed,
+            totalCost: financials[0]?.totalCost || 0,
+            totalPrice: financials[0]?.totalPrice || 0,
+            profit: (financials[0]?.totalPrice || 0) - (financials[0]?.totalCost || 0),
+            paymentStats: { unpaid: unpaidCount, partial: partialCount, paid: paidCount }
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -37,6 +262,7 @@ router.get('/:id', async (req, res) => {
         const project = await Project.findById(req.params.id)
             .populate('customerId', 'name phone address email')
             .populate('assignedTeam', 'username role');
+
         if (!project) return res.status(404).json({ message: 'Project not found' });
         res.json(project);
     } catch (error) {
@@ -44,69 +270,206 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// Create project
+// Create project (does not deduct stock)
 router.post('/', async (req, res) => {
     try {
-        const project = new Project(req.body);
-        await project.save();
-        res.status(201).json(project);
+        await validateCustomer(req.body.customerId);
+        const name = String(req.body.name || '').trim();
+        if (!name) {
+            return res.status(400).json({ message: 'Project name is required' });
+        }
+
+        const materials = await buildProjectMaterials(req.body.materials);
+        const totalCost = sumMaterialCost(materials);
+
+        const project = await Project.create({
+            name,
+            customerId: req.body.customerId,
+            totalCost,
+            totalPrice: parseTotalPrice(req.body.totalPrice),
+            paymentStatus: 'unpaid',
+            status: 'planning',
+            team: String(req.body.team || ''),
+            startDate: parseOptionalDate(req.body.startDate),
+            endDate: parseOptionalDate(req.body.endDate),
+            description: req.body.description,
+            materials,
+            stockDeducted: false,
+            stockRestored: false
+        });
+
+        const populated = await Project.findById(project._id)
+            .populate('customerId', 'name phone address')
+            .populate('assignedTeam', 'username role');
+
+        res.status(201).json(populated);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
 });
 
-// Update project
+// Update full project data
 router.put('/:id', async (req, res) => {
     try {
-        const project = await Project.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        res.json(project);
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ message: 'ไม่พบโครงการ' });
+
+        if (req.body.customerId) {
+            await validateCustomer(req.body.customerId);
+            project.customerId = req.body.customerId;
+        }
+
+        if (typeof req.body.name === 'string') {
+            const name = req.body.name.trim();
+            if (!name) return res.status(400).json({ message: 'กรุณาระบุชื่อโครงการ' });
+            project.name = name;
+        }
+
+        const nextStatus = req.body.status !== undefined
+            ? normalizeStatus(req.body.status)
+            : project.status;
+        const nextPayment = req.body.paymentStatus !== undefined
+            ? normalizePaymentStatus(req.body.paymentStatus)
+            : project.paymentStatus;
+
+        if (isCompletedAndPaid(project) && nextStatus === 'cancelled') {
+            return res.status(400).json({ message: 'โครงการเสร็จสิ้นและชำระเงินแล้ว ไม่สามารถยกเลิกได้' });
+        }
+
+        if (req.body.materials !== undefined) {
+            const isLockedByStatus = ['in-progress', 'completed'].includes(project.status) || ['in-progress', 'completed'].includes(nextStatus);
+            if (isLockedByStatus || (project.stockDeducted && !project.stockRestored)) {
+                return res.status(400).json({ message: 'ไม่สามารถเพิ่ม/ลบวัสดุได้ เมื่อโครงการอยู่ระหว่างดำเนินการหรือเสร็จสิ้น' });
+            }
+            project.materials = await buildProjectMaterials(req.body.materials);
+            project.totalCost = sumMaterialCost(project.materials);
+        }
+
+        if (req.body.totalPrice !== undefined) project.totalPrice = parseTotalPrice(req.body.totalPrice);
+        if (req.body.team !== undefined) project.team = String(req.body.team || '');
+        if (req.body.startDate !== undefined) project.startDate = parseOptionalDate(req.body.startDate);
+        if (req.body.endDate !== undefined) project.endDate = parseOptionalDate(req.body.endDate);
+        if (req.body.description !== undefined) project.description = req.body.description;
+
+        const shouldDeduct = nextStatus === 'in-progress' && (!project.stockDeducted || project.stockRestored);
+        const shouldRestore = nextStatus === 'cancelled' && project.stockDeducted && !project.stockRestored;
+
+        if (shouldDeduct) {
+            await deductStockForProject(project, req.body?.userId);
+        }
+        if (shouldRestore) {
+            await restoreStockForProject(project, req.body?.userId);
+        }
+
+        project.status = nextStatus;
+        project.paymentStatus = nextPayment;
+
+        await project.save();
+
+        const updated = await Project.findById(project._id)
+            .populate('customerId', 'name phone address')
+            .populate('assignedTeam', 'username role');
+
+        res.json(updated);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
 });
 
-// Delete project
-router.delete('/:id', async (req, res) => {
+// Update status only (with stock behavior)
+router.patch('/:id/status', async (req, res) => {
     try {
-        await Project.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Project deleted' });
+        const { status, paymentStatus, userId } = req.body;
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ message: 'ไม่พบโครงการ' });
+
+        const nextStatus = normalizeStatus(status ?? project.status);
+        const nextPayment = normalizePaymentStatus(paymentStatus ?? project.paymentStatus);
+
+        if (isCompletedAndPaid(project) && nextStatus === 'cancelled') {
+            return res.status(400).json({ message: 'โครงการเสร็จสิ้นและชำระเงินแล้ว ไม่สามารถยกเลิกได้' });
+        }
+
+        const shouldDeduct = nextStatus === 'in-progress' && (!project.stockDeducted || project.stockRestored);
+        const shouldRestore = nextStatus === 'cancelled' && project.stockDeducted && !project.stockRestored;
+
+        if (shouldDeduct) {
+            await deductStockForProject(project, userId);
+        }
+
+        if (shouldRestore) {
+            await restoreStockForProject(project, userId);
+        }
+
+        const noChange = nextStatus === project.status && nextPayment === project.paymentStatus;
+        if (noChange && !shouldDeduct && !shouldRestore) {
+            return res.json(project);
+        }
+
+        project.status = nextStatus;
+        project.paymentStatus = nextPayment;
+
+        await project.save();
+
+        const updated = await Project.findById(project._id)
+            .populate('customerId', 'name phone address')
+            .populate('assignedTeam', 'username role');
+
+        res.json(updated);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(400).json({ message: error.message });
     }
 });
 
-// Get project stats
-router.get('/stats/summary', async (req, res) => {
+// Cancel project + auto restore stock
+router.patch('/:id/cancel', async (req, res) => {
     try {
-        const total = await Project.countDocuments();
-        const pending = await Project.countDocuments({ status: 'รอดำเนินการ' });
-        const inProgress = await Project.countDocuments({ status: 'กำลังดำเนินการ' });
-        const completed = await Project.countDocuments({ status: 'เสร็จสิ้น' });
-        
-        const financials = await Project.aggregate([
-            { 
-                $group: { 
-                    _id: null, 
-                    totalCost: { $sum: '$totalCost' },
-                    totalPrice: { $sum: '$totalPrice' }
-                } 
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ message: 'ไม่พบโครงการ' });
+
+        if (isCompletedAndPaid(project)) {
+            return res.status(400).json({ message: 'โครงการเสร็จสิ้นและชำระเงินแล้ว ไม่สามารถยกเลิกได้' });
+        }
+
+        if (project.status === 'cancelled') {
+            if (project.stockDeducted && !project.stockRestored) {
+                await restoreStockForProject(project, req.body?.userId);
+                await project.save();
             }
-        ]);
-        
-        const unpaidCount = await Project.countDocuments({ paymentStatus: 'unpaid' });
-        const partialCount = await Project.countDocuments({ paymentStatus: 'partial' });
-        const paidCount = await Project.countDocuments({ paymentStatus: 'paid' });
-        
-        res.json({
-            total,
-            pending,
-            inProgress,
-            completed,
-            totalCost: financials[0]?.totalCost || 0,
-            totalPrice: financials[0]?.totalPrice || 0,
-            profit: (financials[0]?.totalPrice || 0) - (financials[0]?.totalCost || 0),
-            paymentStats: { unpaid: unpaidCount, partial: partialCount, paid: paidCount }
-        });
+            return res.json(project);
+        }
+
+        if (project.stockDeducted && !project.stockRestored) {
+            await restoreStockForProject(project, req.body?.userId);
+        }
+
+        project.status = 'cancelled';
+        await project.save();
+
+        const updated = await Project.findById(project._id)
+            .populate('customerId', 'name phone address')
+            .populate('assignedTeam', 'username role');
+
+        res.json(updated);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// Delete project (allowed only if no outstanding stock deduction)
+router.delete('/:id', async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ message: 'ไม่พบโครงการ' });
+
+        if (project.stockDeducted && !project.stockRestored) {
+            return res.status(400).json({
+                message: 'โครงการนี้มีการตัดสต๊อกแล้ว กรุณายกเลิกโครงการเพื่อคืนสต๊อกก่อนลบ'
+            });
+        }
+
+        await Project.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Project deleted' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
