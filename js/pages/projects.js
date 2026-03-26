@@ -2,6 +2,7 @@
 const ProjectsPage = {
     projects: [],
     customers: [],
+    quotations: [],
     materials: [],
     projectMaterials: [],
     selectedMaterial: null,
@@ -10,6 +11,8 @@ const ProjectsPage = {
     currentStatusProjectId: null,
     menuEventsBound: false,
     pendingActions: new Set(),
+    isSyncingFromQuotation: false,
+    isManualCostOverride: false,
     STATUS_LABELS: {
         planning: '\u0e27\u0e32\u0e07\u0e41\u0e1c\u0e19',
         'in-progress': '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23',
@@ -26,6 +29,7 @@ const ProjectsPage = {
         await Promise.all([
             this.loadProjects(),
             this.loadCustomers(),
+            this.loadQuotations(),
             this.loadMaterials()
         ]);
         this.localizeStatusLabels();
@@ -369,7 +373,12 @@ const ProjectsPage = {
     updateCostFromMaterials() {
         const sum = this.projectMaterials.reduce((a, m) => a + Number(m.total || 0), 0);
         const costInput = document.getElementById('projectCost');
-        if (costInput) costInput.value = sum;
+        if (!costInput) return;
+
+        const hasTypedValue = String(costInput.value || '').trim() !== '';
+        if (this.isManualCostOverride || hasTypedValue) return;
+
+        costInput.value = sum;
     },
 
     async loadProjects() {
@@ -391,10 +400,24 @@ const ProjectsPage = {
             const customers = await api.customers.getAll();
             this.customers = Array.isArray(customers) ? customers : [];
             this.populateCustomerDropdown();
+            this.populateQuotationDropdown();
         } catch (error) {
             console.error('Error loading customers:', error);
             this.customers = [];
             this.populateCustomerDropdown();
+            this.populateQuotationDropdown();
+        }
+    },
+
+    async loadQuotations() {
+        try {
+            const quotations = await api.quotations.getAll();
+            this.quotations = Array.isArray(quotations) ? quotations : [];
+            this.populateQuotationDropdown();
+        } catch (error) {
+            console.error('Error loading quotations:', error);
+            this.quotations = [];
+            this.populateQuotationDropdown();
         }
     },
 
@@ -404,6 +427,168 @@ const ProjectsPage = {
 
         select.innerHTML = '<option value="">Select customer</option>' +
             this.customers.map(c => `<option value="${c._id}">${c.name || '-'}</option>`).join('');
+    },
+
+    getQuotationCustomerId(quotation) {
+        const directId = typeof quotation?.customerId === 'object'
+            ? quotation?.customerId?._id
+            : quotation?.customerId;
+        if (directId) return String(directId);
+
+        if (quotation?.customer) return String(quotation.customer);
+
+        const quotationCustomerName = String(quotation?.customerName || '').trim().toLowerCase();
+        if (!quotationCustomerName) return '';
+
+        const matchedCustomer = this.customers.find((customer) => {
+            return String(customer?.name || '').trim().toLowerCase() === quotationCustomerName;
+        });
+
+        return matchedCustomer ? String(matchedCustomer._id) : '';
+    },
+
+    getQuotationNetPrice(quotation) {
+        const subtotal = Number(quotation?.subtotal);
+        const discount = Number(quotation?.discount || 0);
+        if (Number.isFinite(subtotal)) {
+            return Math.max(0, subtotal - (Number.isFinite(discount) ? discount : 0));
+        }
+
+        return Number(quotation?.totalAmount || 0);
+    },
+
+    populateQuotationDropdown() {
+        const select = document.getElementById('projectQuotation');
+        if (!select) return;
+
+        const selectedCustomerId = document.getElementById('projectCustomer')?.value || '';
+        const sortedQuotations = [...this.quotations].sort((a, b) => {
+            if (!selectedCustomerId) return 0;
+            const aMatch = String(this.getQuotationCustomerId(a) || '') === String(selectedCustomerId);
+            const bMatch = String(this.getQuotationCustomerId(b) || '') === String(selectedCustomerId);
+            if (aMatch === bMatch) return 0;
+            return aMatch ? -1 : 1;
+        });
+
+        const options = sortedQuotations.map((q) => {
+            const number = q.quotationNumber || '-';
+            const netPrice = this.getQuotationNetPrice(q);
+            const net = netPrice.toLocaleString('th-TH');
+            const customerName = typeof q.customerId === 'object'
+                ? (q.customerId?.name || q.customerName || '-')
+                : (q.customerName || '-');
+            return `<option value="${q._id}" data-net-price="${netPrice}">${number} - ${customerName} (THB ${net})</option>`;
+        }).join('');
+
+        const currentValue = select.dataset.currentValue || select.value || '';
+        select.innerHTML = '<option value="">ไม่ผูกใบเสนอราคา</option>' + options;
+
+        if (currentValue && sortedQuotations.some(q => String(q._id) === String(currentValue))) {
+            select.value = currentValue;
+        } else {
+            select.value = '';
+        }
+
+    },
+
+    findMaterialForQuotationItem(item) {
+        const qName = String(item?.name || '').trim().toLowerCase();
+        const qUnit = String(item?.unit || '').trim().toLowerCase();
+        if (!qName) return null;
+
+        const exact = this.materials.find((m) => {
+            const mName = String(m?.name || '').trim().toLowerCase();
+            const mUnit = String(m?.unit || '').trim().toLowerCase();
+            return mName === qName && (!qUnit || mUnit === qUnit);
+        });
+        if (exact) return exact;
+
+        return this.materials.find((m) => String(m?.name || '').trim().toLowerCase() === qName) || null;
+    },
+
+    applyQuotationToProjectFields(quotation) {
+        if (!quotation) return;
+
+        const quotationSelect = document.getElementById('projectQuotation');
+        const customerSelect = document.getElementById('projectCustomer');
+        const nameInput = document.getElementById('projectName');
+        const descInput = document.getElementById('projectDescription');
+        const customerId = this.getQuotationCustomerId(quotation);
+
+        if (customerSelect && customerId) {
+            this.isSyncingFromQuotation = true;
+            customerSelect.value = String(customerId);
+            this.populateQuotationDropdown();
+            if (quotationSelect) {
+                quotationSelect.dataset.currentValue = String(quotation._id || '');
+                quotationSelect.value = String(quotation._id || '');
+            }
+            this.isSyncingFromQuotation = false;
+        }
+
+        if (nameInput && !nameInput.value.trim()) {
+            nameInput.value = quotation.quotationNumber ? `Project ${quotation.quotationNumber}` : 'Project จากใบเสนอราคา';
+        }
+
+        const quotationItems = Array.isArray(quotation.items) ? quotation.items : [];
+        const mappedMaterials = [];
+        const unmatchedItems = [];
+
+        quotationItems.forEach((item) => {
+            const qty = Number(item?.quantity || 0);
+            if (!Number.isFinite(qty) || qty <= 0) return;
+
+            const matched = this.findMaterialForQuotationItem(item);
+            if (!matched) {
+                unmatchedItems.push(item?.name || '-');
+                return;
+            }
+
+            const unitPrice = Number(matched.unitPrice || 0);
+            mappedMaterials.push({
+                id: matched._id,
+                sku: String(matched._id || '').slice(-6).toUpperCase(),
+                name: matched.name || '-',
+                spec: matched.specification || '',
+                unit: matched.unit || item.unit || '',
+                qty,
+                price: unitPrice,
+                total: qty * unitPrice
+            });
+        });
+
+        this.projectMaterials = mappedMaterials;
+        this.renderProjectMaterialsList();
+
+        if (descInput && !descInput.value.trim()) {
+            const quoteLabel = quotation.quotationNumber ? `อ้างอิงใบเสนอราคา ${quotation.quotationNumber}` : 'อ้างอิงใบเสนอราคา';
+            descInput.value = quoteLabel;
+        }
+
+        if (unmatchedItems.length > 0) {
+            this.notify(`จับคู่วัสดุจากใบเสนอราคาไม่ได้ ${unmatchedItems.length} รายการ`, 'info');
+        }
+    },
+
+    handleQuotationChange(options = {}) {
+        const { shouldAutofill = true } = options;
+        const quotationSelect = document.getElementById('projectQuotation');
+        const sellInput = document.getElementById('projectSellPrice');
+        if (!quotationSelect || !sellInput) return;
+
+        const selectedOption = quotationSelect.selectedOptions?.[0];
+        const netPrice = Number(selectedOption?.dataset?.netPrice || 0);
+        sellInput.value = Number.isFinite(netPrice) ? netPrice : 0;
+
+        if (!shouldAutofill) return;
+
+        const quotationId = quotationSelect.value;
+        if (!quotationId) return;
+
+        const quotation = this.quotations.find((q) => String(q._id) === String(quotationId));
+        if (!quotation) return;
+
+        this.applyQuotationToProjectFields(quotation);
     },
 
     renderProjectsGrid(projects) {
@@ -425,10 +610,9 @@ const ProjectsPage = {
             const paymentBadge = this.getPaymentBadge(project.paymentStatus);
             const totalCost = Math.max(0, Number(project.totalCost || 0));
             const totalPrice = Math.max(0, Number(project.totalPrice || 0));
-            const rawProfit = totalPrice - totalCost;
+            const profit = totalPrice - totalCost;
+            const profitClass = profit < 0 ? 'loss' : '';
             const isSuccessful = project.status === 'completed' && project.paymentStatus === 'paid';
-            const profit = isSuccessful ? rawProfit : -Math.abs(totalCost - totalPrice);
-            const profitClass = isSuccessful ? '' : 'loss';
             const cancelLocked = isSuccessful;
 
             return `
@@ -606,9 +790,16 @@ const ProjectsPage = {
         document.getElementById('addProjectBtn')?.addEventListener('click', () => {
             this.currentProjectId = null;
             this.currentProjectStatus = null;
+            this.isManualCostOverride = false;
             this.projectMaterials = [];
             this.renderProjectMaterialsList();
             document.getElementById('addProjectForm')?.reset();
+            const quotationSelect = document.getElementById('projectQuotation');
+            if (quotationSelect) {
+                quotationSelect.dataset.currentValue = '';
+            }
+            this.populateQuotationDropdown();
+            this.handleQuotationChange({ shouldAutofill: false });
             const submitBtn = document.querySelector('#addProjectForm button[type="submit"]');
             if (submitBtn) submitBtn.textContent = '\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23';
             openModal('addProjectModal');
@@ -633,6 +824,29 @@ const ProjectsPage = {
             this.filterMaterialOptions(e.target.value);
         });
 
+        document.getElementById('projectCustomer')?.addEventListener('change', () => {
+            const quotationSelect = document.getElementById('projectQuotation');
+            if (quotationSelect && !this.isSyncingFromQuotation) {
+                quotationSelect.dataset.currentValue = '';
+            }
+            this.populateQuotationDropdown();
+            if (!this.isSyncingFromQuotation) {
+                this.handleQuotationChange({ shouldAutofill: false });
+            }
+        });
+
+        document.getElementById('projectQuotation')?.addEventListener('change', () => {
+            this.handleQuotationChange({ shouldAutofill: true });
+        });
+
+        document.getElementById('projectCost')?.addEventListener('input', () => {
+            this.isManualCostOverride = true;
+        });
+
+        document.getElementById('projectCost')?.addEventListener('change', () => {
+            this.isManualCostOverride = true;
+        });
+
         const searchInput = document.getElementById('searchProject');
         const filterPayment = document.getElementById('filterPaymentStatus');
         const filterStatus = document.getElementById('filterStatus');
@@ -647,13 +861,22 @@ const ProjectsPage = {
         closeModal('addProjectModal');
         this.currentProjectId = null;
         this.currentProjectStatus = null;
+        this.isManualCostOverride = false;
         this.projectMaterials = [];
+        const quotationSelect = document.getElementById('projectQuotation');
+        if (quotationSelect) {
+            quotationSelect.dataset.currentValue = '';
+        }
         this.renderProjectMaterialsList();
+        this.populateQuotationDropdown();
+        this.handleQuotationChange({ shouldAutofill: false });
     },
 
     async saveProject() {
         const name = document.getElementById('projectName')?.value?.trim();
         const customerId = document.getElementById('projectCustomer')?.value;
+        const parsedCost = parseFloat(document.getElementById('projectCost')?.value);
+        const totalCost = Number.isFinite(parsedCost) && parsedCost >= 0 ? parsedCost : 0;
 
         if (!name) {
             this.notify('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e01\u0e23\u0e2d\u0e01\u0e0a\u0e37\u0e48\u0e2d\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23', 'error');
@@ -668,7 +891,9 @@ const ProjectsPage = {
         const formData = {
             name,
             customerId,
-            totalPrice: 0,
+            quotationId: document.getElementById('projectQuotation')?.value || null,
+            totalCost,
+            totalPrice: Number(document.getElementById('projectSellPrice')?.value || 0),
             team: document.getElementById('projectTeam')?.value || '',
             startDate: document.getElementById('projectStartDate')?.value || null,
             endDate: document.getElementById('projectEndDate')?.value || null,
@@ -702,6 +927,7 @@ const ProjectsPage = {
 
         this.currentProjectId = id;
         this.currentProjectStatus = project.status || null;
+        this.isManualCostOverride = true;
         this.projectMaterials = Array.isArray(project.materials)
             ? project.materials.map(m => ({
                 id: m.materialId || m.id,
@@ -722,6 +948,7 @@ const ProjectsPage = {
         const fields = {
             projectName: project.name,
             projectCustomer,
+            projectSellPrice: Number(project.totalPrice || 0),
             projectTeam: project.team || '',
             projectStartDate: project.startDate ? String(project.startDate).split('T')[0] : '',
             projectEndDate: project.endDate ? String(project.endDate).split('T')[0] : '',
@@ -735,6 +962,14 @@ const ProjectsPage = {
                 el.value = value;
             }
         });
+
+        const quotationSelect = document.getElementById('projectQuotation');
+        const projectQuotation = typeof project.quotationId === 'object' ? project.quotationId?._id : project.quotationId;
+        if (quotationSelect) {
+            quotationSelect.dataset.currentValue = projectQuotation ? String(projectQuotation) : '';
+        }
+        this.populateQuotationDropdown();
+        this.handleQuotationChange({ shouldAutofill: false });
 
         const submitBtn = document.querySelector('#addProjectForm button[type="submit"]');
         if (submitBtn) submitBtn.textContent = '\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e42\u0e04\u0e23\u0e07\u0e01\u0e32\u0e23';

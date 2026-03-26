@@ -4,6 +4,7 @@ const Project = require('../models/Project');
 const Customer = require('../models/Customer');
 const Material = require('../models/Inventory');
 const StockLog = require('../models/StockLog');
+const Quotation = require('../models/Quotation');
 
 const STATUS_VALUES = new Set(['planning', 'in-progress', 'completed', 'cancelled']);
 const PAYMENT_VALUES = new Set(['unpaid', 'partial', 'paid']);
@@ -25,6 +26,42 @@ function isCompletedAndPaid(projectLike) {
 function parseTotalPrice(value) {
     const totalPrice = Number(value || 0);
     return Number.isFinite(totalPrice) && totalPrice >= 0 ? totalPrice : 0;
+}
+
+function parseTotalCost(value) {
+    const totalCost = Number(value || 0);
+    return Number.isFinite(totalCost) && totalCost >= 0 ? totalCost : 0;
+}
+
+async function resolveQuotationPricing({ customerId, quotationId, fallbackTotalPrice }) {
+    if (!quotationId) {
+        const parsed = parseTotalPrice(fallbackTotalPrice);
+        return { quotationId: null, quotedNetPrice: parsed, totalPrice: parsed };
+    }
+
+    const quotation = await Quotation.findById(quotationId)
+        .select('customerId subtotal discount totalAmount')
+        .lean();
+
+    if (!quotation) {
+        throw new Error('Quotation not found');
+    }
+
+    if (customerId && quotation.customerId && String(quotation.customerId) !== String(customerId)) {
+        throw new Error('Selected quotation does not belong to this customer');
+    }
+
+    const hasSubtotal = Number.isFinite(Number(quotation.subtotal));
+    const discount = Number(quotation.discount || 0);
+    const fromSubtotal = Number(quotation.subtotal || 0) - (Number.isFinite(discount) ? discount : 0);
+    const quotedNetPrice = hasSubtotal
+        ? parseTotalPrice(fromSubtotal)
+        : parseTotalPrice(quotation.totalAmount);
+    return {
+        quotationId: quotation._id,
+        quotedNetPrice,
+        totalPrice: quotedNetPrice
+    };
 }
 
 function parseOptionalDate(value) {
@@ -201,6 +238,7 @@ router.get('/', async (req, res) => {
 
         let projects = await Project.find(query)
             .populate('customerId', 'name phone address')
+            .populate('quotationId', 'quotationNumber totalAmount status')
             .populate('assignedTeam', 'username role')
             .sort({ createdAt: -1 });
 
@@ -261,6 +299,7 @@ router.get('/:id', async (req, res) => {
     try {
         const project = await Project.findById(req.params.id)
             .populate('customerId', 'name phone address email')
+            .populate('quotationId', 'quotationNumber totalAmount status')
             .populate('assignedTeam', 'username role');
 
         if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -280,13 +319,22 @@ router.post('/', async (req, res) => {
         }
 
         const materials = await buildProjectMaterials(req.body.materials);
-        const totalCost = sumMaterialCost(materials);
+        const materialCost = sumMaterialCost(materials);
+        const hasManualCost = req.body.totalCost !== undefined && req.body.totalCost !== null && req.body.totalCost !== '';
+        const totalCost = hasManualCost ? parseTotalCost(req.body.totalCost) : materialCost;
+        const pricing = await resolveQuotationPricing({
+            customerId: req.body.customerId,
+            quotationId: req.body.quotationId,
+            fallbackTotalPrice: req.body.totalPrice
+        });
 
         const project = await Project.create({
             name,
             customerId: req.body.customerId,
+            quotationId: pricing.quotationId,
             totalCost,
-            totalPrice: parseTotalPrice(req.body.totalPrice),
+            totalPrice: pricing.totalPrice,
+            quotedNetPrice: pricing.quotedNetPrice,
             paymentStatus: 'unpaid',
             status: 'planning',
             team: String(req.body.team || ''),
@@ -300,6 +348,7 @@ router.post('/', async (req, res) => {
 
         const populated = await Project.findById(project._id)
             .populate('customerId', 'name phone address')
+            .populate('quotationId', 'quotationNumber totalAmount status')
             .populate('assignedTeam', 'username role');
 
         res.status(201).json(populated);
@@ -345,7 +394,20 @@ router.put('/:id', async (req, res) => {
             project.totalCost = sumMaterialCost(project.materials);
         }
 
-        if (req.body.totalPrice !== undefined) project.totalPrice = parseTotalPrice(req.body.totalPrice);
+        if (req.body.totalCost !== undefined) {
+            project.totalCost = parseTotalCost(req.body.totalCost);
+        }
+
+        if (req.body.totalPrice !== undefined || req.body.quotationId !== undefined) {
+            const pricing = await resolveQuotationPricing({
+                customerId: project.customerId,
+                quotationId: req.body.quotationId,
+                fallbackTotalPrice: req.body.totalPrice
+            });
+            project.quotationId = pricing.quotationId;
+            project.quotedNetPrice = pricing.quotedNetPrice;
+            project.totalPrice = pricing.totalPrice;
+        }
         if (req.body.team !== undefined) project.team = String(req.body.team || '');
         if (req.body.startDate !== undefined) project.startDate = parseOptionalDate(req.body.startDate);
         if (req.body.endDate !== undefined) project.endDate = parseOptionalDate(req.body.endDate);
@@ -368,6 +430,7 @@ router.put('/:id', async (req, res) => {
 
         const updated = await Project.findById(project._id)
             .populate('customerId', 'name phone address')
+            .populate('quotationId', 'quotationNumber totalAmount status')
             .populate('assignedTeam', 'username role');
 
         res.json(updated);
@@ -413,6 +476,7 @@ router.patch('/:id/status', async (req, res) => {
 
         const updated = await Project.findById(project._id)
             .populate('customerId', 'name phone address')
+            .populate('quotationId', 'quotationNumber totalAmount status')
             .populate('assignedTeam', 'username role');
 
         res.json(updated);
@@ -448,6 +512,7 @@ router.patch('/:id/cancel', async (req, res) => {
 
         const updated = await Project.findById(project._id)
             .populate('customerId', 'name phone address')
+            .populate('quotationId', 'quotationNumber totalAmount status')
             .populate('assignedTeam', 'username role');
 
         res.json(updated);

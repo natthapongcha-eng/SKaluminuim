@@ -21,8 +21,14 @@ const projectSchema = new mongoose.Schema({
         ref: 'Customer',
         required: true
     },
+    quotationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Quotation',
+        default: null
+    },
     totalCost: { type: Number, default: 0 },
     totalPrice: { type: Number, default: 0 },
+    quotedNetPrice: { type: Number, default: 0 },
     paymentStatus: {
         type: String,
         enum: ['unpaid', 'partial', 'paid'],

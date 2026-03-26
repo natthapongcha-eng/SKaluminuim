@@ -138,6 +138,14 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
+                        <label>ใบเสนอราคา</label>
+                        <select id="projectQuotation">
+                            <option value="">ไม่ผูกใบเสนอราคา</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label>วันที่เริ่ม</label>
                         <input type="date" id="projectStartDate">
                     </div>
@@ -171,7 +179,13 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>ต้นทุนรวม</label>
-                        <input type="number" id="projectCost" placeholder="0" readonly>
+                        <input type="number" id="projectCost" placeholder="0" min="0" step="0.01">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ราคาสุทธิจากใบเสนอราคา (Sell)</label>
+                        <input type="number" id="projectSellPrice" placeholder="0" min="0" step="0.01" readonly>
                     </div>
                 </div>
                 <div class="form-group">
@@ -318,6 +332,6 @@
     <script src="js/api.js"></script>
     <script src="js/utils/export.js"></script>
     <script src="js/main.js"></script>
-    <script src="js/pages/projects.js"></script>
+    <script src="js/pages/projects.js?v=20260327-2"></script>
 </body>
 </html>
