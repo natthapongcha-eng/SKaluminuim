@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema({
     phone: { type: String, trim: true, default: '' },
     profileImage: { type: String, default: '' },
     name: { type: String }, // ไม่บังคับให้ต้องมีค่า
-    role: { type: String, enum: ['CEO', 'EMPLOYEE'], default: 'EMPLOYEE' },
+    role: { type: String, enum: ['CEO', 'ADMIN', 'EMPLOYEE'], default: 'EMPLOYEE' },
     createdAt: { type: Date, default: Date.now }
 });
 
