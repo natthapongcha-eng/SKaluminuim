@@ -13,11 +13,21 @@ function buildDisplayName(user) {
 router.post('/login', async (req, res) => {
     try {
         const { email, password, role } = req.body;
-        
-        const user = await User.findOne({ email, password, role });
+
+        const normalizedRole = String(role || '').trim().toUpperCase();
+        const loginQuery = { email, password };
+
+        if (normalizedRole === 'EMPLOYEE') {
+            // Keep UI as Employee, but allow ADMIN users to sign in through the same option.
+            loginQuery.role = { $in: ['EMPLOYEE', 'ADMIN'] };
+        } else if (normalizedRole) {
+            loginQuery.role = normalizedRole;
+        }
+
+        const user = await User.findOne(loginQuery);
         
         if (!user) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+            return res.status(401).json({ success: false, message: 'Email, password, or role is incorrect.' });
         }
         
         res.json({

@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SK Aluminium - Attendance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
 </head>
 <body class="dashboard-page">
     <!-- Sidebar -->
@@ -58,191 +62,151 @@
     </aside>
     
     <!-- Main Content -->
-    <main class="main-content">
-        <div class="content-header">
-            <h1>บันทึกเวลาเข้า-ออกงาน (Attendance)</h1>
-            <div class="header-actions">
-                <button class="btn-success" id="checkInBtn">✓ เข้างาน</button>
-                <button class="btn-danger" id="checkOutBtn">✗ ออกงาน</button>
+    <main class="main-content attendance-main-content">
+        <section class="calendar-controls">
+            <div class="content-header attendance-content-header">
+                <div class="attendance-title-block">
+                    <p class="attendance-eyebrow">Smart Attendance Workspace</p>
+                    <h1>บันทึกเวลาเข้า-ออกงาน (Attendance)</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-success" id="checkInBtn">บันทึกเข้างาน</button>
+                    <button class="btn-danger" id="checkOutBtn">บันทึกออกงาน</button>
+                </div>
             </div>
-        </div>
+        
         
         <!-- Today Info -->
-        <div class="today-info">
+            <div class="today-info attendance-today-panel">
             <div class="time-display">
+                <div class="master-clock-chip">MASTER CLOCK · SERVER TIME</div>
                 <h2 id="currentTime">14:30:25</h2>
                 <p id="currentDateDisplay">วันพุธที่ 15 มีนาคม 2568</p>
+                <small class="clock-hint">เวลานี้ใช้ตัดสินกฎ 07:00 / 08:01 / 11:00</small>
             </div>
-            <div class="today-status">
+            <div class="today-status" id="todayStatusBox">
                 <div class="status-item">
-                    <span>เวลาเข้างานวันนี้:</span>
-                    <strong id="todayCheckIn">08:15:00</strong>
+                    <span>เวลาเข้างาน:</span>
+                    <strong id="todayCheckIn">-</strong>
                 </div>
                 <div class="status-item">
                     <span>สถานะ:</span>
-                    <strong class="status-working">กำลังทำงาน</strong>
+                    <strong id="todayStatusText" class="status-absent">ยังไม่เข้างาน</strong>
                 </div>
             </div>
-        </div>
+            </div>
+
+            <div class="filter-section attendance-filter-panel">
+                <div class="filter-group" style="display:grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                    <select id="employeeSelector"></select>
+                    <input type="date" id="attendanceDateFilter">
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="inventory-stats attendance-stats-grid">
+                <div class="stat-card success">
+                    <div class="stat-icon">#</div>
+                    <div class="stat-info">
+                        <h3 id="statTotal">0</h3>
+                        <p>ทั้งหมด</p>
+                    </div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-icon">✓</div>
+                    <div class="stat-info">
+                        <h3 id="statPresent">0</h3>
+                        <p>มาทำงาน</p>
+                    </div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-icon">⏰</div>
+                    <div class="stat-info">
+                        <h3 id="statLate">0</h3>
+                        <p>สาย</p>
+                    </div>
+                </div>
+                <div class="stat-card info">
+                    <div class="stat-icon">✗</div>
+                    <div class="stat-info">
+                        <h3 id="statAbsent">0</h3>
+                        <p>ขาดงาน</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="attendance-calendar-panel">
+            <div class="attendance-calendar-header">
+                <div class="calendar-nav-buttons">
+                    <button type="button" class="btn-secondary" id="calendarPrevBtn">ก่อนหน้า</button>
+                    <button type="button" class="btn-secondary" id="calendarTodayBtn">วันนี้</button>
+                    <button type="button" class="btn-secondary" id="calendarNextBtn">ถัดไป</button>
+                </div>
+                <h3 id="calendarMonthTitle" class="calendar-month-title">-</h3>
+            </div>
+            <div id="attendanceCalendar"></div>
+            <div class="attendance-calendar-legend" aria-label="Calendar Legend">
+                <span class="calendar-legend-item"><i class="legend-dot present"></i> ปกติ</span>
+                <span class="calendar-legend-item"><i class="legend-dot late"></i> สาย</span>
+                <span class="calendar-legend-item"><i class="legend-dot absent"></i> ขาด</span>
+                <span class="calendar-legend-item"><i class="legend-dot holiday"></i> วันหยุด</span>
+            </div>
+        </section>
         
-        <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <select id="filterEmployee" class="ceo-only-field">
-                    <option value="all">พนักงานทั้งหมด</option>
-                    <option value="1">คุณสมชาย ใจดี</option>
-                    <option value="2">คุณมานี รักษ์ดี</option>
-                </select>
-                <input type="month" id="filterMonth" value="2026-03">
-                <button class="btn-secondary" id="exportAttendanceBtn">Export Excel</button>
-            </div>
+        <div class="reports-tabs attendance-tabs" style="margin-bottom: 20px;">
+            <button class="tab-btn active" data-tab="present">มาทำงาน</button>
+            <button class="tab-btn" data-tab="absent">ขาดงาน</button>
+            <button class="tab-btn" data-tab="waiting">รอเข้างาน</button>
         </div>
-        
-        <!-- Stats Cards -->
-        <div class="inventory-stats">
-            <div class="stat-card success">
-                <div class="stat-icon">✓</div>
-                <div class="stat-info">
-                    <h3>22</h3>
-                    <p>วันที่มา</p>
-                </div>
-            </div>
-            <div class="stat-card warning">
-                <div class="stat-icon">⏰</div>
-                <div class="stat-info">
-                    <h3>5</h3>
-                    <p>มาสาย</p>
-                </div>
-            </div>
-            <div class="stat-card danger">
-                <div class="stat-icon">✗</div>
-                <div class="stat-info">
-                    <h3>2</h3>
-                    <p>ขาดงาน</p>
-                </div>
-            </div>
-            <div class="stat-card info">
-                <div class="stat-icon">📊</div>
-                <div class="stat-info">
-                    <h3>176</h3>
-                    <p>ชั่วโมงทำงาน</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Attendance Calendar -->
-        <div class="calendar-section">
-            <h2>ปฏิทินการเข้างาน - มีนาคม 2568</h2>
-            <div class="calendar-grid">
-                <div class="calendar-day header">อา</div>
-                <div class="calendar-day header">จ</div>
-                <div class="calendar-day header">อ</div>
-                <div class="calendar-day header">พ</div>
-                <div class="calendar-day header">พฤ</div>
-                <div class="calendar-day header">ศ</div>
-                <div class="calendar-day header">ส</div>
-                
-                <!-- Days -->
-                <div class="calendar-day other-month">26</div>
-                <div class="calendar-day other-month">27</div>
-                <div class="calendar-day other-month">28</div>
-                <div class="calendar-day other-month">29</div>
-                <div class="calendar-day other-month">30</div>
-                <div class="calendar-day other-month">31</div>
-                <div class="calendar-day present">1</div>
-                <div class="calendar-day present">2</div>
-                <div class="calendar-day present">3</div>
-                <div class="calendar-day present">4</div>
-                <div class="calendar-day present">5</div>
-                <div class="calendar-day late">6</div>
-                <div class="calendar-day present">7</div>
-                <div class="calendar-day present">8</div>
-                <div class="calendar-day present">9</div>
-                <div class="calendar-day absent">10</div>
-                <div class="calendar-day present">11</div>
-                <div class="calendar-day present">12</div>
-                <div class="calendar-day late">13</div>
-                <div class="calendar-day present">14</div>
-                <div class="calendar-day today present">15</div>
-                <div class="calendar-day">16</div>
-                <div class="calendar-day">17</div>
-                <div class="calendar-day">18</div>
-                <div class="calendar-day">19</div>
-                <div class="calendar-day">20</div>
-                <div class="calendar-day">21</div>
-                <div class="calendar-day">22</div>
-                <div class="calendar-day">23</div>
-                <div class="calendar-day">24</div>
-                <div class="calendar-day">25</div>
-                <div class="calendar-day">26</div>
-                <div class="calendar-day">27</div>
-                <div class="calendar-day">28</div>
-                <div class="calendar-day">29</div>
-                <div class="calendar-day">30</div>
-                <div class="calendar-day">31</div>
-            </div>
-            <div class="calendar-legend">
-                <div class="legend-item"><span class="dot present"></span> ปกติ</div>
-                <div class="legend-item"><span class="dot late"></span> สาย</div>
-                <div class="legend-item"><span class="dot absent"></span> ขาด</div>
-                <div class="legend-item"><span class="dot today"></span> วันนี้</div>
-            </div>
-        </div>
-        
-        <!-- Attendance History -->
+
         <div class="table-container">
-            <h2>ประวัติการเข้า-ออกงาน</h2>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>วันที่</th>
-                        <th>พนักงาน</th>
-                        <th>เวลาเข้า</th>
-                        <th>เวลาออก</th>
-                        <th>ชั่วโมงทำงาน</th>
-                        <th>สถานะ</th>
-                        <th>หมายเหตุ</th>
-                    </tr>
-                </thead>
-                <tbody id="attendanceList">
-                    <tr>
-                        <td>15 มี.ค. 2568</td>
-                        <td>คุณสมชาย ใจดี</td>
-                        <td>08:15:00</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td><span class="status-working">กำลังทำงาน</span></td>
-                        <td>-</td>
-                    </tr>
-                    <tr>
-                        <td>14 มี.ค. 2568</td>
-                        <td>คุณสมชาย ใจดี</td>
-                        <td>08:00:00</td>
-                        <td>17:30:00</td>
-                        <td>9.5 ชม.</td>
-                        <td><span class="status-present">ปกติ</span></td>
-                        <td>-</td>
-                    </tr>
-                    <tr>
-                        <td>13 มี.ค. 2568</td>
-                        <td>คุณสมชาย ใจดี</td>
-                        <td>08:45:00</td>
-                        <td>17:15:00</td>
-                        <td>8.5 ชม.</td>
-                        <td><span class="status-late">สาย 45 นาที</span></td>
-                        <td>รถติด</td>
-                    </tr>
-                    <tr>
-                        <td>12 มี.ค. 2568</td>
-                        <td>คุณสมชาย ใจดี</td>
-                        <td>08:10:00</td>
-                        <td>17:00:00</td>
-                        <td>8.8 ชม.</td>
-                        <td><span class="status-present">ปกติ</span></td>
-                        <td>-</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="attendance-tab-content" id="tab-present">
+                <h2>มาทำงาน</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>วันที่</th>
+                            <th>พนักงาน</th>
+                            <th>เวลาเข้า</th>
+                            <th>เวลาออก</th>
+                            <th>ชั่วโมงทำงาน</th>
+                            <th>สถานะ</th>
+                            <th>หมายเหตุ</th>
+                            <th>จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="presentList"></tbody>
+                </table>
+            </div>
+
+            <div class="attendance-tab-content" id="tab-absent" style="display:none;">
+                <h2>ขาดงาน</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>วันที่</th>
+                            <th>พนักงาน</th>
+                            <th>สถานะ</th>
+                            <th>หมายเหตุ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="absentList"></tbody>
+                </table>
+            </div>
+
+            <div class="attendance-tab-content" id="tab-waiting" style="display:none;">
+                <h2>รอเข้างาน</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>พนักงาน</th>
+                            <th>สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="waitingList"></tbody>
+                </table>
+            </div>
         </div>
     </main>
     
@@ -268,10 +232,80 @@
             </div>
         </div>
     </div>
+
+    <div id="editAttendanceModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeEditAttendanceModal">&times;</span>
+            <h2>แก้ไขเวลาเช็กเอาต์</h2>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editCheckoutTime">เวลาเช็กเอาต์ที่ถูกต้อง</label>
+                    <input type="datetime-local" id="editCheckoutTime">
+                </div>
+                <div class="form-group">
+                    <label for="editAttendanceNote">หมายเหตุการแก้ไข</label>
+                    <textarea id="editAttendanceNote" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancelEditAttendance">ยกเลิก</button>
+                <button type="button" class="btn-primary" id="confirmEditAttendance">บันทึกการแก้ไข</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dayDetailModal" class="modal">
+        <div class="modal-content day-detail-modal-content">
+            <span class="close" id="closeDayDetailModal">&times;</span>
+            <h2 id="dayDetailTitle">รายละเอียด Attendance</h2>
+            <div class="modal-body">
+                <div id="dayDetailSummary" class="day-detail-summary"></div>
+                <h3 class="day-detail-group-title">CEO / ADMIN</h3>
+                <div class="table-container day-detail-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>พนักงาน</th>
+                                <th>เวลาเข้า</th>
+                                <th>เวลาออก</th>
+                                <th>สถานะ</th>
+                                <th>หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dayDetailRowsLeadership">
+                            <tr><td colspan="5" style="text-align:center;">ไม่มีข้อมูล</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 class="day-detail-group-title">Employee</h3>
+                <div class="table-container day-detail-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>พนักงาน</th>
+                                <th>เวลาเข้า</th>
+                                <th>เวลาออก</th>
+                                <th>สถานะ</th>
+                                <th>หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dayDetailRowsEmployee">
+                            <tr><td colspan="5" style="text-align:center;">ไม่มีข้อมูล</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="closeDayDetailBtn">ปิด</button>
+            </div>
+        </div>
+    </div>
     
     <script src="js/api.js"></script>
     <script src="js/utils/export.js"></script>
     <script src="js/main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="js/pages/attendance.js"></script>
 </body>
 </html>

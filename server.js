@@ -107,7 +107,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Define Basic Route
 app.get('/api/status', (req, res) => {
-    res.json({ status: 'Backend is running', database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected' });
+    res.json({
+        status: 'Backend is running',
+        database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+        serverTime: new Date().toISOString()
+    });
 });
 
 // API 404 fallback should return JSON (not HTML)
