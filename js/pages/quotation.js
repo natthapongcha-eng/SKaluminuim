@@ -132,10 +132,15 @@ const QuotationPage = {
         // Get next quotation number
         try {
             const result = await api.quotations.getNextNumber();
-            document.getElementById('quotationNumber').textContent =
-                result.quotationNumber || result.number || 'QT-001';
+            const quotationNumberInput = document.getElementById('quotationNumber');
+            if (quotationNumberInput) {
+                quotationNumberInput.value = result.quotationNumber || result.number || 'QT-001';
+            }
         } catch (error) {
-            document.getElementById('quotationNumber').textContent = 'QT-001';
+            const quotationNumberInput = document.getElementById('quotationNumber');
+            if (quotationNumberInput) {
+                quotationNumberInput.value = 'QT-001';
+            }
         }
 
         // Set current date
@@ -504,7 +509,7 @@ const QuotationPage = {
         }
 
         const quotationData = {
-            quotationNumber: document.getElementById('quotationNumber')?.textContent,
+            quotationNumber: document.getElementById('quotationNumber')?.value || 'QT-001',
             customer: document.getElementById('selectCustomer')?.value || null,
             customerName: customerName,
             customerAddress: document.getElementById('customerAddress')?.textContent,

@@ -78,12 +78,25 @@
                 margin: 0;
             }
 
+            html, body {
+                width: 210mm;
+                height: 297mm;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+
             /* ซ่อนสิ่งที่ไม่เกี่ยวข้อง */
             .sidebar, .content-header, .no-print, .btn-add-item, .quotation-actions, .modal {
                 display: none !important;
             }
 
             .main-content { margin: 0; padding: 0; }
+
+            .quotation-container {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
 
             .quotation-paper,
             .quotation-paper * {
@@ -93,19 +106,20 @@
             .quotation-paper { 
                 box-shadow: none; 
                 border: none; 
-                width: 100%;
-                height: auto;
+                width: 210mm;
+                height: 297mm;
                 max-width: none;
                 max-height: none;
                 overflow: visible !important;
                 font-size: 12px;
                 line-height: 1.35;
-                min-height: calc(297mm - 20mm);
+                min-height: 297mm;
                 margin: 0;
                 padding: 10mm;
                 position: relative;
                 box-sizing: border-box;
-                display: block;
+                display: flex;
+                flex-direction: column;
             }
 
             .quotation-paper h1 { font-size: 36px; }
@@ -145,7 +159,7 @@
             /* ตรึงส่วนท้าย (ราคา/สถานะ/ลายเซ็น) ไว้ล่างสุดของกระดาษเสมอ */
             .footer-section-container {
                 position: relative;
-                margin-top: 0;
+                margin-top: auto !important;
                 z-index: 1;
                 page-break-inside: auto;
                 break-inside: auto;
@@ -170,7 +184,7 @@
 
             .quotation-paper.print-short-doc .footer-section-container {
                 position: relative !important;
-                margin-top: 0 !important;
+                margin-top: auto !important;
                 padding-bottom: 0 !important;
             }
 
@@ -390,7 +404,7 @@
                         <p>เบอร์โทร: <span id="customerPhone">....................</span></p>
                     </div>
                     <div class="quotation-info" style="text-align: right;">
-                        <p>เลขที่เอกสาร <input type="text" id="quotationNumber" value="QT-001" class="input-inline-edit"></p>
+                        <p>เลขที่เอกสาร <input type="text" id="quotationNumber" value="QT-001" class="input-inline-edit" readonly></p>
                         <div class="date-select-group" style="justify-content: flex-end;">
                             <span>วันที่:</span>
                             <select id="q_day" class="select-date-part"></select>
@@ -625,17 +639,7 @@
                 footerSection.style.right = '';
                 footerSection.style.bottom = '';
 
-                // Push footer block to page bottom only when there is remaining space.
-                const printableHeightPx = mmToPx(297 - 20); // A4 minus 10mm top/bottom padding
-                const footerTopPx = footerSection.offsetTop;
-                const footerHeightPx = footerSection.offsetHeight;
-                const remainingPx = printableHeightPx - (footerTopPx + footerHeightPx);
-
-                if (remainingPx > 0) {
-                    footerSection.style.marginTop = `${Math.floor(remainingPx)}px`;
-                } else {
-                    footerSection.style.marginTop = '0px';
-                }
+                // Layout is handled by print flex + margin-top:auto.
             }
 
             function simplifyEditableFieldsForPrint() {

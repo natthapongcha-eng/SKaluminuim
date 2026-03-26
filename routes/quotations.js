@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Quotation = require('../models/Quotation');
 
+function isObjectId(id) {
+    return /^[0-9a-fA-F]{24}$/.test(String(id || ''));
+}
+
 // Get all quotations
 router.get('/', async (req, res) => {
     try {
@@ -28,6 +32,10 @@ router.get('/', async (req, res) => {
 // Get single quotation
 router.get('/:id', async (req, res) => {
     try {
+        if (!isObjectId(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid quotation id' });
+        }
+
         const quotation = await Quotation.findById(req.params.id)
             .populate('customerId')
             .populate('createdBy', 'name');
@@ -41,20 +49,21 @@ router.get('/:id', async (req, res) => {
 // Generate next quotation number
 router.get('/next/number', async (req, res) => {
     try {
-        const year = new Date().getFullYear();
-        const month = String(new Date().getMonth() + 1).padStart(2, '0');
-        const prefix = `QT${year}${month}`;
-        
-        const lastQuotation = await Quotation.findOne({ quotationNumber: { $regex: `^${prefix}` } })
-            .sort({ quotationNumber: -1 });
-        
-        let nextNumber = 1;
-        if (lastQuotation) {
-            const lastNumber = parseInt(lastQuotation.quotationNumber.slice(-4));
-            nextNumber = lastNumber + 1;
+        const quotations = await Quotation.find(
+            { quotationNumber: { $regex: '^QT-\\d+$' } },
+            { quotationNumber: 1, _id: 0 }
+        ).lean();
+
+        let maxNumber = 0;
+        for (const q of quotations) {
+            const numericPart = parseInt(String(q.quotationNumber).replace('QT-', ''), 10);
+            if (Number.isFinite(numericPart) && numericPart > maxNumber) {
+                maxNumber = numericPart;
+            }
         }
-        
-        const quotationNumber = `${prefix}${String(nextNumber).padStart(4, '0')}`;
+
+        const nextNumber = maxNumber + 1;
+        const quotationNumber = `QT-${String(nextNumber).padStart(3, '0')}`;
         res.json({ quotationNumber });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -88,6 +97,10 @@ router.post('/', async (req, res) => {
 // Update quotation
 router.put('/:id', async (req, res) => {
     try {
+        if (!isObjectId(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid quotation id' });
+        }
+
         // Recalculate totals if items changed
         if (req.body.items) {
             const items = req.body.items;
@@ -106,6 +119,10 @@ router.put('/:id', async (req, res) => {
 // Delete quotation
 router.delete('/:id', async (req, res) => {
     try {
+        if (!isObjectId(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid quotation id' });
+        }
+
         await Quotation.findByIdAndDelete(req.params.id);
         res.json({ message: 'Quotation deleted' });
     } catch (error) {
