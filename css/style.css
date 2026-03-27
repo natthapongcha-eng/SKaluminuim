@@ -3242,7 +3242,8 @@ body.profile-ready #userRole {
     .btn-icon,
     .modal,
     .filter-section,
-    .content-header button {
+    .content-header button,
+    .no-print {
         display: none !important;
     }
     

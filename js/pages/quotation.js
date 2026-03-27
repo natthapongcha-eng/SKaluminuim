@@ -488,8 +488,19 @@ const QuotationPage = {
         
         document.getElementById('totalAmount').textContent = total.toLocaleString('th-TH');
         
-        const recommendedPrice = total + this.additionalProfit;
-        document.getElementById('recommendedPrice').textContent = recommendedPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+        // Update profit breakdown section
+        const profitBreakdown = document.getElementById('profitBreakdownSection');
+        if (profitBreakdown) {
+            if (this.additionalProfit > 0) {
+                profitBreakdown.style.display = 'block';
+                document.getElementById('originalPrice').textContent = total.toLocaleString('th-TH');
+                document.getElementById('profitDisplay').textContent = this.additionalProfit.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+                const netPrice = total + this.additionalProfit;
+                document.getElementById('netPrice').textContent = netPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+            } else {
+                profitBreakdown.style.display = 'none';
+            }
+        }
 
         // Update summary
         const subtotal = total;
