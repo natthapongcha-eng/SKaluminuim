@@ -8,6 +8,7 @@ const QuotationPage = {
     pendingQuotationItems: [],
     filteredInventoryItems: [],
     selectedInventoryItem: null,
+    additionalProfit: 0,
 
     // Initialize quotation page
     async init() {
@@ -128,6 +129,13 @@ const QuotationPage = {
     async initNewQuotation() {
         this.quotationItems = [];
         this.pendingQuotationItems = [];
+        this.additionalProfit = 0;
+        
+        // Reset additional profit input
+        const additionalProfitInput = document.getElementById('additionalProfit');
+        if (additionalProfitInput) {
+            additionalProfitInput.value = 0;
+        }
         
         // Get next quotation number
         try {
@@ -152,6 +160,7 @@ const QuotationPage = {
         });
 
         this.renderQuotationItems();
+        this.updateQuotationTotal();
     },
 
     // Setup event listeners
@@ -219,6 +228,14 @@ const QuotationPage = {
         // Export PDF
         document.getElementById('exportPdfBtn')?.addEventListener('click', () => {
             this.exportToPDF();
+        });
+
+        // Additional profit input
+        document.getElementById('additionalProfit')?.addEventListener('change', () => {
+            this.updateQuotationTotal();
+        });
+        document.getElementById('additionalProfit')?.addEventListener('input', () => {
+            this.updateQuotationTotal();
         });
     },
 
@@ -469,7 +486,13 @@ const QuotationPage = {
     // Update quotation total
     updateQuotationTotal() {
         const total = this.quotationItems.reduce((sum, item) => sum + item.total, 0);
+        const additionalProfit = Number(document.getElementById('additionalProfit')?.value || 0);
+        this.additionalProfit = additionalProfit;
+        
         document.getElementById('totalAmount').textContent = total.toLocaleString('th-TH');
+        
+        const recommendedPrice = total + additionalProfit;
+        document.getElementById('recommendedPrice').textContent = recommendedPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
 
         // Update summary
         const subtotal = total;
