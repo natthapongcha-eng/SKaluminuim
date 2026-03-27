@@ -157,6 +157,12 @@ const InventoryPage = {
     },
 
     setupEventListeners() {
+        const addMaterialBtn = document.getElementById('addMaterialBtn');
+        addMaterialBtn?.addEventListener('click', () => {
+            this.currentItemId = null;
+            this.setAddMaterialModalTitle('เพิ่มวัสดุใหม่');
+        });
+
         const addMaterialForm = document.getElementById('addMaterialForm');
         if (addMaterialForm) {
             addMaterialForm.addEventListener('submit', async (e) => {
@@ -206,10 +212,18 @@ const InventoryPage = {
             closeModal('addMaterialModal');
             document.getElementById('addMaterialForm').reset();
             this.currentItemId = null;
+            this.setAddMaterialModalTitle('เพิ่มวัสดุใหม่');
             await this.loadInventory();
         } catch (error) {
             console.error('Error saving material:', error);
             alert('เกิดข้อผิดพลาด: ' + error.message);
+        }
+    },
+
+    setAddMaterialModalTitle(title) {
+        const titleElement = document.querySelector('#addMaterialModal h2');
+        if (titleElement) {
+            titleElement.textContent = title;
         }
     },
 
@@ -240,10 +254,15 @@ const InventoryPage = {
         }
 
         try {
+            const actor = this.getCurrentActor();
             if (this.stockAction === 'in') {
-                await api.inventory.stockIn(this.currentItemId, { quantity, reason: note });
+                await api.inventory.stockIn(this.currentItemId, {
+                    quantity,
+                    reason: note,
+                    userId: actor.id,
+                    createdByName: actor.name
+                });
             } else {
-                const actor = this.getCurrentActor();
                 await api.inventory.stockOut(this.currentItemId, {
                     quantity,
                     reason: note,
@@ -275,6 +294,7 @@ const InventoryPage = {
         document.getElementById('materialPrice').value = item.unitPrice;
         document.getElementById('materialMinimum').value = item.minimumThreshold || 10;
 
+        this.setAddMaterialModalTitle('แก้ไขวัสดุ');
         openModal('addMaterialModal');
     },
 

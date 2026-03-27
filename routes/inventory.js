@@ -130,7 +130,7 @@ router.delete('/:id', async (req, res) => {
 // Stock In
 router.post('/:id/stock-in', async (req, res) => {
     try {
-        const { quantity, reason, userId } = req.body;
+        const { quantity, reason, userId, createdByName } = req.body;
         const item = await Material.findById(req.params.id);
         
         if (!item) return res.status(404).json({ message: 'Item not found' });
@@ -141,6 +141,7 @@ router.post('/:id/stock-in', async (req, res) => {
         await item.save();
         
         // Log the transaction
+        const createdByDisplayName = await resolveCreatedByName(userId, createdByName);
         await StockLog.create({
             inventoryId: item._id,
             itemName: item.name,
@@ -149,7 +150,8 @@ router.post('/:id/stock-in', async (req, res) => {
             previousStock,
             newStock: item.quantity,
             reason,
-            createdBy: userId
+            createdBy: userId,
+            createdByName: createdByDisplayName
         });
         
         res.json(item);
