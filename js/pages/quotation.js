@@ -131,10 +131,10 @@ const QuotationPage = {
         this.pendingQuotationItems = [];
         this.additionalProfit = 0;
         
-        // Reset additional profit input
-        const additionalProfitInput = document.getElementById('additionalProfit');
-        if (additionalProfitInput) {
-            additionalProfitInput.value = 0;
+        // Reset additional profit input in modal
+        const addItemProfitInput = document.getElementById('addItemProfit');
+        if (addItemProfitInput) {
+            addItemProfitInput.value = 0;
         }
         
         // Get next quotation number
@@ -229,22 +229,19 @@ const QuotationPage = {
         document.getElementById('exportPdfBtn')?.addEventListener('click', () => {
             this.exportToPDF();
         });
-
-        // Additional profit input
-        document.getElementById('additionalProfit')?.addEventListener('change', () => {
-            this.updateQuotationTotal();
-        });
-        document.getElementById('additionalProfit')?.addEventListener('input', () => {
-            this.updateQuotationTotal();
-        });
     },
 
     // Add item to quotation
     addItemToQuotation() {
         const quantityInput = document.getElementById('cartQuantity');
         const priceInput = document.getElementById('cartUnitPrice');
+        const profitInput = document.getElementById('addItemProfit');
         const quantity = parseFloat(quantityInput?.value ?? '') || 0;
         const unitPrice = parseFloat(priceInput?.value ?? '') || 0;
+        
+        // Capture the profit from modal
+        const profit = parseFloat(profitInput?.value ?? 0) || 0;
+        this.additionalProfit = profit;
 
         if (!this.selectedInventoryItem) {
             alert('กรุณาเลือกวัสดุจากรายการวัสดุจากคลัง');
@@ -306,10 +303,12 @@ const QuotationPage = {
         const searchInput = document.getElementById('inventorySearchInput');
         const quantityInput = document.getElementById('cartQuantity');
         const priceInput = document.getElementById('cartUnitPrice');
+        const profitInput = document.getElementById('addItemProfit');
 
         if (searchInput) searchInput.value = '';
         if (quantityInput) quantityInput.value = '';
         if (priceInput) priceInput.value = '';
+        if (profitInput) profitInput.value = 0;
         this.selectedInventoryItem = null;
         this.renderInventoryCatalog('');
     },
@@ -486,12 +485,10 @@ const QuotationPage = {
     // Update quotation total
     updateQuotationTotal() {
         const total = this.quotationItems.reduce((sum, item) => sum + item.total, 0);
-        const additionalProfit = Number(document.getElementById('additionalProfit')?.value || 0);
-        this.additionalProfit = additionalProfit;
         
         document.getElementById('totalAmount').textContent = total.toLocaleString('th-TH');
         
-        const recommendedPrice = total + additionalProfit;
+        const recommendedPrice = total + this.additionalProfit;
         document.getElementById('recommendedPrice').textContent = recommendedPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
 
         // Update summary
