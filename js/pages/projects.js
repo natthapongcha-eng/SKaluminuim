@@ -116,6 +116,24 @@ const ProjectsPage = {
         return currentUser.id || currentUser._id || null;
     },
 
+    resolveMaterialCode(item) {
+        if (!item || typeof item !== 'object') return '-';
+
+        const directCode = item.materialCode || item.code || item.itemCode || item.sku;
+        if (directCode) {
+            const normalized = String(directCode).trim();
+            if (normalized) return normalized;
+        }
+
+        const idSource = item.materialId || item.id || item._id;
+        const idText = String(idSource || '').trim();
+        if (idText) {
+            return idText.slice(-6).toUpperCase();
+        }
+
+        return '-';
+    },
+
     setProjectActionState(projectId, disabled) {
         const card = document.querySelector(`.project-card[data-id="${projectId}"]`);
         if (!card) return;
@@ -211,7 +229,7 @@ const ProjectsPage = {
 
         tbody.innerHTML = results.map(item => `
             <tr data-id="${item._id}" class="search-row">
-                <td>${String(item._id).slice(-6).toUpperCase()}</td>
+                <td>${this.resolveMaterialCode(item)}</td>
                 <td>${item.name || '-'}</td>
                 <td>${item.specification || '-'}</td>
                 <td>${item.type || '-'}</td>
@@ -295,7 +313,7 @@ const ProjectsPage = {
 
         const item = {
             id: mat._id,
-            sku: String(mat._id).slice(-6).toUpperCase(),
+            sku: this.resolveMaterialCode(mat),
             name: mat.name || '-',
             spec: mat.specification || '',
             unit: mat.unit || '',
@@ -581,7 +599,7 @@ const ProjectsPage = {
             const unitPrice = Number(matched.unitPrice || 0);
             mappedMaterials.push({
                 id: matched._id,
-                sku: String(matched._id || '').slice(-6).toUpperCase(),
+                sku: this.resolveMaterialCode(matched),
                 name: matched.name || '-',
                 spec: matched.specification || '',
                 unit: matched.unit || item.unit || '',
@@ -1079,9 +1097,9 @@ const ProjectsPage = {
                     </tr>
                 `;
             } else {
-                detailMaterials.innerHTML = materialItems.map((item, index) => `
+                detailMaterials.innerHTML = materialItems.map((item) => `
                     <tr>
-                        <td>${index + 1}</td>
+                        <td>${this.resolveMaterialCode(item)}</td>
                         <td>${item.name || '-'}</td>
                         <td>${item.specification || '-'}</td>
                         <td>${Number(item.qty || 0).toLocaleString('th-TH')} ${item.unit || ''}</td>
