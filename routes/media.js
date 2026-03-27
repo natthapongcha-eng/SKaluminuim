@@ -35,9 +35,28 @@ function normalizeMediaType(mediaType) {
     return (normalized === 'quotation' || normalized === 'quota') ? 'quotation' : 'project';
 }
 
+function decodePotentiallyMojibakeName(value) {
+    const text = String(value || '');
+    if (!text) return '';
+
+    const looksMojibake = /Ã.|Â|à¸|à¹|àº|ï¿½/.test(text);
+    if (!looksMojibake) return text;
+
+    try {
+        const decoded = Buffer.from(text, 'latin1').toString('utf8');
+        if (!decoded || decoded.includes('\uFFFD')) {
+            return text;
+        }
+        return decoded;
+    } catch (error) {
+        return text;
+    }
+}
+
 function toApiMedia(doc) {
     const item = doc.toObject ? doc.toObject() : doc;
     item.stage = normalizeStage(item.stage, 'before');
+    item.originalName = decodePotentiallyMojibakeName(item.originalName || item.filename || '');
     item.imageUrl = `/api/media/${item._id}/file`;
     return item;
 }
@@ -182,12 +201,13 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
         const mediaFiles = [];
 
         for (const file of req.files) {
+            const safeOriginalName = decodePotentiallyMojibakeName(file.originalname);
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-            const storedFilename = uniqueSuffix + path.extname(file.originalname);
+            const storedFilename = uniqueSuffix + path.extname(safeOriginalName || file.originalname);
 
             const media = new Media({
                 filename: storedFilename,
-                originalName: file.originalname,
+                originalName: safeOriginalName || file.originalname,
                 mimetype: file.mimetype,
                 size: file.size,
                 mediaType,

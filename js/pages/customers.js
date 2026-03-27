@@ -234,7 +234,21 @@ const CustomersPage = {
 
     // Delete customer
     async deleteCustomer(id) {
-        if (!confirm('ต้องการลบข้อมูลลูกค้านี้หรือไม่?')) return;
+        let shouldDelete = false;
+
+        if (typeof showStyledConfirm === 'function') {
+            shouldDelete = await showStyledConfirm({
+                title: 'ยืนยันการลบลูกค้า',
+                message: 'ต้องการลบข้อมูลลูกค้านี้หรือไม่?',
+                confirmText: 'ลบข้อมูล',
+                cancelText: 'ยกเลิก',
+                variant: 'danger'
+            });
+        } else {
+            shouldDelete = window.confirm('ต้องการลบข้อมูลลูกค้านี้หรือไม่?');
+        }
+
+        if (!shouldDelete) return;
 
         try {
             await api.customers.delete(id);
