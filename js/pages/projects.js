@@ -1288,7 +1288,12 @@ const ProjectsPage = {
 
         let filtered = this.materials;
         if (normalized) {
-            filtered = this.materials.filter(m => String(m.name || '').toLowerCase().includes(normalized));
+            filtered = this.materials.filter(m => {
+                const code = String(this.resolveMaterialCode(m) || '').toLowerCase();
+                const name = String(m.name || '').toLowerCase();
+                const specification = String(m.specification || m.spec || '').toLowerCase();
+                return code.includes(normalized) || name.includes(normalized) || specification.includes(normalized);
+            });
         }
 
         if (notFound) {
