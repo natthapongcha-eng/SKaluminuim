@@ -4,13 +4,13 @@ const InventoryPage = {
     currentItemId: null,
     stockAction: 'in', // 'in' or 'out'
 
-    // Initialize inventory page
     async init() {
+        this.prepareStockOutModal();
+        this.ensureGeneralUseColumn();
         await this.loadInventory();
         this.setupEventListeners();
     },
 
-    // Load inventory from API
     async loadInventory() {
         try {
             const items = await api.inventory.getAll();
@@ -19,12 +19,10 @@ const InventoryPage = {
             this.updateStats();
         } catch (error) {
             console.error('Error loading inventory:', error);
-            // Use empty array if API fails
             this.items = [];
         }
     },
 
-    // Render inventory table
     renderInventoryTable(items) {
         const tbody = document.getElementById('inventoryList');
         if (!tbody) return;
@@ -32,7 +30,7 @@ const InventoryPage = {
         if (items.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="10" style="text-align: center; padding: 40px; color: #666;">
+                    <td colspan="11" style="text-align: center; padding: 40px; color: #666;">
                         ยังไม่มีข้อมูลวัสดุ คลิก "+ เพิ่มวัสดุใหม่" เพื่อเพิ่มวัสดุ
                     </td>
                 </tr>
@@ -41,10 +39,10 @@ const InventoryPage = {
         }
 
         tbody.innerHTML = items.map(item => {
-            const isLow = item.quantity <= item.minimumThreshold;
+            const isLow = item.quantity <= (item.minimumThreshold || 10);
             const typeLabel = item.type === 'NEW' ? 'วัสดุใหม่' : 'เศษวัสดุ';
             const typeBadge = item.type === 'NEW' ? 'badge-new' : 'badge-scrap';
-            
+
             return `
                 <tr data-id="${item._id}">
                     <td>${item._id.slice(-6).toUpperCase()}</td>
@@ -56,6 +54,7 @@ const InventoryPage = {
                     <td>${item.unitPrice?.toLocaleString('th-TH') || 0}</td>
                     <td>${item.minimumThreshold || 10}</td>
                     <td><span class="${isLow ? 'status-low' : 'status-normal'}">${isLow ? 'ใกล้หมด' : 'ปกติ'}</span></td>
+                    <td>${(item.generalUseQuantity || 0).toLocaleString('th-TH')}</td>
                     <td>
                         <button class="btn-icon stock-in-btn" title="รับเข้า" data-id="${item._id}">📥</button>
                         <button class="btn-icon stock-out-btn" title="เบิกออก" data-id="${item._id}">📤</button>
@@ -66,13 +65,10 @@ const InventoryPage = {
             `;
         }).join('');
 
-        // Attach event listeners to buttons
         this.attachRowEventListeners();
     },
 
-    // Attach event listeners to table row buttons
     attachRowEventListeners() {
-        // Stock In buttons
         document.querySelectorAll('.stock-in-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const id = e.target.dataset.id;
@@ -80,7 +76,6 @@ const InventoryPage = {
             });
         });
 
-        // Stock Out buttons
         document.querySelectorAll('.stock-out-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const id = e.target.dataset.id;
@@ -88,7 +83,6 @@ const InventoryPage = {
             });
         });
 
-        // Edit buttons
         document.querySelectorAll('.edit-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const id = e.target.dataset.id;
@@ -96,7 +90,6 @@ const InventoryPage = {
             });
         });
 
-        // Delete buttons
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const id = e.target.dataset.id;
@@ -105,7 +98,6 @@ const InventoryPage = {
         });
     },
 
-    // Update stats cards
     updateStats() {
         const totalItems = this.items.length;
         const lowStock = this.items.filter(i => i.quantity <= (i.minimumThreshold || 10)).length;
@@ -119,9 +111,52 @@ const InventoryPage = {
         }
     },
 
-    // Setup event listeners
+    ensureGeneralUseColumn() {
+        const headerRow = document.querySelector('.data-table thead tr');
+        if (!headerRow) return;
+
+        const headers = Array.from(headerRow.querySelectorAll('th'));
+        const hasGeneralUseColumn = headers.some(th => th.textContent.trim() === 'ใช้งานทั่วไป');
+        if (hasGeneralUseColumn) return;
+
+        const statusHeader = headers.find(th => th.textContent.trim() === 'สถานะ');
+        if (!statusHeader) return;
+
+        const generalUseHeader = document.createElement('th');
+        generalUseHeader.textContent = 'ใช้งานทั่วไป';
+        statusHeader.insertAdjacentElement('afterend', generalUseHeader);
+    },
+
+    prepareStockOutModal() {
+        const projectGroup = document.getElementById('stockProjectGroup');
+        const projectSelect = document.getElementById('stockProject');
+        if (projectGroup) projectGroup.style.display = 'none';
+        if (projectSelect) {
+            projectSelect.value = '';
+            projectSelect.required = false;
+        }
+    },
+
+    getCurrentActor() {
+        try {
+            const raw = sessionStorage.getItem('user');
+            const user = raw ? JSON.parse(raw) : null;
+            if (!user || typeof user !== 'object') return { id: '', name: '' };
+
+            const firstName = String(user.firstName || '').trim();
+            const lastName = String(user.lastName || '').trim();
+            const fullName = `${firstName} ${lastName}`.trim();
+
+            return {
+                id: user.id || user._id || '',
+                name: fullName || user.name || user.email || ''
+            };
+        } catch (error) {
+            return { id: '', name: '' };
+        }
+    },
+
     setupEventListeners() {
-        // Add Material Form
         const addMaterialForm = document.getElementById('addMaterialForm');
         if (addMaterialForm) {
             addMaterialForm.addEventListener('submit', async (e) => {
@@ -130,7 +165,6 @@ const InventoryPage = {
             });
         }
 
-        // Stock Form
         const stockForm = document.getElementById('stockForm');
         if (stockForm) {
             stockForm.addEventListener('submit', async (e) => {
@@ -139,7 +173,6 @@ const InventoryPage = {
             });
         }
 
-        // Search and Filter
         const searchInput = document.getElementById('searchMaterial');
         const filterType = document.getElementById('filterType');
         const filterStock = document.getElementById('filterStock');
@@ -150,7 +183,6 @@ const InventoryPage = {
         });
     },
 
-    // Add new material
     async addMaterial() {
         const formData = {
             name: document.getElementById('materialName').value,
@@ -164,15 +196,13 @@ const InventoryPage = {
 
         try {
             if (this.currentItemId) {
-                // Update existing
                 await api.inventory.update(this.currentItemId, formData);
                 alert('แก้ไขวัสดุเรียบร้อย');
             } else {
-                // Create new
                 await api.inventory.create(formData);
                 alert('เพิ่มวัสดุเรียบร้อย');
             }
-            
+
             closeModal('addMaterialModal');
             document.getElementById('addMaterialForm').reset();
             this.currentItemId = null;
@@ -183,63 +213,25 @@ const InventoryPage = {
         }
     },
 
-    // Open stock modal
     openStockModal(id, action) {
         this.currentItemId = id;
         this.stockAction = action;
-        
+
         const item = this.items.find(i => i._id === id);
         if (!item) return;
 
-        document.getElementById('stockModalTitle').textContent = 
-            action === 'in' ? 'รับวัสดุเข้า' : 'เบิกวัสดุออก';
+        document.getElementById('stockModalTitle').textContent = action === 'in' ? 'รับวัสดุเข้า' : 'เบิกวัสดุออก';
         document.getElementById('stockMaterialName').value = item.name;
         document.getElementById('stockQuantity').value = '';
         document.getElementById('stockNote').value = '';
-        
-        const projectGroup = document.getElementById('stockProjectGroup');
-        const projectSelect = document.getElementById('stockProject');
-
-        if (projectGroup && projectSelect) {
-            if (action === 'out') {
-                projectGroup.style.display = 'block';
-                this.loadProjectsForStock(projectSelect);
-            } else {
-                projectGroup.style.display = 'none';
-                projectSelect.innerHTML = '<option value="">เลือกโปรเจกต์</option>';
-            }
-        }
+        this.prepareStockOutModal();
 
         openModal('stockModal');
     },
 
-    async loadProjectsForStock(selectElement) {
-        try {
-            const projects = await api.projects.getAll(); // กันกรณีได้ค่าแปลก ๆ ไม่ใช่ array ก็เลิกทำงาน ไม่ map ต่อ ปกติต้องได้ค้า array
-            if (!Array.isArray(projects)) return;
-
-            selectElement.innerHTML = '<option value="">เลือกโปรเจกต์</option>' +
-                projects.map(p => {
-                    const customerName = p.customerId?.customerName || 'ไม่ระบุลูกค้า';
-                    const shortId = (p._id || '').slice(-6).toUpperCase();
-                    return `<option value="${p._id}">${customerName} (${shortId})</option>`;
-                }).join('');
-        } catch (error) {
-            console.error('Error loading projects for stock:', error);
-            selectElement.innerHTML = '<option value="">โหลดรายชื่อโปรเจกต์ไม่สำเร็จ</option>';
-        }
-    },
-
-    // Process stock in/out
     async processStock() {
         const quantityInput = document.getElementById('stockQuantity');
-        const quantityValue = quantityInput ? quantityInput.value : '';
-        /* 
-        " line ตัวแปร quantityInput มีค่าไหม? (หา element เจอไหม?)"
-
-        ถ้ามี (True): ให้ดึงค่าที่กรอก (.value) มาใส่ใน quantityValue
-        ถ้าไม่มี (False): ให้ใส่ค่าเป็นข้อความว่าง '' แทน*/
-        const quantity = Number(quantityValue);
+        const quantity = Number(quantityInput ? quantityInput.value : '');
         const note = document.getElementById('stockNote').value.trim();
 
         if (Number.isNaN(quantity) || quantity <= 0) {
@@ -251,17 +243,15 @@ const InventoryPage = {
             if (this.stockAction === 'in') {
                 await api.inventory.stockIn(this.currentItemId, { quantity, reason: note });
             } else {
-                const projectSelect = document.getElementById('stockProject');
-                const projectId = projectSelect ? projectSelect.value : ''; //ดึงค่า id ของโปรเจกต์ที่เลือกมาใช้  ถ้าไม่มี selectElement หรือไม่ได้เลือกโปรเจกต์ จะได้ค่าเป็น '' แทน
-
-                if (!projectId) {
-                    alert('กรุณาเลือกโปรเจกต์ที่ใช้วัสดุ');
-                    return;
-                }
-
-                await api.inventory.stockOut(this.currentItemId, { quantity, reason: note, projectId });
+                const actor = this.getCurrentActor();
+                await api.inventory.stockOut(this.currentItemId, {
+                    quantity,
+                    reason: note,
+                    userId: actor.id,
+                    createdByName: actor.name
+                });
             }
-            
+
             alert('บันทึกการเคลื่อนไหววัสดุเรียบร้อย');
             closeModal('stockModal');
             await this.loadInventory();
@@ -271,13 +261,12 @@ const InventoryPage = {
         }
     },
 
-    // Edit item
     editItem(id) {
         const item = this.items.find(i => i._id === id);
         if (!item) return;
 
         this.currentItemId = id;
-        
+
         document.getElementById('materialName').value = item.name;
         document.getElementById('materialSpecification').value = item.specification || '';
         document.getElementById('materialType').value = item.type;
@@ -285,11 +274,10 @@ const InventoryPage = {
         document.getElementById('materialUnit').value = item.unit || 'ชิ้น';
         document.getElementById('materialPrice').value = item.unitPrice;
         document.getElementById('materialMinimum').value = item.minimumThreshold || 10;
-        
+
         openModal('addMaterialModal');
     },
 
-    // Delete item
     async deleteItem(id) {
         if (!confirm('ต้องการลบวัสดุนี้หรือไม่?')) return;
 
@@ -303,7 +291,6 @@ const InventoryPage = {
         }
     },
 
-    // Filter inventory
     filterInventory() {
         const search = document.getElementById('searchMaterial')?.value.toLowerCase() || '';
         const type = document.getElementById('filterType')?.value || 'all';
@@ -314,17 +301,16 @@ const InventoryPage = {
                                 (item.specification || '').toLowerCase().includes(search);
             const matchType = type === 'all' || item.type === type;
             const isLow = item.quantity <= (item.minimumThreshold || 10);
-            const matchStock = stock === 'all' || 
-                (stock === 'low' && isLow) || 
+            const matchStock = stock === 'all' ||
+                (stock === 'low' && isLow) ||
                 (stock === 'normal' && !isLow);
-            
+
             return matchSearch && matchType && matchStock;
         });
 
         this.renderInventoryTable(filtered);
     },
 
-    // Export to Excel
     exportToExcel() {
         const data = this.items.map(item => ({
             'รหัสวัสดุ': item._id.slice(-6).toUpperCase(),
@@ -334,19 +320,16 @@ const InventoryPage = {
             'หน่วย': item.unit || 'ชิ้น',
             'ราคา/หน่วย': item.unitPrice,
             'จำนวนขั้นต่ำ': item.minimumThreshold || 10,
-            'สถานะ': item.quantity <= (item.minimumThreshold || 10) ? 'ใกล้หมด' : 'ปกติ'
+            'สถานะ': item.quantity <= (item.minimumThreshold || 10) ? 'ใกล้หมด' : 'ปกติ',
+            'ใช้งานทั่วไป': item.generalUseQuantity || 0
         }));
 
         ExportUtils.exportToExcel(data, 'inventory');
     }
 };
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('addMaterialBtn')) {
         InventoryPage.init();
     }
-    /*เมื่อ DOM โหลดเสร็จ → callback นี้ทำงาน
-เช็คว่ามีปุ่ม #addMaterialBtn ไหม (เพื่อแน่ใจว่าอยู่หน้า Inventory)
-ถ้ามี → เรียก InventoryPage.init()*/
 });

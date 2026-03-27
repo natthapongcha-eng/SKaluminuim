@@ -2,6 +2,59 @@ const express = require('express');
 const router = express.Router();
 const Material = require('../models/Inventory');
 const StockLog = require('../models/StockLog');
+const User = require('../models/User');
+
+async function getGeneralUseTotalsByInventoryIds(inventoryIds = []) {
+    if (!Array.isArray(inventoryIds) || inventoryIds.length === 0) return {};
+
+    const totals = await StockLog.aggregate([
+        {
+            $match: {
+                inventoryId: { $in: inventoryIds },
+                type: 'out',
+                $or: [
+                    { projectId: { $exists: false } },
+                    { projectId: null }
+                ]
+            }
+        },
+        {
+            $group: {
+                _id: '$inventoryId',
+                totalQuantity: { $sum: '$quantity' }
+            }
+        }
+    ]);
+
+    return totals.reduce((acc, row) => {
+        acc[String(row._id)] = row.totalQuantity || 0;
+        return acc;
+    }, {});
+}
+
+function normalizeDisplayName(name = '') {
+    return String(name || '').trim();
+}
+
+function buildUserDisplayName(user) {
+    if (!user) return '';
+    const firstName = normalizeDisplayName(user.firstName);
+    const lastName = normalizeDisplayName(user.lastName);
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || normalizeDisplayName(user.name) || normalizeDisplayName(user.email);
+}
+
+async function resolveCreatedByName(userId, fallbackName = '') {
+    const normalizedFallback = normalizeDisplayName(fallbackName);
+    if (!userId) return normalizedFallback;
+
+    try {
+        const user = await User.findById(userId).select('firstName lastName name email');
+        return buildUserDisplayName(user) || normalizedFallback;
+    } catch (error) {
+        return normalizedFallback;
+    }
+}
 
 // Get all inventory items (from materials collection)
 router.get('/', async (req, res) => {
@@ -14,7 +67,15 @@ router.get('/', async (req, res) => {
         if (lowStock === 'true') query.$expr = { $lte: ['$quantity', '$minimumThreshold'] };
         
         const items = await Material.find(query).sort({ name: 1 });
-        res.json(items);
+        const generalUseTotals = await getGeneralUseTotalsByInventoryIds(items.map(item => item._id));
+
+        const itemsWithGeneralUse = items.map(item => {
+            const plain = item.toObject();
+            plain.generalUseQuantity = generalUseTotals[String(item._id)] || 0;
+            return plain;
+        });
+
+        res.json(itemsWithGeneralUse);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -69,11 +130,7 @@ router.delete('/:id', async (req, res) => {
 // Stock In
 router.post('/:id/stock-in', async (req, res) => {
     try {
-        const { quantity, reason, userId } = req.body; // ส่งมาแค่ quantity กับ reason แต่ userId จะเป็น undefined เพราะไม่ได้ส่งมา แต่ไม่เกิด error ใด ๆ
-        /*
-        ถ้า property ไหน ไม่มีใน object → ค่านั้นจะเป็น undefined โดยอัตโนมัติ
-        กรณีนี้ req.body มีแค่ { quantity, reason } 
-       */ 
+        const { quantity, reason, userId } = req.body;
         const item = await Material.findById(req.params.id);
         
         if (!item) return res.status(404).json({ message: 'Item not found' });
@@ -104,11 +161,11 @@ router.post('/:id/stock-in', async (req, res) => {
 // Stock Out
 router.post('/:id/stock-out', async (req, res) => {
     try {
-        const { quantity, reason, projectId, userId } = req.body; // // ส่งมาแค่ quantity, projectId  กับ reason แต่ userId จะเป็น undefined เพราะไม่ได้ส่งมา แต่ไม่เกิด error ใด ๆ
+        const { quantity, reason, projectId, userId, createdByName } = req.body;
         const item = await Material.findById(req.params.id);
         
         if (!item) return res.status(404).json({ message: 'Item not found' });
-        if (item.quantity < quantity) return res.status(400).json({ message: 'Insufficient stock' }); // ถ้าจพนวนสต๊อคเดิมน้อยกว่าที่จะเบิกออก ให้แจ้งว่า สต๊อคไม่พอ
+        if (item.quantity < quantity) return res.status(400).json({ message: 'Insufficient stock' });
         
         const previousStock = item.quantity;
         item.quantity -= quantity;
@@ -116,17 +173,24 @@ router.post('/:id/stock-out', async (req, res) => {
         await item.save();
         
         // Log the transaction
-        await StockLog.create({
+        const normalizedProjectId = typeof projectId === 'string' ? projectId.trim() : projectId;
+        const createdByDisplayName = await resolveCreatedByName(userId, createdByName);
+        const logPayload = {
             inventoryId: item._id,
             itemName: item.name,
             type: 'out',
             quantity,
             previousStock,
             newStock: item.quantity,
-            projectId,
             reason,
-            createdBy: userId
-        });
+            createdBy: userId,
+            createdByName: createdByDisplayName
+        };
+        if (normalizedProjectId) {
+            logPayload.projectId = normalizedProjectId;
+        }
+
+        await StockLog.create(logPayload);
         
         res.json(item);
     } catch (error) {
@@ -168,3 +232,4 @@ router.get('/stats/summary', async (req, res) => {
 });
 
 module.exports = router;
+
