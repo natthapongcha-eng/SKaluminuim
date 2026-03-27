@@ -541,6 +541,119 @@ function showStyledConfirm({
     });
 }
 
+function ensureAlertModal() {
+    let modal = document.getElementById('appAlertModal');
+    if (modal) return modal;
+
+    const html = `
+        <div id="appAlertModal" class="modal confirm-modal">
+            <div class="modal-content alert-modal-content small" role="alertdialog" aria-modal="true" aria-labelledby="alertTitle" aria-describedby="alertMessage">
+                <span class="close" id="alertCloseBtn">&times;</span>
+                <div class="alert-modal-body">
+                    <div id="alertIcon" class="alert-icon" aria-hidden="true">ℹ️</div>
+                    <h3 id="alertTitle">แจ้งเตือน</h3>
+                    <p id="alertMessage" class="confirm-modal-message">-</p>
+                </div>
+                <div class="success-modal-actions">
+                    <button type="button" id="alertOkBtn" class="btn-primary">ตกลง</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    modal = document.getElementById('appAlertModal');
+    return modal;
+}
+
+function showStyledAlert(message = '', {
+    title = 'แจ้งเตือน',
+    buttonText = 'ตกลง',
+    variant = 'info'
+} = {}) {
+    const modal = ensureAlertModal();
+    const titleEl = document.getElementById('alertTitle');
+    const messageEl = document.getElementById('alertMessage');
+    const iconEl = document.getElementById('alertIcon');
+    const okBtn = document.getElementById('alertOkBtn');
+    const closeBtn = document.getElementById('alertCloseBtn');
+    const modalContent = modal?.querySelector('.alert-modal-content');
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = String(message || '');
+    if (okBtn) okBtn.textContent = buttonText;
+
+    modalContent?.classList.remove('info', 'success', 'warning', 'danger');
+    modalContent?.classList.add(variant);
+
+    if (iconEl) {
+        const icons = {
+            info: 'ℹ️',
+            success: '✅',
+            warning: '⚠️',
+            danger: '⛔'
+        };
+        iconEl.textContent = icons[variant] || icons.info;
+    }
+
+    openModal('appAlertModal');
+
+    return new Promise((resolve) => {
+        const closeAndCleanup = () => {
+            closeModal('appAlertModal');
+            okBtn?.removeEventListener('click', onClose);
+            closeBtn?.removeEventListener('click', onClose);
+            modal?.removeEventListener('click', onBackdropClick);
+            resolve();
+        };
+
+        const onClose = () => closeAndCleanup();
+        const onBackdropClick = (event) => {
+            if (event.target === modal) onClose();
+        };
+
+        okBtn?.addEventListener('click', onClose);
+        closeBtn?.addEventListener('click', onClose);
+        modal?.addEventListener('click', onBackdropClick);
+    });
+}
+
+function installStyledAlertBridge() {
+    if (window.__styledAlertInstalled) return;
+    const nativeAlert = typeof window.alert === 'function' ? window.alert.bind(window) : null;
+
+    const inferAlertTone = (rawMessage = '') => {
+        const text = String(rawMessage || '').toLowerCase();
+
+        const successHints = [
+            'saved', 'save success', 'success', 'completed', 'done',
+            'บันทึก', 'สำเร็จ', 'เรียบร้อย', 'อัปโหลดรูปภาพเรียบร้อย', 'แก้ไขวัสดุเรียบร้อย'
+        ];
+        const errorHints = [
+            'error', 'failed', 'unable', 'cannot', 'invalid',
+            'ไม่สามารถ', 'ผิดพลาด', 'ล้มเหลว', 'ไม่สำเร็จ'
+        ];
+
+        if (errorHints.some(hint => text.includes(hint))) {
+            return { variant: 'danger', title: 'เกิดข้อผิดพลาด' };
+        }
+        if (successHints.some(hint => text.includes(hint))) {
+            return { variant: 'success', title: 'สำเร็จ' };
+        }
+        return { variant: 'warning', title: 'แจ้งเตือน' };
+    };
+
+    window.__nativeAlert = nativeAlert;
+    window.showStyledAlert = showStyledAlert;
+    window.alert = function(message = '') {
+        const tone = inferAlertTone(message);
+        showStyledAlert(message, tone);
+    };
+    window.__styledAlertInstalled = true;
+}
+
+installStyledAlertBridge();
+
 function showProfileSaveSuccess(message = 'บันทึกข้อมูลเรียบร้อย') {
     const notice = document.getElementById('profileSaveNotice');
     const modalContent = document.querySelector('#userProfileModal .profile-modal-content');
@@ -1619,7 +1732,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const announcementBanner = document.getElementById('siteAnnouncementBanner');
     const announcementContent = announcementBanner ? announcementBanner.querySelector('.announcement-content') : null;
     const publishBtn = document.getElementById('publishAnnouncementBtn');
-    const saveDraftBtn = document.getElementById('saveDraftAnnouncementBtn');
     const clearBtn = document.getElementById('clearAnnouncementBtn');
     const announcementText = document.getElementById('announcementText');
     const announcementPublishNotice = document.getElementById('announcementPublishNotice');
@@ -1697,6 +1809,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showAnnouncementPublishSuccess(message = 'ประกาศสำเร็จ') {
         if (announcementPublishNotice) {
+            announcementPublishNotice.classList.remove('delete');
             announcementPublishNotice.textContent = `✅ ${message}`;
             announcementPublishNotice.classList.add('active');
             setTimeout(() => announcementPublishNotice.classList.remove('active'), 2000);
@@ -1720,6 +1833,22 @@ document.addEventListener('DOMContentLoaded', function() {
         if (announcementBanner) {
             announcementBanner.classList.add('announcement-delete-success');
             setTimeout(() => announcementBanner.classList.remove('announcement-delete-success'), 900);
+        }
+    }
+
+    function showAnnouncementPublishError(message = 'ไม่สามารถเผยแพร่ประกาศได้') {
+        if (announcementPublishNotice) {
+            announcementPublishNotice.classList.remove('delete');
+            announcementPublishNotice.textContent = `⚠️ ${message}`;
+            announcementPublishNotice.classList.add('active', 'error');
+            setTimeout(() => {
+                announcementPublishNotice.classList.remove('active', 'error');
+            }, 2200);
+        }
+
+        if (announcementBanner) {
+            announcementBanner.classList.add('announcement-error');
+            setTimeout(() => announcementBanner.classList.remove('announcement-error'), 600);
         }
     }
 
@@ -1787,14 +1916,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Load draft into editor if present
-    try {
-        const draft = localStorage.getItem('siteAnnouncementDraft');
-        if (announcementText && draft) announcementText.value = draft;
-    } catch (e) {
-        console.warn('LocalStorage unavailable for announcements', e);
-    }
-
     if (clearBtn) {
         clearBtn.style.display = currentUser.role === 'CEO' ? '' : 'none';
     }
@@ -1827,7 +1948,7 @@ document.addEventListener('DOMContentLoaded', function() {
     publishBtn?.addEventListener('click', async function() {
         const text = announcementText?.value.trim();
         if (!text) {
-            alert('Please enter announcement text');
+            showAnnouncementPublishError('กรุณาพิมพ์ข้อความประกาศก่อนเผยแพร่');
             return;
         }
 
@@ -1835,18 +1956,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const endAt = parseDateTimeLocal(announcementEndAt?.value || '');
 
         if (!startAt || !endAt) {
-            alert('กรุณาระบุวันเวลาเริ่มและสิ้นสุดประกาศ');
+            showAnnouncementPublishError('กรุณาระบุวันเวลาเริ่มและสิ้นสุดประกาศ');
             return;
         }
 
         if (endAt <= startAt) {
-            alert('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น');
+            showAnnouncementPublishError('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น');
             return;
         }
 
         const maxDuration = 7 * 24 * 60 * 60 * 1000;
         if (endAt.getTime() - startAt.getTime() > maxDuration) {
-            alert('ประกาศต้องมีระยะเวลาไม่เกิน 7 วัน');
+            showAnnouncementPublishError('ประกาศต้องมีระยะเวลาไม่เกิน 7 วัน');
             return;
         }
 
@@ -1861,23 +1982,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 startAt.toISOString(),
                 endAt.toISOString()
             );
-            localStorage.removeItem('siteAnnouncementDraft');
             if (announcementText) announcementText.value = '';
             ensureAnnouncementScheduleDefaults();
             await loadPublishedAnnouncement();
             showAnnouncementPublishSuccess('ประกาศเรียบร้อยแล้ว');
         } catch (error) {
-            alert(error.message || 'Unable to publish announcement');
+            showAnnouncementPublishError(error.message || 'Unable to publish announcement');
         } finally {
             publishBtn.textContent = originalText;
             publishBtn.disabled = false;
         }
-    });
-
-    saveDraftBtn?.addEventListener('click', function() {
-        const text = announcementText?.value || '';
-        localStorage.setItem('siteAnnouncementDraft', text);
-        alert('Draft saved');
     });
 
     clearBtn?.addEventListener('click', async function() {

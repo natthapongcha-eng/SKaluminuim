@@ -196,8 +196,22 @@ const QuotationPage = {
         });
 
         // Create new quotation button
-        document.getElementById('createQuotationBtn')?.addEventListener('click', () => {
-            if (confirm('สร้างใบเสนอราคาใหม่? ข้อมูลปัจจุบันจะถูกล้าง')) {
+        document.getElementById('createQuotationBtn')?.addEventListener('click', async () => {
+            let shouldCreate = false;
+
+            if (typeof showStyledConfirm === 'function') {
+                shouldCreate = await showStyledConfirm({
+                    title: 'สร้างใบเสนอราคาใหม่',
+                    message: 'สร้างใบเสนอราคาใหม่? ข้อมูลปัจจุบันจะถูกล้าง',
+                    confirmText: 'สร้างใหม่',
+                    cancelText: 'ยกเลิก',
+                    variant: 'info'
+                });
+            } else {
+                shouldCreate = window.confirm('สร้างใบเสนอราคาใหม่? ข้อมูลปัจจุบันจะถูกล้าง');
+            }
+
+            if (shouldCreate) {
                 this.initNewQuotation();
                 document.getElementById('customerName').textContent = '';
                 document.getElementById('customerAddress').textContent = '';
