@@ -1464,8 +1464,15 @@ body.profile-ready #userRole {
     text-align: center;
 }
 
-.item-total-cell {
+.quotation-unit-price-field,
+.item-total-value {
+    font-size: 1rem;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.item-total-cell {
+    font-weight: 900;
     color: var(--primary-blue);
     font-variant-numeric: tabular-nums;
 }
@@ -3338,6 +3345,42 @@ body.profile-ready #userRole {
 
     #costPriceRow {
         display: none !important;
+    }
+
+    .quotation-table th:nth-child(6),
+    .quotation-table td:nth-child(6) {
+        display: none !important;
+    }
+
+    .quotation-item-edit {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+        padding: 0 !important;
+        font: inherit !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        pointer-events: none !important;
+    }
+
+    .quotation-unit-price-field,
+    .item-total-value {
+        font-size: 0.95rem !important;
+        font-weight: 800 !important;
+        color: #1e3a8a !important;
+        line-height: 1.2 !important;
+    }
+
+    .item-total-cell {
+        color: inherit !important;
+        font-weight: inherit !important;
+    }
+
+    #totalNetPrice {
+        font-size: 1.7rem !important;
+        font-weight: 800 !important;
+        line-height: 1 !important;
     }
     
     .main-content {

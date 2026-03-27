@@ -40,7 +40,7 @@ async function resolveQuotationPricing({ customerId, quotationId, fallbackTotalP
     }
 
     const quotation = await Quotation.findById(quotationId)
-        .select('customerId subtotal discount totalAmount')
+        .select('customerId subtotal totalProfit totalNetPrice discount totalAmount items')
         .lean();
 
     if (!quotation) {
@@ -51,12 +51,54 @@ async function resolveQuotationPricing({ customerId, quotationId, fallbackTotalP
         throw new Error('Selected quotation does not belong to this customer');
     }
 
-    const hasSubtotal = Number.isFinite(Number(quotation.subtotal));
+    const explicitNetPrice = Number(quotation.totalNetPrice);
+    if (Number.isFinite(explicitNetPrice)) {
+        const parsed = parseTotalPrice(explicitNetPrice);
+        return {
+            quotationId: quotation._id,
+            quotedNetPrice: parsed,
+            totalPrice: parsed
+        };
+    }
+
+    const totalAmount = Number(quotation.totalAmount);
+    if (Number.isFinite(totalAmount)) {
+        const parsed = parseTotalPrice(totalAmount);
+        return {
+            quotationId: quotation._id,
+            quotedNetPrice: parsed,
+            totalPrice: parsed
+        };
+    }
+
+    const items = Array.isArray(quotation.items) ? quotation.items : [];
+    if (items.length > 0) {
+        const subtotal = items.reduce((sum, item) => {
+            const qty = Number(item?.quantity || 0);
+            const lineTotal = Number(item?.total);
+            if (Number.isFinite(lineTotal)) return sum + lineTotal;
+            return sum + (qty * Number(item?.pricePerUnit || 0));
+        }, 0);
+        const totalProfit = items.reduce((sum, item) => {
+            const qty = Number(item?.quantity || 0);
+            return sum + (qty * Number(item?.profitPerUnit || 0));
+        }, 0);
+        const discount = Number(quotation.discount || 0);
+        const parsed = parseTotalPrice(subtotal + totalProfit - (Number.isFinite(discount) ? discount : 0));
+        return {
+            quotationId: quotation._id,
+            quotedNetPrice: parsed,
+            totalPrice: parsed
+        };
+    }
+
+    const subtotal = Number(quotation.subtotal);
+    const totalProfit = Number(quotation.totalProfit || 0);
     const discount = Number(quotation.discount || 0);
-    const fromSubtotal = Number(quotation.subtotal || 0) - (Number.isFinite(discount) ? discount : 0);
-    const quotedNetPrice = hasSubtotal
-        ? parseTotalPrice(fromSubtotal)
-        : parseTotalPrice(quotation.totalAmount);
+    const quotedNetPrice = Number.isFinite(subtotal)
+        ? parseTotalPrice(subtotal + (Number.isFinite(totalProfit) ? totalProfit : 0) - (Number.isFinite(discount) ? discount : 0))
+        : parseTotalPrice(fallbackTotalPrice);
+
     return {
         quotationId: quotation._id,
         quotedNetPrice,

@@ -80,9 +80,19 @@ router.post('/', async (req, res) => {
 
         // Calculate totals
         const items = req.body.items || [];
-        const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+        const subtotal = items.reduce((sum, item) => {
+            const qty = Number(item?.quantity || 0);
+            const lineTotal = Number(item?.total);
+            if (Number.isFinite(lineTotal)) return sum + lineTotal;
+            return sum + (qty * Number(item?.pricePerUnit || 0));
+        }, 0);
+        const totalProfit = items.reduce((sum, item) => {
+            const qty = Number(item?.quantity || 0);
+            return sum + (qty * Number(item?.profitPerUnit || 0));
+        }, 0);
         const discount = Number(req.body.discount || 0);
-        const totalAmount = subtotal - discount;
+        const totalNetPrice = subtotal + totalProfit - discount;
+        const totalAmount = totalNetPrice;
 
         // Force VAT to be ignored even if old clients still send it.
         delete req.body.vat;
@@ -90,6 +100,8 @@ router.post('/', async (req, res) => {
         const quotation = new Quotation({
             ...req.body,
             subtotal,
+            totalProfit,
+            totalNetPrice,
             totalAmount
         });
         
@@ -115,9 +127,19 @@ router.put('/:id', async (req, res) => {
         // Recalculate totals if items or discount changed
         if (req.body.items || req.body.discount !== undefined) {
             const items = req.body.items || [];
-            req.body.subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+            req.body.subtotal = items.reduce((sum, item) => {
+                const qty = Number(item?.quantity || 0);
+                const lineTotal = Number(item?.total);
+                if (Number.isFinite(lineTotal)) return sum + lineTotal;
+                return sum + (qty * Number(item?.pricePerUnit || 0));
+            }, 0);
+            req.body.totalProfit = items.reduce((sum, item) => {
+                const qty = Number(item?.quantity || 0);
+                return sum + (qty * Number(item?.profitPerUnit || 0));
+            }, 0);
             req.body.discount = Number(req.body.discount || 0);
-            req.body.totalAmount = req.body.subtotal - req.body.discount;
+            req.body.totalNetPrice = req.body.subtotal + req.body.totalProfit - req.body.discount;
+            req.body.totalAmount = req.body.totalNetPrice;
         }
 
         delete req.body.vat;
