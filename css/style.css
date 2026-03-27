@@ -3323,7 +3323,20 @@ body.profile-ready #userRole {
     .btn-icon,
     .modal,
     .filter-section,
-    .content-header button {
+    .content-header button,
+    #itemBreakdownList {
+        display: none !important;
+    }
+    
+    #itemProfitBreakdownSection > div:first-child {
+        display: none !important;
+    }
+
+    #totalProfitRow {
+        display: none !important;
+    }
+
+    #costPriceRow {
         display: none !important;
     }
     

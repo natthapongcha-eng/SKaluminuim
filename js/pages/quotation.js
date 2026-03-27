@@ -129,6 +129,12 @@ const QuotationPage = {
         this.quotationItems = [];
         this.pendingQuotationItems = [];
         
+        // Reset additional profit input in modal
+        const addItemProfitPerUnitInput = document.getElementById('addItemProfitPerUnit');
+        if (addItemProfitPerUnitInput) {
+            addItemProfitPerUnitInput.value = 0;
+        }
+        
         // Get next quotation number
         try {
             const result = await api.quotations.getNextNumber();
@@ -152,6 +158,7 @@ const QuotationPage = {
         });
 
         this.renderQuotationItems();
+        this.updateQuotationTotal();
     },
 
     // Setup event listeners
@@ -240,8 +247,12 @@ const QuotationPage = {
     addItemToQuotation() {
         const quantityInput = document.getElementById('cartQuantity');
         const priceInput = document.getElementById('cartUnitPrice');
+        const profitPerUnitInput = document.getElementById('addItemProfitPerUnit');
         const quantity = parseFloat(quantityInput?.value ?? '') || 0;
         const unitPrice = parseFloat(priceInput?.value ?? '') || 0;
+        
+        // Capture the profit per unit from modal
+        const profitPerUnit = parseFloat(profitPerUnitInput?.value ?? 0) || 0;
 
         if (!this.selectedInventoryItem) {
             alert('กรุณาเลือกวัสดุจากรายการวัสดุจากคลัง');
@@ -268,6 +279,7 @@ const QuotationPage = {
             existingPendingItem.quantity = mergedQuantity;
             existingPendingItem.total = mergedTotal;
             existingPendingItem.unitPrice = mergedQuantity > 0 ? (mergedTotal / mergedQuantity) : 0;
+            existingPendingItem.profitPerUnit = profitPerUnit;
         } else {
             this.pendingQuotationItems.push({
                 sku,
@@ -276,7 +288,8 @@ const QuotationPage = {
                 quantity,
                 unit,
                 unitPrice,
-                total: incomingTotal
+                total: incomingTotal,
+                profitPerUnit: profitPerUnit
             });
         }
 
@@ -303,10 +316,12 @@ const QuotationPage = {
         const searchInput = document.getElementById('inventorySearchInput');
         const quantityInput = document.getElementById('cartQuantity');
         const priceInput = document.getElementById('cartUnitPrice');
+        const profitPerUnitInput = document.getElementById('addItemProfitPerUnit');
 
         if (searchInput) searchInput.value = '';
         if (quantityInput) quantityInput.value = '';
         if (priceInput) priceInput.value = '';
+        if (profitPerUnitInput) profitPerUnitInput.value = 0;
         this.selectedInventoryItem = null;
         this.renderInventoryCatalog('');
     },
@@ -363,6 +378,7 @@ const QuotationPage = {
                 existingItem.quantity = mergedQuantity;
                 existingItem.total = mergedTotal;
                 existingItem.unitPrice = mergedQuantity > 0 ? (mergedTotal / mergedQuantity) : 0;
+                existingItem.profitPerUnit = pendingItem.profitPerUnit || existingItem.profitPerUnit;
             } else {
                 this.quotationItems.push({ ...pendingItem });
             }
@@ -483,7 +499,53 @@ const QuotationPage = {
     // Update quotation total
     updateQuotationTotal() {
         const total = this.quotationItems.reduce((sum, item) => sum + item.total, 0);
+        
         document.getElementById('totalAmount').textContent = total.toLocaleString('th-TH');
+        
+        // Update item-by-item profit breakdown
+        const itemBreakdownSection = document.getElementById('itemProfitBreakdownSection');
+        if (itemBreakdownSection) {
+            const hasProfit = this.quotationItems.some(item => (item.profitPerUnit || 0) > 0);
+            
+            if (hasProfit) {
+                itemBreakdownSection.style.display = 'block';
+                
+                const breakdownList = document.getElementById('itemBreakdownList');
+                let totalProfit = 0;
+                let totalNetPrice = 0;
+                
+                breakdownList.innerHTML = this.quotationItems.map(item => {
+                    const quantity = item.quantity || 1;
+                    const costPerUnit = item.unitPrice || 0;
+                    const profitPerUnit = item.profitPerUnit || 0;
+                    const netPricePerUnit = costPerUnit + profitPerUnit;
+                    const itemName = `${item.name || '-'}`;
+                    const profitTotal = profitPerUnit * quantity;
+                    const netPriceTotal = netPricePerUnit * quantity;
+                    
+                    totalProfit += profitTotal;
+                    totalNetPrice += netPriceTotal;
+                    
+                    return `
+                        <div style="padding: 8px; background: #f9fafb; border-radius: 4px; font-size: 0.9rem;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>${itemName}:</span>
+                                <span style="font-weight: 600;">${costPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} + ${profitPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} = ${netPricePerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} บาท</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #666; text-align: right; margin-top: 4px;">
+                                <span>(เพิ่ม ${profitTotal.toLocaleString('th-TH', { maximumFractionDigits: 2 })} บาท)</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                // Update totals
+                document.getElementById('totalProfitDisplay').textContent = totalProfit.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+                document.getElementById('totalNetPrice').textContent = totalNetPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+            } else {
+                itemBreakdownSection.style.display = 'none';
+            }
+        }
 
         // Update summary
         const subtotal = total;
