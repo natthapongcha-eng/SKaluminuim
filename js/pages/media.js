@@ -4,32 +4,73 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
+    const STAGE_MAP = {
+        before: 'before',
+        during: 'during',
+        after: 'after',
+        'รูปก่อนติดตั้ง': 'before',
+        'รูประหว่างติดตั้ง': 'during',
+        'รูปหลังติดตั้ง': 'after'
+    };
+
+    function normalizeStage(stage) {
+        return STAGE_MAP[String(stage || '').trim().toLowerCase()]
+            || STAGE_MAP[String(stage || '').trim()]
+            || 'before';
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     // State
     let projects = [];
+    let quotations = [];
+    let projectNameById = new Map();
     let mediaByProject = {};
-    let currentImages = [];
+    let mediaByQuotation = {};
+    let currentMediaItems = [];
     let currentImageIndex = 0;
 
     // DOM Elements
     const filterProject = document.getElementById('filterProject');
     const filterMediaType = document.getElementById('filterMediaType');
+    const filterMediaSource = document.getElementById('filterMediaSource');
     const uploadMediaBtn = document.getElementById('uploadMediaBtn');
     const uploadMediaModal = document.getElementById('uploadMediaModal');
     const uploadMediaForm = document.getElementById('uploadMediaForm');
+    const mediaUploadType = document.getElementById('mediaUploadType');
+    const mediaProjectGroup = document.getElementById('mediaProjectGroup');
+    const mediaQuotationGroup = document.getElementById('mediaQuotationGroup');
+    const mediaCategoryGroup = document.getElementById('mediaCategoryGroup');
     const mediaProject = document.getElementById('mediaProject');
+    const mediaQuotation = document.getElementById('mediaQuotation');
     const mediaFiles = document.getElementById('mediaFiles');
     const fileUploadArea = document.getElementById('fileUploadArea');
     const filePreview = document.getElementById('filePreview');
     const cancelUpload = document.getElementById('cancelUpload');
     const imageViewerModal = document.getElementById('imageViewerModal');
     const viewerImage = document.getElementById('viewerImage');
+    const imageProjectName = document.getElementById('imageProjectName');
+    const imageDate = document.getElementById('imageDate');
+    const imageDescription = document.getElementById('imageDescription');
+    const deleteSuccessModal = document.getElementById('deleteSuccessModal');
+    const closeDeleteSuccessBtn = document.getElementById('closeDeleteSuccessBtn');
+    const uploadSuccessModal = document.getElementById('uploadSuccessModal');
+    const uploadSuccessMessage = document.getElementById('uploadSuccessMessage');
+    const closeUploadSuccessBtn = document.getElementById('closeUploadSuccessBtn');
     const projectsGallery = document.querySelector('.projects-gallery');
 
     // Initialize
     init();
 
     async function init() {
-        await loadProjects();
+        await Promise.all([loadProjects(), loadQuotations()]);
         await loadMediaStats();
         await loadAllMedia();
         setupEventListeners();
@@ -38,11 +79,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load projects for dropdown and gallery
     async function loadProjects() {
         try {
-            projects = await api.get('/projects');
+            projects = await api.projects.getAll();
+            projectNameById = new Map(
+                projects.map(project => [String(project._id), project.name || `โครงการ ${project._id}`])
+            );
             populateProjectDropdowns();
         } catch (error) {
             console.error('Error loading projects:', error);
             showToast('ไม่สามารถโหลดข้อมูลโครงการได้', 'error');
+        }
+    }
+
+    async function loadQuotations() {
+        try {
+            quotations = await api.quotations.getAll();
+            populateQuotationDropdown();
+        } catch (error) {
+            console.error('Error loading quotations:', error);
+            showToast('ไม่สามารถโหลดข้อมูลใบเสนอราคาได้', 'error');
         }
     }
 
@@ -52,17 +106,27 @@ document.addEventListener('DOMContentLoaded', function() {
         mediaProject.innerHTML = '<option value="">เลือกโครงการ</option>';
 
         projects.forEach(project => {
-            const name = project.projectName || `โครงการ ${project._id}`;
+            const name = project.name || `โครงการ ${project._id}`;
             
             filterProject.innerHTML += `<option value="${project._id}">${name}</option>`;
             mediaProject.innerHTML += `<option value="${project._id}">${name}</option>`;
         });
     }
 
+    function populateQuotationDropdown() {
+        if (!mediaQuotation) return;
+
+        mediaQuotation.innerHTML = '<option value="">เลือกใบเสนอราคา</option>';
+        quotations.forEach((quotation) => {
+            const label = `${quotation.quotationNumber || '-'} - ${quotation.customerName || '-'}`;
+            mediaQuotation.innerHTML += `<option value="${quotation._id}">${label}</option>`;
+        });
+    }
+
     // Load media statistics
     async function loadMediaStats() {
         try {
-            const stats = await api.get('/media/stats');
+            const stats = await api.request('/media/stats');
             
             // Update stat cards
             document.querySelectorAll('.stat-card')[0].querySelector('h3').textContent = stats.totalMedia || 0;
@@ -80,18 +144,49 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadAllMedia() {
         try {
             projectsGallery.innerHTML = '<p class="loading">กำลังโหลด...</p>';
-            
+            const source = filterMediaSource?.value || 'all';
             const filters = {
+                mediaType: source !== 'all' ? source : undefined,
                 projectId: filterProject.value !== 'all' ? filterProject.value : undefined,
                 stage: filterMediaType.value !== 'all' ? filterMediaType.value : undefined
             };
 
-            const media = await api.get('/media', filters);
+            if (source === 'quotation') {
+                filters.projectId = undefined;
+                filters.stage = undefined;
+            }
+
+            const query = new URLSearchParams(
+                Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined))
+            ).toString();
+            const media = await api.request(`/media${query ? `?${query}` : ''}`);
             
             // Group media by project
             mediaByProject = {};
+            mediaByQuotation = {};
             media.forEach(item => {
-                const projectId = item.projectId?._id || item.projectId;
+                const mediaType = String(item.mediaType || 'project');
+
+                if (mediaType === 'quotation') {
+                    const quotationId = String(item.quotationId?._id || item.quotationId || '');
+                    if (!quotationId) return;
+
+                    if (!mediaByQuotation[quotationId]) {
+                        mediaByQuotation[quotationId] = {
+                            quotation: item.quotationId,
+                            attachments: []
+                        };
+                    }
+
+                    mediaByQuotation[quotationId].attachments.push(item);
+                    return;
+                }
+
+                const projectId = String(item.projectId?._id || item.projectId || '');
+                if (!projectId) {
+                    return;
+                }
+
                 if (!mediaByProject[projectId]) {
                     mediaByProject[projectId] = {
                         project: item.projectId,
@@ -100,7 +195,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         after: []
                     };
                 }
-                mediaByProject[projectId][item.stage].push(item);
+                const stageKey = normalizeStage(item.stage);
+                mediaByProject[projectId][stageKey].push(item);
             });
 
             renderGallery();
@@ -111,19 +207,56 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderGallery() {
-        if (Object.keys(mediaByProject).length === 0) {
+        if (Object.keys(mediaByProject).length === 0 && Object.keys(mediaByQuotation).length === 0) {
             projectsGallery.innerHTML = '<p class="no-data">ยังไม่มีรูปภาพ กดปุ่ม "อัปโหลดรูปภาพ" เพื่อเพิ่ม</p>';
             return;
         }
 
         projectsGallery.innerHTML = '';
 
+        renderQuotationCards();
+        renderProjectCards();
+
+        setupProjectCardSelection();
+        setupTabListeners();
+    }
+
+    function renderProjectCards() {
+        if ((filterMediaSource?.value || 'all') === 'quotation') {
+            return;
+        }
+
         Object.entries(mediaByProject).forEach(([projectId, data]) => {
-            const projectName = data.project?.projectName || `โครงการ ${projectId}`;
+            const selectedStageFilter = filterMediaType.value;
+            const isSingleStageFilter = ['before', 'during', 'after'].includes(selectedStageFilter);
+            const visibleStage = isSingleStageFilter ? selectedStageFilter : 'before';
+            const projectName = getProjectDisplayName(data.project, projectId);
             const totalImages = data.before.length + data.during.length + data.after.length;
+            const stageMeta = [
+                { key: 'before', label: 'ก่อนติดตั้ง', count: data.before.length },
+                { key: 'during', label: 'ระหว่างติดตั้ง', count: data.during.length },
+                { key: 'after', label: 'หลังติดตั้ง', count: data.after.length }
+            ];
+            const stagesToRender = isSingleStageFilter
+                ? stageMeta.filter(stage => stage.key === selectedStageFilter)
+                : stageMeta;
+
+            const tabsHtml = stagesToRender
+                .map(stage => `<button class="tab-btn ${visibleStage === stage.key ? 'active' : ''}" data-tab="${stage.key}-${projectId}">${stage.label} (${stage.count})</button>`)
+                .join('');
+
+            const gridsHtml = stagesToRender
+                .map(stage => `
+                <div class="media-grid ${visibleStage !== stage.key ? 'hidden' : ''}" id="${stage.key}-${projectId}" data-project="${projectId}" data-stage="${stage.key}">
+                    ${renderMediaItems(data[stage.key], projectName)}
+                    ${renderUploadPlaceholder(projectId, stage.key)}
+                </div>
+                `)
+                .join('');
 
             const card = document.createElement('div');
             card.className = 'project-gallery-card';
+            card.dataset.projectId = projectId;
             card.innerHTML = `
                 <div class="project-gallery-header">
                     <h3>${projectName}</h3>
@@ -131,41 +264,81 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 
                 <div class="media-tabs">
-                    <button class="tab-btn active" data-tab="before-${projectId}">ก่อนติดตั้ง (${data.before.length})</button>
-                    <button class="tab-btn" data-tab="during-${projectId}">ระหว่างติดตั้ง (${data.during.length})</button>
-                    <button class="tab-btn" data-tab="after-${projectId}">หลังติดตั้ง (${data.after.length})</button>
+                    ${tabsHtml}
                 </div>
-                
-                <div class="media-grid" id="before-${projectId}" data-project="${projectId}" data-stage="before">
-                    ${renderMediaItems(data.before)}
-                    ${renderUploadPlaceholder(projectId, 'before')}
+
+                ${gridsHtml}
+            `;
+
+            projectsGallery.appendChild(card);
+        });
+    }
+
+    function renderQuotationCards() {
+        if ((filterMediaSource?.value || 'all') === 'project') {
+            return;
+        }
+
+        Object.entries(mediaByQuotation).forEach(([quotationId, data]) => {
+            const quotationNumber = data.quotation?.quotationNumber || quotationId;
+            const customerName = data.quotation?.customerName || '-';
+
+            const card = document.createElement('div');
+            card.className = 'project-gallery-card';
+            card.dataset.quotationId = quotationId;
+            card.innerHTML = `
+                <div class="project-gallery-header">
+                    <h3>ใบเสนอราคา ${quotationNumber} (${customerName})</h3>
+                    <span class="image-count">${data.attachments.length} รูป</span>
                 </div>
-                <div class="media-grid hidden" id="during-${projectId}" data-project="${projectId}" data-stage="during">
-                    ${renderMediaItems(data.during)}
-                    ${renderUploadPlaceholder(projectId, 'during')}
-                </div>
-                <div class="media-grid hidden" id="after-${projectId}" data-project="${projectId}" data-stage="after">
-                    ${renderMediaItems(data.after)}
-                    ${renderUploadPlaceholder(projectId, 'after')}
+
+                <div class="media-grid" id="quotation-${quotationId}" data-quotation="${quotationId}" data-stage="after">
+                    ${renderMediaItems(data.attachments, `ใบเสนอราคา ${quotationNumber}`)}
+                    ${renderQuotationUploadPlaceholder(quotationId)}
                 </div>
             `;
 
             projectsGallery.appendChild(card);
         });
-
-        // Setup tab switching
-        setupTabListeners();
     }
 
-    function renderMediaItems(items) {
+    function setupProjectCardSelection() {
+        document.querySelectorAll('.project-gallery-card').forEach(card => {
+            const header = card.querySelector('.project-gallery-header');
+            const projectId = card.dataset.projectId;
+
+            if (!header || !projectId) return;
+
+            header.style.cursor = 'pointer';
+            header.title = 'คลิกเพื่อแสดงเฉพาะโครงการนี้';
+
+            header.addEventListener('click', async () => {
+                if (filterProject.value === projectId) return;
+                filterProject.value = projectId;
+                await loadAllMedia();
+            });
+        });
+    }
+
+    function getProjectDisplayName(projectRef, fallbackProjectId) {
+        if (projectRef && typeof projectRef === 'object' && projectRef.name) {
+            return projectRef.name;
+        }
+
+        const projectId = String(projectRef?._id || projectRef || fallbackProjectId || '');
+        return projectNameById.get(projectId) || `โครงการ ${projectId}`;
+    }
+
+    function renderMediaItems(items, projectName = '') {
         return items.map((item, index) => `
-            <div class="media-item" data-id="${item._id}" data-index="${index}">
-                <img src="${item.path}" alt="${item.originalName}" loading="lazy">
+            <div class="media-item" data-id="${item._id}" data-index="${index}" data-project-name="${escapeHtml(projectName)}" data-created-at="${escapeHtml(item.createdAt)}" data-description="${escapeHtml(item.description || '')}">
+                <img src="${item.imageUrl || item.path}" alt="${item.originalName}" loading="lazy">
                 <div class="media-overlay">
                     <button class="btn-icon view-btn" data-id="${item._id}">👁️</button>
                     <button class="btn-icon delete-btn" data-id="${item._id}">🗑️</button>
                 </div>
                 <p class="media-date">${formatDate(item.createdAt)}</p>
+                ${item.description ? `<p class="media-description">${escapeHtml(item.description)}</p>` : ''}
             </div>
         `).join('');
     }
@@ -176,6 +349,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button class="btn-upload" data-project="${projectId}" data-stage="${stage}">
                     <span>➕</span>
                     <p>เพิ่มรูปภาพ</p>
+                </button>
+            </div>
+        `;
+    }
+
+    function renderQuotationUploadPlaceholder(quotationId) {
+        return `
+            <div class="media-item upload-placeholder">
+                <button class="btn-upload" data-quotation="${quotationId}">
+                    <span>➕</span>
+                    <p>เพิ่มรูปใบเสนอราคา</p>
                 </button>
             </div>
         `;
@@ -220,15 +404,34 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.addEventListener('click', () => {
                 const projectId = btn.dataset.project;
                 const stage = btn.dataset.stage;
-                openUploadModal(projectId, stage);
+                const quotationId = btn.dataset.quotation;
+                openUploadModal(projectId, stage, quotationId);
             });
         });
     }
 
     function setupEventListeners() {
         // Filter changes
+        filterMediaSource?.addEventListener('change', () => {
+            const source = filterMediaSource.value;
+            const isQuotationOnly = source === 'quotation';
+
+            filterProject.disabled = isQuotationOnly;
+            filterMediaType.disabled = isQuotationOnly;
+
+            if (isQuotationOnly) {
+                filterProject.value = 'all';
+                filterMediaType.value = 'all';
+            }
+
+            loadAllMedia();
+        });
         filterProject.addEventListener('change', loadAllMedia);
         filterMediaType.addEventListener('change', loadAllMedia);
+
+        mediaUploadType?.addEventListener('change', () => {
+            toggleUploadTypeFields();
+        });
 
         // Upload button
         uploadMediaBtn.addEventListener('click', () => openUploadModal());
@@ -236,14 +439,25 @@ document.addEventListener('DOMContentLoaded', function() {
         // Modal close buttons
         document.querySelectorAll('.modal .close').forEach(btn => {
             btn.addEventListener('click', () => {
-                btn.closest('.modal').style.display = 'none';
+                const modal = btn.closest('.modal');
+                if (!modal) return;
+                modal.classList.remove('active');
             });
         });
 
         // Cancel upload
         cancelUpload.addEventListener('click', () => {
-            uploadMediaModal.style.display = 'none';
+            uploadMediaModal.classList.remove('active');
             resetUploadForm();
+        });
+
+        // Close delete success popup
+        closeDeleteSuccessBtn?.addEventListener('click', () => {
+            if (deleteSuccessModal) deleteSuccessModal.classList.remove('active');
+        });
+
+        closeUploadSuccessBtn?.addEventListener('click', () => {
+            if (uploadSuccessModal) uploadSuccessModal.classList.remove('active');
         });
 
         // File upload area click
@@ -279,6 +493,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Close modal on outside click
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
+                if (e.target.id === 'deleteSuccessModal' || e.target.id === 'uploadSuccessModal') {
+                    e.target.classList.remove('active');
+                    return;
+                }
                 e.target.style.display = 'none';
             }
         });
@@ -291,15 +509,51 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (e.key === 'Escape') imageViewerModal.style.display = 'none';
             }
         });
+
+        toggleUploadTypeFields();
     }
 
-    function openUploadModal(projectId = '', stage = '') {
-        uploadMediaModal.style.display = 'block';
-        if (projectId) {
-            mediaProject.value = projectId;
+    function toggleUploadTypeFields() {
+        const isQuotation = mediaUploadType?.value === 'quotation';
+
+        if (mediaProjectGroup) {
+            mediaProjectGroup.style.display = isQuotation ? 'none' : 'block';
         }
-        if (stage) {
-            document.getElementById('mediaCategory').value = stage;
+        if (mediaCategoryGroup) {
+            mediaCategoryGroup.style.display = isQuotation ? 'none' : 'block';
+        }
+        if (mediaQuotationGroup) {
+            mediaQuotationGroup.style.display = isQuotation ? 'block' : 'none';
+        }
+
+        if (mediaProject) {
+            mediaProject.required = !isQuotation;
+        }
+        const mediaCategory = document.getElementById('mediaCategory');
+        if (mediaCategory) {
+            mediaCategory.required = !isQuotation;
+        }
+        if (mediaQuotation) {
+            mediaQuotation.required = isQuotation;
+        }
+    }
+
+    function openUploadModal(projectId = '', stage = '', quotationId = '') {
+        uploadMediaModal.classList.add('active');
+
+        if (quotationId) {
+            mediaUploadType.value = 'quotation';
+            toggleUploadTypeFields();
+            mediaQuotation.value = quotationId;
+        } else {
+            mediaUploadType.value = 'project';
+            toggleUploadTypeFields();
+            if (projectId) {
+                mediaProject.value = projectId;
+            }
+            if (stage) {
+                document.getElementById('mediaCategory').value = stage;
+            }
         }
     }
 
@@ -332,19 +586,31 @@ document.addEventListener('DOMContentLoaded', function() {
     async function handleUpload(e) {
         e.preventDefault();
 
+        const uploadType = mediaUploadType?.value || 'project';
         const projectId = mediaProject.value;
+        const quotationId = mediaQuotation?.value || '';
         const stage = document.getElementById('mediaCategory').value;
         const description = document.getElementById('mediaDescription').value;
 
-        if (!projectId || !stage || mediaFiles.files.length === 0) {
+        const hasRequiredContext = uploadType === 'quotation'
+            ? Boolean(quotationId)
+            : Boolean(projectId && stage);
+
+        if (!hasRequiredContext || mediaFiles.files.length === 0) {
             showToast('กรุณากรอกข้อมูลให้ครบถ้วนและเลือกรูปภาพ', 'error');
             return;
         }
 
         const formData = new FormData();
-        formData.append('projectId', projectId);
-        formData.append('stage', stage);
+        formData.append('mediaType', uploadType);
         formData.append('description', description);
+
+        if (uploadType === 'quotation') {
+            formData.append('quotationId', quotationId);
+        } else {
+            formData.append('projectId', projectId);
+            formData.append('stage', stage);
+        }
 
         Array.from(mediaFiles.files).forEach(file => {
             formData.append('images', file);
@@ -359,11 +625,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
 
             if (response.ok) {
-                showToast(result.message || 'อัปโหลดสำเร็จ', 'success');
-                uploadMediaModal.style.display = 'none';
+                uploadMediaModal.classList.remove('active');
                 resetUploadForm();
                 await loadMediaStats();
                 await loadAllMedia();
+                showUploadSuccessModal(result.message || 'อัปโหลดสำเร็จ');
             } else {
                 throw new Error(result.message || 'Upload failed');
             }
@@ -375,40 +641,101 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function resetUploadForm() {
         uploadMediaForm.reset();
+        if (mediaUploadType) {
+            mediaUploadType.value = 'project';
+        }
+        toggleUploadTypeFields();
         filePreview.innerHTML = '';
     }
 
     async function deleteMedia(id) {
-        if (!confirm('ต้องการลบรูปภาพนี้หรือไม่?')) return;
+        let shouldDelete = false;
+
+        if (typeof showStyledConfirm === 'function') {
+            shouldDelete = await showStyledConfirm({
+                title: 'ยืนยันการลบรูปภาพ',
+                message: 'คุณต้องการลบรูปภาพนี้ใช่หรือไม่? การลบจะไม่สามารถกู้คืนได้',
+                confirmText: 'ลบรูปภาพ',
+                cancelText: 'ยกเลิก',
+                variant: 'danger'
+            });
+        } else {
+            shouldDelete = confirm('ต้องการลบรูปภาพนี้หรือไม่?');
+        }
+
+        if (!shouldDelete) return;
 
         try {
-            await api.delete(`/media/${id}`);
-            showToast('ลบรูปภาพสำเร็จ', 'success');
+            await api.request(`/media/${id}`, { method: 'DELETE' });
             await loadMediaStats();
             await loadAllMedia();
+            showDeleteSuccessModal();
         } catch (error) {
             console.error('Delete error:', error);
             showToast('เกิดข้อผิดพลาดในการลบ', 'error');
         }
     }
 
+    function showDeleteSuccessModal() {
+        if (deleteSuccessModal) {
+            deleteSuccessModal.style.removeProperty('display');
+            deleteSuccessModal.classList.add('active');
+            return;
+        }
+        showToast('ลบรูปภาพสำเร็จ', 'success');
+    }
+
+    function showUploadSuccessModal(message) {
+        if (uploadSuccessMessage) {
+            uploadSuccessMessage.textContent = message || 'อัปโหลดรูปภาพสำเร็จ';
+        }
+
+        if (uploadSuccessModal) {
+            uploadSuccessModal.style.removeProperty('display');
+            uploadSuccessModal.classList.add('active');
+            return;
+        }
+
+        showToast(message || 'อัปโหลดรูปภาพสำเร็จ', 'success');
+    }
+
     function openImageViewer(mediaItem) {
         const mediaGrid = mediaItem.closest('.media-grid');
-        currentImages = Array.from(mediaGrid.querySelectorAll('.media-item:not(.upload-placeholder) img'));
+        currentMediaItems = Array.from(mediaGrid.querySelectorAll('.media-item:not(.upload-placeholder)'));
         currentImageIndex = Array.from(mediaGrid.querySelectorAll('.media-item:not(.upload-placeholder)')).indexOf(mediaItem);
 
-        if (currentImages.length > 0 && currentImageIndex >= 0) {
-            viewerImage.src = currentImages[currentImageIndex].src;
+        if (currentMediaItems.length > 0 && currentImageIndex >= 0) {
+            updateViewerInfo();
             imageViewerModal.style.display = 'block';
         }
     }
 
     function navigateViewer(direction) {
         currentImageIndex += direction;
-        if (currentImageIndex < 0) currentImageIndex = currentImages.length - 1;
-        if (currentImageIndex >= currentImages.length) currentImageIndex = 0;
-        
-        viewerImage.src = currentImages[currentImageIndex].src;
+        if (currentImageIndex < 0) currentImageIndex = currentMediaItems.length - 1;
+        if (currentImageIndex >= currentMediaItems.length) currentImageIndex = 0;
+
+        updateViewerInfo();
+    }
+
+    function updateViewerInfo() {
+        if (!currentMediaItems.length || currentImageIndex < 0) return;
+
+        const activeItem = currentMediaItems[currentImageIndex];
+        const activeImage = activeItem.querySelector('img');
+        if (!activeImage) return;
+
+        viewerImage.src = activeImage.src;
+        if (imageProjectName) {
+            imageProjectName.textContent = activeItem.dataset.projectName || 'โครงการ...';
+        }
+        if (imageDate) {
+            imageDate.textContent = `วันที่: ${formatDate(activeItem.dataset.createdAt) || '-'}`;
+        }
+        if (imageDescription) {
+            const desc = activeItem.dataset.description || '';
+            imageDescription.textContent = desc ? `หมายเหตุ: ${desc}` : 'หมายเหตุ: -';
+        }
     }
 
     function formatDate(dateString) {
