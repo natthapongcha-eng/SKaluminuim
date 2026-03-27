@@ -331,10 +331,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderMediaItems(items, projectName = '') {
         return items.map((item, index) => `
-            <div class="media-item" data-id="${item._id}" data-index="${index}" data-project-name="${escapeHtml(projectName)}" data-created-at="${escapeHtml(item.createdAt)}" data-description="${escapeHtml(item.description || '')}">
-                <img src="${item.imageUrl || item.path}" alt="${item.originalName}" loading="lazy">
+            <div class="media-item" data-id="${item._id}" data-index="${index}" data-project-name="${escapeHtml(projectName)}" data-created-at="${escapeHtml(item.createdAt)}" data-description="${escapeHtml(item.description || '')}" data-file-type="${item.mimetype === 'application/pdf' ? 'pdf' : 'image'}" data-file-url="${escapeHtml(item.imageUrl || item.path || '')}">
+                ${item.mimetype === 'application/pdf'
+                    ? `<div class="media-file-preview pdf-preview"><span class="pdf-badge">PDF</span><p class="pdf-name">${escapeHtml(item.originalName || 'ไฟล์ PDF')}</p></div>`
+                    : `<img src="${item.imageUrl || item.path}" alt="${item.originalName}" loading="lazy">`
+                }
                 <div class="media-overlay">
-                    <button class="btn-icon view-btn" data-id="${item._id}">👁️</button>
+                    <button class="btn-icon view-btn" data-id="${item._id}">${item.mimetype === 'application/pdf' ? '📄' : '👁️'}</button>
                     <button class="btn-icon delete-btn" data-id="${item._id}">🗑️</button>
                 </div>
                 <p class="media-date">${formatDate(item.createdAt)}</p>
@@ -387,7 +390,18 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                openImageViewer(e.target.closest('.media-item'));
+                const mediaItem = e.target.closest('.media-item');
+                if (!mediaItem) return;
+
+                if (mediaItem.dataset.fileType === 'pdf') {
+                    const pdfUrl = mediaItem.dataset.fileUrl;
+                    if (pdfUrl) {
+                        window.open(pdfUrl, '_blank', 'noopener');
+                    }
+                    return;
+                }
+
+                openImageViewer(mediaItem);
             });
         });
 
@@ -562,6 +576,23 @@ document.addEventListener('DOMContentLoaded', function() {
         filePreview.innerHTML = '';
 
         Array.from(files).forEach((file, index) => {
+            if (file.type === 'application/pdf') {
+                const preview = document.createElement('div');
+                preview.className = 'preview-item preview-file';
+                preview.innerHTML = `
+                    <div class="preview-file-icon">PDF</div>
+                    <button type="button" class="remove-preview" data-index="${index}">×</button>
+                    <p>${file.name}</p>
+                `;
+                filePreview.appendChild(preview);
+
+                preview.querySelector('.remove-preview').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    preview.remove();
+                });
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 const preview = document.createElement('div');
@@ -700,9 +731,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function openImageViewer(mediaItem) {
+        if (!mediaItem || mediaItem.dataset.fileType === 'pdf') {
+            return;
+        }
+
         const mediaGrid = mediaItem.closest('.media-grid');
-        currentMediaItems = Array.from(mediaGrid.querySelectorAll('.media-item:not(.upload-placeholder)'));
-        currentImageIndex = Array.from(mediaGrid.querySelectorAll('.media-item:not(.upload-placeholder)')).indexOf(mediaItem);
+        currentMediaItems = Array.from(mediaGrid.querySelectorAll('.media-item:not(.upload-placeholder)'))
+            .filter((item) => item.dataset.fileType !== 'pdf');
+        currentImageIndex = currentMediaItems.indexOf(mediaItem);
 
         if (currentMediaItems.length > 0 && currentImageIndex >= 0) {
             updateViewerInfo();
