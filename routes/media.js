@@ -46,11 +46,11 @@ function toApiMedia(doc) {
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-    // Accept images only
-    if (file.mimetype.startsWith('image/')) {
+    // Accept image and PDF files
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
         cb(null, true);
     } else {
-        cb(new Error('Only image files are allowed!'), false);
+        cb(new Error('Only image and PDF files are allowed!'), false);
     }
 };
 
@@ -161,7 +161,7 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
         }
 
         if (!Array.isArray(req.files) || req.files.length === 0) {
-            return res.status(400).json({ message: 'At least one image is required' });
+            return res.status(400).json({ message: 'At least one file is required' });
         }
 
         // Verify project/quotation exists
