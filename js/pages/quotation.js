@@ -8,7 +8,6 @@ const QuotationPage = {
     pendingQuotationItems: [],
     filteredInventoryItems: [],
     selectedInventoryItem: null,
-    uploadedAttachment: null,
 
     // Initialize quotation page
     async init() {
@@ -152,12 +151,6 @@ const QuotationPage = {
             day: 'numeric'
         });
 
-        const quotationCategory = document.getElementById('quotationCategory');
-        if (quotationCategory) {
-            quotationCategory.value = 'general';
-        }
-        this.updateQuotationCategoryText('general');
-
         this.renderQuotationItems();
     },
 
@@ -227,105 +220,6 @@ const QuotationPage = {
         document.getElementById('exportPdfBtn')?.addEventListener('click', () => {
             this.exportToPDF();
         });
-
-        // Quotation category
-        document.getElementById('quotationCategory')?.addEventListener('change', (e) => {
-            this.updateQuotationCategoryText(e.target.value);
-        });
-
-        // Attachment input
-        document.getElementById('quotationAttachment')?.addEventListener('change', (e) => {
-            const file = e.target.files?.[0] || null;
-            this.handleAttachmentSelection(file);
-        });
-    },
-
-    getQuotationCategoryLabel(value) {
-        const categoryLabels = {
-            general: 'ทั่วไป',
-            project: 'ตามโครงการ',
-            material: 'ค่าวัสดุ',
-            service: 'ค่าบริการ/ติดตั้ง'
-        };
-        return categoryLabels[value] || 'ทั่วไป';
-    },
-
-    updateQuotationCategoryText(categoryValue) {
-        const textEl = document.getElementById('quotationCategoryText');
-        if (textEl) {
-            textEl.textContent = this.getQuotationCategoryLabel(categoryValue);
-        }
-    },
-
-    handleAttachmentSelection(file) {
-        const statusEl = document.getElementById('quotationAttachmentStatus');
-        const linkEl = document.getElementById('quotationAttachmentLink');
-
-        this.uploadedAttachment = null;
-
-        if (!file) {
-            if (statusEl) statusEl.textContent = 'ยังไม่ได้แนบไฟล์';
-            if (linkEl) {
-                linkEl.style.display = 'none';
-                linkEl.removeAttribute('href');
-            }
-            return;
-        }
-
-        if (statusEl) {
-            statusEl.textContent = `ไฟล์ที่เลือก: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-        }
-        if (linkEl) {
-            linkEl.style.display = 'none';
-            linkEl.removeAttribute('href');
-        }
-    },
-
-    async uploadAttachmentIfNeeded() {
-        const attachmentInput = document.getElementById('quotationAttachment');
-        const file = attachmentInput?.files?.[0];
-        if (!file) return null;
-
-        const formData = new FormData();
-        formData.append('quotationFile', file);
-
-        const response = await fetch('/api/quotations/upload-file', {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.message || 'Upload attachment failed');
-        }
-
-        return result.file || null;
-    },
-
-    updateAttachmentDisplay(attachment) {
-        const statusEl = document.getElementById('quotationAttachmentStatus');
-        const linkEl = document.getElementById('quotationAttachmentLink');
-
-        if (!attachment) {
-            if (statusEl) statusEl.textContent = 'ยังไม่ได้แนบไฟล์';
-            if (linkEl) {
-                linkEl.style.display = 'none';
-                linkEl.removeAttribute('href');
-            }
-            return;
-        }
-
-        if (statusEl) {
-            const sizeText = Number.isFinite(Number(attachment.size))
-                ? `${(Number(attachment.size) / 1024).toFixed(1)} KB`
-                : '-';
-            statusEl.textContent = `แนบไฟล์แล้ว: ${attachment.name || '-'} (${sizeText})`;
-        }
-
-        if (linkEl && attachment.path) {
-            linkEl.href = attachment.path;
-            linkEl.style.display = 'inline-block';
-        }
     },
 
     // Add item to quotation
@@ -614,17 +508,8 @@ const QuotationPage = {
             return;
         }
 
-        let attachment = null;
-        try {
-            attachment = await this.uploadAttachmentIfNeeded();
-        } catch (error) {
-            alert('อัปโหลดไฟล์แนบไม่สำเร็จ: ' + error.message);
-            return;
-        }
-
         const quotationData = {
             quotationNumber: document.getElementById('quotationNumber')?.value || 'QT-001',
-            quotationCategory: document.getElementById('quotationCategory')?.value || 'general',
             customer: document.getElementById('selectCustomer')?.value || null,
             customerName: customerName,
             customerAddress: document.getElementById('customerAddress')?.textContent,
@@ -639,10 +524,6 @@ const QuotationPage = {
             subtotal: this.quotationItems.reduce((sum, item) => sum + item.total, 0),
             vat: this.quotationItems.reduce((sum, item) => sum + item.total, 0) * 0.07,
             total: this.quotationItems.reduce((sum, item) => sum + item.total, 0) * 1.07,
-            attachmentName: attachment?.name || '',
-            attachmentPath: attachment?.path || '',
-            attachmentMimeType: attachment?.mimeType || '',
-            attachmentSize: attachment?.size || 0,
             status: 'draft',
             createdBy: JSON.parse(sessionStorage.getItem('user'))?.id
         };
@@ -650,8 +531,6 @@ const QuotationPage = {
         try {
             await api.quotations.create(quotationData);
             alert('บันทึกใบเสนอราคาเรียบร้อย');
-            this.uploadedAttachment = attachment;
-            this.updateAttachmentDisplay(attachment);
         } catch (error) {
             console.error('Error saving quotation:', error);
             alert('เกิดข้อผิดพลาด: ' + error.message);
