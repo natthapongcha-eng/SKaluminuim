@@ -28,6 +28,25 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/'/g, '&#39;');
     }
 
+    function decodePotentiallyMojibakeName(value) {
+        const text = String(value || '');
+        if (!text) return '';
+
+        const looksMojibake = /Ã.|Â|à¸|à¹|àº|ï¿½/.test(text);
+        if (!looksMojibake) return text;
+
+        if (typeof TextDecoder !== 'function') return text;
+
+        try {
+            const bytes = Uint8Array.from(Array.from(text).map(char => char.charCodeAt(0) & 0xff));
+            const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+            if (!decoded || decoded.includes('�')) return text;
+            return decoded;
+        } catch (error) {
+            return text;
+        }
+    }
+
     // State
     let projects = [];
     let quotations = [];
@@ -160,6 +179,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined))
             ).toString();
             const media = await api.request(`/media${query ? `?${query}` : ''}`);
+
+            media.forEach(item => {
+                item.originalName = decodePotentiallyMojibakeName(item.originalName || item.filename || '');
+            });
             
             // Group media by project
             mediaByProject = {};
