@@ -165,7 +165,9 @@ const api = {
 
                 const fallbackPayload = {
                     status: statusData?.status,
-                    paymentStatus: statusData?.paymentStatus
+                    paymentStatus: statusData?.paymentStatus,
+                    userId: statusData?.userId,
+                    createdByName: statusData?.createdByName
                 };
 
                 const updated = await api.request(`/projects/${id}`, {
@@ -196,7 +198,11 @@ const api = {
 
                 const updated = await api.request(`/projects/${id}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ status: 'cancelled' })
+                    body: JSON.stringify({
+                        status: 'cancelled',
+                        userId: payload?.userId,
+                        createdByName: payload?.createdByName
+                    })
                 });
                 if (updated && typeof updated === 'object') {
                     updated.__fallbackUsed = true;

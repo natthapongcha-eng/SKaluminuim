@@ -5,6 +5,7 @@ const Customer = require('../models/Customer');
 const Material = require('../models/Inventory');
 const StockLog = require('../models/StockLog');
 const Quotation = require('../models/Quotation');
+const User = require('../models/User');
 
 const STATUS_VALUES = new Set(['planning', 'in-progress', 'completed', 'cancelled']);
 const PAYMENT_VALUES = new Set(['unpaid', 'partial', 'paid']);
@@ -21,6 +22,39 @@ function normalizePaymentStatus(paymentStatus) {
 function isCompletedAndPaid(projectLike) {
     return projectLike?.status === LOCKED_CANCEL_STATUS.status
         && projectLike?.paymentStatus === LOCKED_CANCEL_STATUS.paymentStatus;
+}
+
+function normalizeDisplayName(name = '') {
+    return String(name || '').trim();
+}
+
+function buildUserDisplayName(user) {
+    if (!user) return '';
+    const firstName = normalizeDisplayName(user.firstName);
+    const lastName = normalizeDisplayName(user.lastName);
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || normalizeDisplayName(user.name) || normalizeDisplayName(user.email);
+}
+
+async function resolveActor(userId, fallbackName = '') {
+    const actorId = userId || null;
+    const fallback = normalizeDisplayName(fallbackName);
+    if (!actorId) {
+        return { userId: null, createdByName: fallback };
+    }
+
+    try {
+        const user = await User.findById(actorId).select('firstName lastName name email');
+        return {
+            userId: actorId,
+            createdByName: buildUserDisplayName(user) || fallback
+        };
+    } catch (error) {
+        return {
+            userId: actorId,
+            createdByName: fallback
+        };
+    }
 }
 
 function parseTotalPrice(value) {
@@ -173,7 +207,8 @@ async function buildProjectMaterials(inputMaterials = []) {
     });
 }
 
-async function deductStockForProject(project, userId) {
+async function deductStockForProject(project, actor = {}) {
+    const resolvedActor = await resolveActor(actor.userId, actor.createdByName);
     const materials = Array.isArray(project.materials) ? project.materials : [];
     if (materials.length === 0) {
         project.stockDeducted = true;
@@ -216,8 +251,21 @@ async function deductStockForProject(project, userId) {
             previousStock,
             newStock: stockItem.quantity,
             projectId: project._id,
-            reason: 'Auto stock-out when project moved to in-progress',
-            createdBy: userId
+            projectName: project.name || '',
+            reason: `Auto stock-out: project moved to in-progress (${project.name || project._id})`,
+            movementSource: 'project-status-deduct',
+            movementDetail: {
+                projectStatus: 'in-progress',
+                materialId: stockItem._id,
+                materialName: stockItem.name,
+                specification: used.specification || '',
+                unit: used.unit || stockItem.unit || '',
+                qty,
+                unitPrice: Number(used.unitPrice || stockItem.unitPrice || 0),
+                lineTotal: Number(used.total || 0)
+            },
+            createdBy: resolvedActor.userId,
+            createdByName: resolvedActor.createdByName
         });
     }
 
@@ -227,7 +275,8 @@ async function deductStockForProject(project, userId) {
     project.stockRestoredAt = null;
 }
 
-async function restoreStockForProject(project, userId) {
+async function restoreStockForProject(project, actor = {}) {
+    const resolvedActor = await resolveActor(actor.userId, actor.createdByName);
     const materials = Array.isArray(project.materials) ? project.materials : [];
     if (materials.length === 0) {
         project.stockRestored = true;
@@ -260,8 +309,21 @@ async function restoreStockForProject(project, userId) {
             previousStock,
             newStock: stockItem.quantity,
             projectId: project._id,
-            reason: 'Auto stock-restore when project cancelled',
-            createdBy: userId
+            projectName: project.name || '',
+            reason: `Auto stock-restore: project cancelled (${project.name || project._id})`,
+            movementSource: 'project-status-restore',
+            movementDetail: {
+                projectStatus: 'cancelled',
+                materialId: stockItem._id,
+                materialName: stockItem.name,
+                specification: used.specification || '',
+                unit: used.unit || stockItem.unit || '',
+                qty,
+                unitPrice: Number(used.unitPrice || stockItem.unitPrice || 0),
+                lineTotal: Number(used.total || 0)
+            },
+            createdBy: resolvedActor.userId,
+            createdByName: resolvedActor.createdByName
         });
     }
 
@@ -459,10 +521,16 @@ router.put('/:id', async (req, res) => {
         const shouldRestore = nextStatus === 'cancelled' && project.stockDeducted && !project.stockRestored;
 
         if (shouldDeduct) {
-            await deductStockForProject(project, req.body?.userId);
+            await deductStockForProject(project, {
+                userId: req.body?.userId,
+                createdByName: req.body?.createdByName
+            });
         }
         if (shouldRestore) {
-            await restoreStockForProject(project, req.body?.userId);
+            await restoreStockForProject(project, {
+                userId: req.body?.userId,
+                createdByName: req.body?.createdByName
+            });
         }
 
         project.status = nextStatus;
@@ -484,7 +552,7 @@ router.put('/:id', async (req, res) => {
 // Update status only (with stock behavior)
 router.patch('/:id/status', async (req, res) => {
     try {
-        const { status, paymentStatus, userId } = req.body;
+        const { status, paymentStatus, userId, createdByName } = req.body;
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ message: 'ไม่พบโครงการ' });
 
@@ -499,11 +567,11 @@ router.patch('/:id/status', async (req, res) => {
         const shouldRestore = nextStatus === 'cancelled' && project.stockDeducted && !project.stockRestored;
 
         if (shouldDeduct) {
-            await deductStockForProject(project, userId);
+            await deductStockForProject(project, { userId, createdByName });
         }
 
         if (shouldRestore) {
-            await restoreStockForProject(project, userId);
+            await restoreStockForProject(project, { userId, createdByName });
         }
 
         const noChange = nextStatus === project.status && nextPayment === project.paymentStatus;
@@ -539,14 +607,20 @@ router.patch('/:id/cancel', async (req, res) => {
 
         if (project.status === 'cancelled') {
             if (project.stockDeducted && !project.stockRestored) {
-                await restoreStockForProject(project, req.body?.userId);
+                await restoreStockForProject(project, {
+                    userId: req.body?.userId,
+                    createdByName: req.body?.createdByName
+                });
                 await project.save();
             }
             return res.json(project);
         }
 
         if (project.stockDeducted && !project.stockRestored) {
-            await restoreStockForProject(project, req.body?.userId);
+            await restoreStockForProject(project, {
+                userId: req.body?.userId,
+                createdByName: req.body?.createdByName
+            });
         }
 
         project.status = 'cancelled';

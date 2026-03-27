@@ -8,7 +8,10 @@ const stockLogSchema = new mongoose.Schema({
     previousStock: { type: Number, required: true },
     newStock: { type: Number, required: true },
     projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+    projectName: { type: String },
     reason: { type: String },
+    movementSource: { type: String },
+    movementDetail: { type: mongoose.Schema.Types.Mixed },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdByName: { type: String },
     createdAt: { type: Date, default: Date.now }
