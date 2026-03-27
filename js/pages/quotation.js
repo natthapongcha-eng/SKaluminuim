@@ -132,9 +132,9 @@ const QuotationPage = {
         this.additionalProfit = 0;
         
         // Reset additional profit input in modal
-        const addItemProfitInput = document.getElementById('addItemProfit');
-        if (addItemProfitInput) {
-            addItemProfitInput.value = 0;
+        const addItemProfitPerUnitInput = document.getElementById('addItemProfitPerUnit');
+        if (addItemProfitPerUnitInput) {
+            addItemProfitPerUnitInput.value = 0;
         }
         
         // Get next quotation number
@@ -235,13 +235,14 @@ const QuotationPage = {
     addItemToQuotation() {
         const quantityInput = document.getElementById('cartQuantity');
         const priceInput = document.getElementById('cartUnitPrice');
-        const profitInput = document.getElementById('addItemProfit');
+        const profitPerUnitInput = document.getElementById('addItemProfitPerUnit');
         const quantity = parseFloat(quantityInput?.value ?? '') || 0;
         const unitPrice = parseFloat(priceInput?.value ?? '') || 0;
         
-        // Capture the profit from modal
-        const profit = parseFloat(profitInput?.value ?? 0) || 0;
-        this.additionalProfit = profit;
+        // Capture the profit per unit from modal and calculate total profit
+        const profitPerUnit = parseFloat(profitPerUnitInput?.value ?? 0) || 0;
+        const totalProfit = profitPerUnit * quantity;
+        this.additionalProfit = totalProfit;
 
         if (!this.selectedInventoryItem) {
             alert('กรุณาเลือกวัสดุจากรายการวัสดุจากคลัง');
@@ -303,12 +304,12 @@ const QuotationPage = {
         const searchInput = document.getElementById('inventorySearchInput');
         const quantityInput = document.getElementById('cartQuantity');
         const priceInput = document.getElementById('cartUnitPrice');
-        const profitInput = document.getElementById('addItemProfit');
+        const profitPerUnitInput = document.getElementById('addItemProfitPerUnit');
 
         if (searchInput) searchInput.value = '';
         if (quantityInput) quantityInput.value = '';
         if (priceInput) priceInput.value = '';
-        if (profitInput) profitInput.value = 0;
+        if (profitPerUnitInput) profitPerUnitInput.value = 0;
         this.selectedInventoryItem = null;
         this.renderInventoryCatalog('');
     },
