@@ -179,6 +179,11 @@ const InventoryPage = {
             });
         }
 
+        const cancelStockBtn = document.getElementById('cancelStock');
+        cancelStockBtn?.addEventListener('click', () => {
+            closeModal('stockModal');
+        });
+
         const searchInput = document.getElementById('searchMaterial');
         const filterType = document.getElementById('filterType');
         const filterStock = document.getElementById('filterStock');
