@@ -439,7 +439,7 @@
                 
                 <div class="footer-section-container">
                     <div class="quotation-summary" style="background: rgba(243, 244, 246, 0.5); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                        <div class="summary-row" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="summary-row" style="display: flex; justify-content: space-between; align-items: center;" id="costPriceRow">
                             <span style="font-weight: bold;">ราคาต้นทุน</span>
                             <span id="totalAmount" style="font-size: 1.5rem; font-weight: bold; color: #1e40af;">0</span>
                         </div>
@@ -447,6 +447,16 @@
                             <div style="font-weight: 600; margin-bottom: 10px; font-size: 0.95rem;">รายละเอียดกำไรต่อวัสดุ:</div>
                             <div id="itemBreakdownList" style="display: flex; flex-direction: column; gap: 8px;">
                                 <!-- จะถูกเติมด้วย JS -->
+                            </div>
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;" id="profitSummarySection">
+                                <div style="display: flex; justify-content: space-between; padding: 8px; background: #f0f9ff; border-radius: 4px; margin-bottom: 8px;" id="totalProfitRow">
+                                    <span style="font-weight: 600;">กำไรรวม:</span>
+                                    <span id="totalProfitDisplay" style="font-weight: 600; color: #0369a1;">0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding: 10px; background: #dbeafe; border-radius: 4px;" id="totalNetPriceRow">
+                                    <span style="font-weight: bold;">ราคาสุทธิรวม:</span>
+                                    <span id="totalNetPrice" style="font-size: 1.1rem; font-weight: bold; color: #0369a1;">0</span>
+                                </div>
                             </div>
                         </div>
                     </div>

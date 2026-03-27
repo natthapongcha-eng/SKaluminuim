@@ -497,6 +497,9 @@ const QuotationPage = {
                 itemBreakdownSection.style.display = 'block';
                 
                 const breakdownList = document.getElementById('itemBreakdownList');
+                let totalProfit = 0;
+                let totalNetPrice = 0;
+                
                 breakdownList.innerHTML = this.quotationItems.map(item => {
                     const quantity = item.quantity || 1;
                     const costPerUnit = item.unitPrice || 0;
@@ -504,6 +507,10 @@ const QuotationPage = {
                     const netPricePerUnit = costPerUnit + profitPerUnit;
                     const itemName = `${item.name || '-'}`;
                     const profitTotal = profitPerUnit * quantity;
+                    const netPriceTotal = netPricePerUnit * quantity;
+                    
+                    totalProfit += profitTotal;
+                    totalNetPrice += netPriceTotal;
                     
                     return `
                         <div style="padding: 8px; background: #f9fafb; border-radius: 4px; font-size: 0.9rem;">
@@ -517,6 +524,10 @@ const QuotationPage = {
                         </div>
                     `;
                 }).join('');
+                
+                // Update totals
+                document.getElementById('totalProfitDisplay').textContent = totalProfit.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+                document.getElementById('totalNetPrice').textContent = totalNetPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
             } else {
                 itemBreakdownSection.style.display = 'none';
             }
