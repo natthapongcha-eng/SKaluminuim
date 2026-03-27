@@ -340,6 +340,31 @@ const api = {
                 })
             });
         },
+        async updateTimes(recordId, payload = {}) {
+            const actor = payload.actor || {};
+            return api.request(`/attendance/${recordId}/time`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    checkIn: payload.checkInTime,
+                    checkOut: payload.checkOutTime,
+                    checkInTime: payload.checkInTime,
+                    checkOutTime: payload.checkOutTime,
+                    note: payload.note || '',
+                    actorId: actor.id,
+                    actorRole: actor.role,
+                    actorName: actor.name || actor.email || ''
+                })
+            });
+        },
+        async deleteRecord(recordId, actor = {}) {
+            const query = new URLSearchParams({
+                actorId: actor.id || '',
+                actorRole: actor.role || ''
+            }).toString();
+            return api.request(`/attendance/${recordId}?${query}`, {
+                method: 'DELETE'
+            });
+        },
         async getToday(userId) {
             return api.request(`/attendance/today/${userId}`);
         },

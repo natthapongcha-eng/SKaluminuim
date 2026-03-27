@@ -5,6 +5,8 @@ const Attendance = require('../models/Attendance');
 
 const USER_COLLECTIONS = ['users', 'user'];
 const START_CHECK_IN_HOUR = 7;
+const CHECK_IN_CLOSE_HOUR = 8;
+const CHECK_IN_CLOSE_MINUTE = 0;
 const LATE_THRESHOLD_HOUR = 8;
 const ABSENT_CUTOFF_HOUR = 11;
 const AUTO_CHECK_OUT_HOUR = 17;
@@ -181,10 +183,45 @@ function computeWorkHours(checkIn, checkOut) {
 function inferStatusFromCheckIn(checkInDate) {
     const h = checkInDate.getHours();
     const m = checkInDate.getMinutes();
+    if (h > ABSENT_CUTOFF_HOUR || (h === ABSENT_CUTOFF_HOUR && m > 0)) {
+        return 'absent';
+    }
     if (h > LATE_THRESHOLD_HOUR || (h === LATE_THRESHOLD_HOUR && m > 0)) {
         return 'late';
     }
     return 'present';
+}
+
+function inferStatusFromEditedTimes(checkInDate, checkOutDate) {
+    if (!checkInDate) return 'absent';
+
+    const h = checkInDate.getHours();
+    const m = checkInDate.getMinutes();
+    const minutesFromMidnight = (h * 60) + m;
+    const lateThresholdMinutes = 8 * 60;
+    const absentThresholdMinutes = 11 * 60;
+
+    let status = 'present';
+    if (minutesFromMidnight > absentThresholdMinutes) {
+        status = 'absent';
+    } else if (minutesFromMidnight > lateThresholdMinutes) {
+        status = 'late';
+    }
+
+    if (status !== 'absent' && checkInDate && !checkOutDate) {
+        return 'no_checkout';
+    }
+
+    return status;
+}
+
+function isWithinCheckInWindow(now) {
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    if (hour < START_CHECK_IN_HOUR) return false;
+    if (hour > CHECK_IN_CLOSE_HOUR) return false;
+    if (hour === CHECK_IN_CLOSE_HOUR && minute > CHECK_IN_CLOSE_MINUTE) return false;
+    return true;
 }
 
 function mapUser(doc) {
@@ -296,10 +333,12 @@ function buildSummary(records, users) {
     const presentRecords = records.filter(r => !!r.checkIn);
     const absentRecords = records.filter(r => r.status === 'absent');
     const checkedInIds = new Set(presentRecords.map(r => String(r.userId)));
+    const absentIds = new Set(absentRecords.map(r => String(r.userId)));
 
     const waitingUsers = users
         .filter(u => ['EMPLOYEE', 'ADMIN', 'CEO'].includes(u.role))
         .filter(u => !checkedInIds.has(String(u.id)))
+        .filter(u => !absentIds.has(String(u.id)))
         .map(u => ({ id: u.id, name: u.name, role: u.role }));
 
     const availableEmployees = waitingUsers;
@@ -430,13 +469,21 @@ router.post('/check-in', async (req, res) => {
         const dayStart = parseDateInput(date);
         const now = new Date();
 
-        if (isSameDay(dayStart, now) && now.getHours() < START_CHECK_IN_HOUR) {
-            return res.status(400).json({ success: false, message: 'Check-in opens at 07:00' });
+        if (!isSameDay(dayStart, now)) {
+            return res.status(400).json({ success: false, message: 'Check-in allowed for today only' });
+        }
+
+        if (!isWithinCheckInWindow(now)) {
+            return res.status(400).json({ success: false, message: 'Check-in allowed only between 07:00-08:00' });
         }
 
         await applyDailyAutomation(dayStart);
 
         const existing = await Attendance.findOne({ userId, date: dayStart });
+        if (existing && existing.status === 'absent') {
+            return res.status(400).json({ success: false, message: 'Cannot check in after absent cutoff' });
+        }
+
         if (existing && existing.checkIn) {
             return res.status(400).json({ success: false, message: 'Already checked in for this date' });
         }
@@ -511,6 +558,71 @@ router.post('/check-out', async (req, res) => {
     }
 });
 
+router.put('/:id/time', async (req, res) => {
+    try {
+        const actorAccess = await ensureAccess(req, res);
+        if (!actorAccess) return;
+
+        const {
+            checkIn,
+            checkOut,
+            checkInTime,
+            checkOutTime,
+            note = '',
+            actorId = '',
+            actorName = ''
+        } = req.body;
+
+        if (!String(actorId).trim()) {
+            return res.status(400).json({ success: false, message: 'actorId is required in request body' });
+        }
+
+        const incomingCheckIn = checkInTime || checkIn;
+        const incomingCheckOut = checkOutTime ?? checkOut;
+
+        if (!incomingCheckIn) {
+            return res.status(400).json({ success: false, message: 'checkIn is required' });
+        }
+
+        const record = await Attendance.findById(req.params.id);
+        if (!record) {
+            return res.status(404).json({ success: false, message: 'Record not found' });
+        }
+
+        const parsedIn = new Date(incomingCheckIn);
+        if (Number.isNaN(parsedIn.getTime())) {
+            return res.status(400).json({ success: false, message: 'Invalid checkIn format' });
+        }
+
+        let parsedOut = null;
+        if (incomingCheckOut) {
+            parsedOut = new Date(incomingCheckOut);
+            if (Number.isNaN(parsedOut.getTime())) {
+                return res.status(400).json({ success: false, message: 'Invalid checkOut format' });
+            }
+
+            if (parsedOut <= parsedIn) {
+                return res.status(400).json({ success: false, message: 'checkOut must be after checkIn' });
+            }
+        }
+
+        record.checkIn = parsedIn;
+        record.checkOut = parsedOut;
+        record.workHours = parsedOut ? computeWorkHours(parsedIn, parsedOut) : 0;
+        record.status = inferStatusFromEditedTimes(parsedIn, parsedOut);
+        record.note = [record.note, note].filter(Boolean).join(' | ');
+        record.updatedBy = String(actorId).trim();
+        record.adjustedBy = `${actorName || actorAccess.name || 'SYSTEM'} (${actorAccess.role})`;
+        record.adjustedReason = note || 'แก้ไขเวลาเช็กอิน/เช็กเอาต์ย้อนหลัง';
+        record.adjustedAt = new Date();
+        await record.save();
+
+        res.json({ success: true, record });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+});
+
 router.put('/:id/checkout', async (req, res) => {
     try {
         const actorAccess = await ensureAccess(req, res);
@@ -545,6 +657,28 @@ router.put('/:id/checkout', async (req, res) => {
         await record.save();
 
         res.json({ success: true, record });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+});
+
+router.delete('/:id', async (req, res) => {
+    try {
+        const actorAccess = await ensureAccess(req, res);
+        if (!actorAccess) return;
+
+        const record = await Attendance.findById(req.params.id);
+        if (!record) {
+            return res.status(404).json({ success: false, message: 'Record not found' });
+        }
+
+        await Attendance.deleteOne({ _id: record._id });
+
+        res.json({
+            success: true,
+            message: 'Attendance record deleted',
+            deletedId: String(record._id)
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
