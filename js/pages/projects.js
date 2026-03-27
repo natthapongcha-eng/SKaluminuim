@@ -448,13 +448,47 @@ const ProjectsPage = {
     },
 
     getQuotationNetPrice(quotation) {
-        const subtotal = Number(quotation?.subtotal);
-        const discount = Number(quotation?.discount || 0);
-        if (Number.isFinite(subtotal)) {
-            return Math.max(0, subtotal - (Number.isFinite(discount) ? discount : 0));
+        const explicitNetPrice = Number(quotation?.totalNetPrice);
+        if (Number.isFinite(explicitNetPrice)) {
+            return Math.max(0, explicitNetPrice);
         }
 
-        return Number(quotation?.totalAmount || 0);
+        const items = Array.isArray(quotation?.items) ? quotation.items : [];
+        if (items.length > 0) {
+            const costSubtotal = items.reduce((sum, item) => {
+                const qty = Number(item?.quantity || 0);
+                const lineTotal = Number(item?.total);
+                if (Number.isFinite(lineTotal)) return sum + lineTotal;
+                return sum + (qty * Number(item?.pricePerUnit || 0));
+            }, 0);
+
+            const totalProfitFromItems = items.reduce((sum, item) => {
+                const qty = Number(item?.quantity || 0);
+                return sum + (qty * Number(item?.profitPerUnit || 0));
+            }, 0);
+
+            const totalProfitFromQuotation = Number(quotation?.totalProfit);
+            const totalProfit = totalProfitFromItems > 0
+                ? totalProfitFromItems
+                : (Number.isFinite(totalProfitFromQuotation) ? totalProfitFromQuotation : 0);
+
+            const discount = Number(quotation?.discount || 0);
+            return Math.max(0, costSubtotal + totalProfit - (Number.isFinite(discount) ? discount : 0));
+        }
+
+        const subtotal = Number(quotation?.subtotal);
+        const totalProfit = Number(quotation?.totalProfit || 0);
+        const discount = Number(quotation?.discount || 0);
+        if (Number.isFinite(subtotal)) {
+            return Math.max(0, subtotal + (Number.isFinite(totalProfit) ? totalProfit : 0) - (Number.isFinite(discount) ? discount : 0));
+        }
+
+        const totalAmount = Number(quotation?.totalAmount);
+        if (Number.isFinite(totalAmount)) {
+            return Math.max(0, totalAmount);
+        }
+
+        return 0;
     },
 
     populateQuotationDropdown() {
@@ -888,12 +922,22 @@ const ProjectsPage = {
             return;
         }
 
+        const quotationId = document.getElementById('projectQuotation')?.value || null;
+        const linkedQuotation = quotationId
+            ? this.quotations.find((q) => String(q._id) === String(quotationId))
+            : null;
+        const linkedQuotationNetPrice = linkedQuotation ? this.getQuotationNetPrice(linkedQuotation) : NaN;
+        const fallbackSellPrice = Number(document.getElementById('projectSellPrice')?.value || 0);
+        const totalPrice = Number.isFinite(linkedQuotationNetPrice) && linkedQuotationNetPrice > 0
+            ? linkedQuotationNetPrice
+            : fallbackSellPrice;
+
         const formData = {
             name,
             customerId,
-            quotationId: document.getElementById('projectQuotation')?.value || null,
+            quotationId,
             totalCost,
-            totalPrice: Number(document.getElementById('projectSellPrice')?.value || 0),
+            totalPrice,
             team: document.getElementById('projectTeam')?.value || '',
             startDate: document.getElementById('projectStartDate')?.value || null,
             endDate: document.getElementById('projectEndDate')?.value || null,

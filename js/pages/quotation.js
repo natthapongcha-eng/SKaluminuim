@@ -236,11 +236,6 @@ const QuotationPage = {
         document.getElementById('printQuotationBtn')?.addEventListener('click', () => {
             this.printQuotation();
         });
-
-        // Export PDF
-        document.getElementById('exportPdfBtn')?.addEventListener('click', () => {
-            this.exportToPDF();
-        });
     },
 
     // Add item to quotation
@@ -579,6 +574,13 @@ const QuotationPage = {
             return;
         }
 
+        const subtotal = this.quotationItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+        const totalProfit = this.quotationItems.reduce(
+            (sum, item) => sum + (Number(item.profitPerUnit || 0) * Number(item.quantity || 0)),
+            0
+        );
+        const totalNetPrice = subtotal + totalProfit;
+
         const quotationData = {
             quotationNumber: document.getElementById('quotationNumber')?.value || 'QT-001',
             customerId: document.getElementById('selectCustomer')?.value || null,
@@ -590,10 +592,13 @@ const QuotationPage = {
                 quantity: item.quantity,
                 unit: item.unit,
                 pricePerUnit: item.unitPrice ?? item.pricePerUnit ?? 0,
-                total: item.total
+                total: item.total,
+                profitPerUnit: Number(item.profitPerUnit || 0)
             })),
-            subtotal: this.quotationItems.reduce((sum, item) => sum + item.total, 0),
-            totalAmount: this.quotationItems.reduce((sum, item) => sum + item.total, 0),
+            subtotal,
+            totalProfit,
+            totalNetPrice,
+            totalAmount: totalNetPrice,
             status: 'draft',
             createdBy: JSON.parse(sessionStorage.getItem('user'))?.id
         };

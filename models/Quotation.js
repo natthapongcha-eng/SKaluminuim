@@ -5,7 +5,8 @@ const quotationItemSchema = new mongoose.Schema({
     quantity: { type: Number, required: true },
     unit: { type: String, required: true },
     pricePerUnit: { type: Number, required: true },
-    total: { type: Number, required: true }
+    total: { type: Number, required: true },
+    profitPerUnit: { type: Number, default: 0 }
 });
 
 const quotationSchema = new mongoose.Schema({
@@ -16,6 +17,8 @@ const quotationSchema = new mongoose.Schema({
     customerPhone: { type: String },
     items: [quotationItemSchema],
     subtotal: { type: Number, default: 0 },
+    totalProfit: { type: Number, default: 0 },
+    totalNetPrice: { type: Number, default: 0 },
     discount: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
     status: { type: String, enum: ['draft', 'sent', 'approved', 'rejected'], default: 'draft' },
