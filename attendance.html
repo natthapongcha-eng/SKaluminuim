@@ -67,7 +67,7 @@
             <div class="content-header attendance-content-header">
                 <div class="attendance-title-block">
                     <p class="attendance-eyebrow">Smart Attendance Workspace</p>
-                    <h1>บันทึกเวลาเข้า-ออกงาน (Attendance)</h1>
+                    <h1>บันทึกเวลาเข้า-ออกงาน</h1>
                 </div>
                 <div class="header-actions">
                     <button class="btn-success" id="checkInBtn">บันทึกเข้างาน</button>
@@ -82,7 +82,7 @@
                 <div class="master-clock-chip">MASTER CLOCK · SERVER TIME</div>
                 <h2 id="currentTime">14:30:25</h2>
                 <p id="currentDateDisplay">วันพุธที่ 15 มีนาคม 2568</p>
-                <small class="clock-hint">เวลานี้ใช้ตัดสินกฎ 07:00 / 08:01 / 11:00</small>
+                <small class="clock-hint">เวลานี้ใช้ตัดสินกฎ 07:00 / 08:00 / 11:00</small>
             </div>
             <div class="today-status" id="todayStatusBox">
                 <div class="status-item">
@@ -189,6 +189,7 @@
                             <th>พนักงาน</th>
                             <th>สถานะ</th>
                             <th>หมายเหตุ</th>
+                            <th>จัดการ</th>
                         </tr>
                     </thead>
                     <tbody id="absentList"></tbody>
@@ -236,8 +237,12 @@
     <div id="editAttendanceModal" class="modal">
         <div class="modal-content">
             <span class="close" id="closeEditAttendanceModal">&times;</span>
-            <h2>แก้ไขเวลาเช็กเอาต์</h2>
+            <h2>แก้ไขเวลาเช็กอิน/เช็กเอาต์</h2>
             <div class="modal-body">
+                <div class="form-group">
+                    <label for="editCheckinTime">เวลาเช็กอินที่ถูกต้อง</label>
+                    <input type="datetime-local" id="editCheckinTime">
+                </div>
                 <div class="form-group">
                     <label for="editCheckoutTime">เวลาเช็กเอาต์ที่ถูกต้อง</label>
                     <input type="datetime-local" id="editCheckoutTime">

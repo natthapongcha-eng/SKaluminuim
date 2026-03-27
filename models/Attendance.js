@@ -9,6 +9,7 @@ const attendanceSchema = new mongoose.Schema({
     workHours: { type: Number, default: 0 },
     status: { type: String, enum: ['present', 'late', 'absent', 'leave', 'no_checkout'], default: 'present' },
     note: { type: String },
+    updatedBy: { type: String, default: '' },
     adjustedBy: { type: String, default: '' },
     adjustedAt: { type: Date },
     adjustedReason: { type: String, default: '' },

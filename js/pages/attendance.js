@@ -1,4 +1,7 @@
 const AttendancePage = {
+    CHECK_IN_START_HOUR: 7,
+    CHECK_IN_CLOSE_HOUR: 8,
+    CHECK_IN_CLOSE_MINUTE: 0,
     currentUser: null,
     selectedDate: '',
     selectedEmployeeId: '',
@@ -6,6 +9,7 @@ const AttendancePage = {
     dayData: null,
     currentAction: 'in',
     editRecordId: '',
+    editCheckInTime: null,
     serverTimeOffset: 0,
     hasServerTimeSync: false,
     clockTimerId: null,
@@ -25,7 +29,6 @@ const AttendancePage = {
         checkOutOpacity: '',
         checkOutTitle: ''
     },
-    lastCheckInTime: null,
     thaiMonthNames: [
         'มกราคม',
         'กุมภาพันธ์',
@@ -173,6 +176,16 @@ const AttendancePage = {
         const d = new Date(dateLike);
         if (Number.isNaN(d.getTime())) return '';
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    },
+
+    getErrorMessage(error, fallback = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง') {
+        const raw = String(error?.message || '').trim();
+        if (!raw) return fallback;
+        if (raw.includes('API returned non-JSON response')) return 'ระบบตอบกลับผิดรูปแบบ กรุณาตรวจสอบเซิร์ฟเวอร์';
+        if (raw.includes('Failed to fetch') || raw.includes('NetworkError')) {
+            return 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือเซิร์ฟเวอร์';
+        }
+        return raw;
     },
 
     getDailyVisualStatus(counts = {}) {
@@ -496,6 +509,7 @@ const AttendancePage = {
         const checkInBtn = document.getElementById('checkInBtn');
         const checkOutBtn = document.getElementById('checkOutBtn');
 
+        // Keep buttons clickable so rule violations can show explicit alerts.
         let checkInDisabled = false;
         let checkInOpacity = '1';
         let checkInTitle = '';
@@ -506,10 +520,20 @@ const AttendancePage = {
             checkInTitle = 'กำลังซิงก์เวลาเซิร์ฟเวอร์...';
         } else {
             const hours = now.getHours();
-            if (hours < 7) {
-                checkInDisabled = true;
-                checkInOpacity = '0.5';
+            const minutes = now.getMinutes();
+            const selectedIsToday = this.selectedDate === this.getDateKey(now);
+            const employee = this.getSelectedEmployee();
+
+            if (!selectedIsToday) {
+                checkInTitle = 'อนุญาตให้ลงเวลาเฉพาะวันนี้เท่านั้น';
+            } else if (!employee) {
+                checkInTitle = 'กรุณาเลือกพนักงานก่อน';
+            } else if (this.getOpenAttendanceRecord(employee.id)) {
+                checkInTitle = 'พนักงานที่เลือกกำลังทำงานอยู่แล้ว';
+            } else if (hours < this.CHECK_IN_START_HOUR) {
                 checkInTitle = 'ระบบเปิดให้ลงเวลาตอน 07:00 น.';
+            } else if (hours > this.CHECK_IN_CLOSE_HOUR || (hours === this.CHECK_IN_CLOSE_HOUR && minutes > this.CHECK_IN_CLOSE_MINUTE)) {
+                checkInTitle = 'ปิดรับลงเวลาเข้างานหลัง 08:00 น.';
             }
         }
 
@@ -524,27 +548,13 @@ const AttendancePage = {
             checkOutOpacity = '0.5';
             checkOutTitle = 'กำลังซิงก์เวลาเซิร์ฟเวอร์...';
         } else {
-            const hours = now.getHours();
-            const minutes = now.getMinutes();
-            const currentTimeValue = hours + (minutes / 60);
-
-            if (currentTimeValue < 15.0) {
-                checkOutDisabled = true;
-                checkOutOpacity = '0.5';
-                checkOutTitle = 'ไม่อนุญาตให้เช็กเอาต์ก่อน 15:00 น.';
-            } else if (!this.lastCheckInTime) {
-                checkOutDisabled = true;
-                checkOutOpacity = '0.5';
-                checkOutTitle = 'ต้องเช็กอินก่อน';
+            const employee = this.getSelectedEmployee();
+            if (!employee) {
+                checkOutTitle = 'กรุณาเลือกพนักงานก่อน';
             } else {
-                const minGapMinutes = 15;
-                const timeSinceCheckIn = (now - this.lastCheckInTime) / (1000 * 60);
-
-                if (timeSinceCheckIn < minGapMinutes) {
-                    checkOutDisabled = true;
-                    checkOutOpacity = '0.5';
-                    const minutesRemaining = Math.ceil(minGapMinutes - timeSinceCheckIn);
-                    checkOutTitle = `รอ ${minutesRemaining} นาทีถึง 15:30 น.`;
+                const openRecord = this.getOpenAttendanceRecord(employee.id);
+                if (!openRecord) {
+                    checkOutTitle = 'พนักงานที่เลือกยังไม่ได้เช็กอิน หรือเช็กเอาต์แล้ว';
                 }
             }
         }
@@ -581,12 +591,10 @@ const AttendancePage = {
         }
     },
 
-    setCheckInTime(timestamp) {
-        this.lastCheckInTime = timestamp ? new Date(timestamp) : new Date();
-    },
-
-    clearCheckInTime() {
-        this.lastCheckInTime = null;
+    getOpenAttendanceRecord(employeeId) {
+        if (!employeeId) return null;
+        const presentRows = Array.isArray(this.dayData?.tabs?.present) ? this.dayData.tabs.present : [];
+        return presentRows.find(row => String(row.userId) === String(employeeId) && row.checkIn && !row.checkOut) || null;
     },
 
     setButtonLoading(button, isLoading, loadingText = 'กำลังบันทึก...') {
@@ -618,18 +626,11 @@ const AttendancePage = {
             });
             this.dayData = response;
 
-            const presentRows = this.dayData?.tabs?.present || [];
-            const currentEmployeeRecord = presentRows.find(x => String(x.userId) === String(this.currentUser.id));
-            if (currentEmployeeRecord && currentEmployeeRecord.checkIn && !currentEmployeeRecord.checkOut) {
-                this.setCheckInTime(currentEmployeeRecord.checkIn);
-            } else {
-                this.clearCheckInTime();
-            }
-
             this.renderAll();
+            this.checkBusinessRules(this.getServerNow());
         } catch (error) {
             console.error('loadDayData error:', error);
-            alert(error.message || 'ไม่สามารถโหลดข้อมูล Attendance ได้');
+            alert(this.getErrorMessage(error, 'ไม่สามารถโหลดข้อมูล Attendance ได้'));
         }
     },
 
@@ -656,31 +657,34 @@ const AttendancePage = {
         const selector = document.getElementById('employeeSelector');
         if (!selector) return;
 
-        const list = this.dayData?.availableEmployees || [];
+        const list = Array.isArray(this.dayData?.availableEmployees)
+            ? this.dayData.availableEmployees.map(item => ({
+                id: String(item.id),
+                name: item.name,
+                role: this.normalizeRole(item.role || 'EMPLOYEE')
+            }))
+            : [];
 
         if (!list.length) {
-            selector.innerHTML = '<option value="">ไม่มีพนักงานที่ยังไม่เช็กอิน</option>';
+            selector.innerHTML = '<option value="">ไม่มีพนักงานให้ทำรายการ</option>';
             this.selectedEmployeeId = '';
             this.selectedEmployeeName = '';
             return;
         }
 
-        const leaders = list.filter(item => {
-            const role = this.normalizeRole(item.role);
-            return role === 'CEO' || role === 'ADMIN';
-        });
-        const employees = list.filter(item => this.normalizeRole(item.role) === 'EMPLOYEE');
+        const waitingLeaders = list.filter(item => item.role === 'CEO' || item.role === 'ADMIN');
+        const waitingEmployees = list.filter(item => item.role === 'EMPLOYEE');
 
         let html = '<option value="">-- เลือกพนักงาน --</option>';
 
-        if (leaders.length) {
-            html += `<optgroup label="ผู้บริหาร (CEO/ADMIN)">${leaders
+        if (waitingLeaders.length) {
+            html += `<optgroup label="รอเข้างาน - ผู้บริหาร (CEO/ADMIN)">${waitingLeaders
                 .map(item => `<option value="${item.id}">${this.escapeHtml(item.name)} (${this.escapeHtml(item.role)})</option>`)
                 .join('')}</optgroup>`;
         }
 
-        if (employees.length) {
-            html += `<optgroup label="พนักงาน (Employee)">${employees
+        if (waitingEmployees.length) {
+            html += `<optgroup label="รอเข้างาน - พนักงาน (Employee)">${waitingEmployees
                 .map(item => `<option value="${item.id}">${this.escapeHtml(item.name)} (${this.escapeHtml(item.role)})</option>`)
                 .join('')}</optgroup>`;
         }
@@ -688,17 +692,11 @@ const AttendancePage = {
         selector.innerHTML = html;
 
         const currentRole = this.normalizeRole(this.currentUser.role);
-        if (currentRole === 'CEO') {
-            const me = list.find(x => String(x.id) === String(this.currentUser.id));
-            const selected = me || list[0];
-            selector.value = selected.id;
-            this.selectedEmployeeId = selected.id;
-            this.selectedEmployeeName = selected.name;
-            return;
-        }
+        const selectedByState = list.find(x => String(x.id) === String(this.selectedEmployeeId));
+        const me = list.find(x => String(x.id) === String(this.currentUser.id));
+        const fallback = currentRole === 'CEO' ? (me || list[0]) : list[0];
+        const selected = selectedByState || fallback;
 
-        const found = list.find(x => String(x.id) === String(this.selectedEmployeeId));
-        const selected = found || list[0];
         selector.value = selected.id;
         this.selectedEmployeeId = selected.id;
         this.selectedEmployeeName = selected.name;
@@ -759,7 +757,7 @@ const AttendancePage = {
         }
 
         tbody.innerHTML = rows.map(row => {
-            const showEdit = row.status === 'no_checkout' || (!row.checkOut && !!row.checkIn);
+            const showEdit = !!row.checkIn;
             const statusHtml = !row.checkOut
                 ? '<span class="status-working">กำลังทำงาน</span>'
                 : row.status === 'no_checkout'
@@ -777,7 +775,9 @@ const AttendancePage = {
                     <td>${row.checkIn && row.checkOut ? Number(row.workHours || 0).toFixed(2) : '-'}</td>
                     <td>${statusHtml}</td>
                     <td>${this.escapeHtml(row.note || '-')}</td>
-                    <td>${showEdit ? `<button class="btn-secondary btn-edit-attendance" data-id="${row._id}" data-checkin="${row.checkIn}">แก้ไข</button>` : '-'}</td>
+                    <td>${showEdit
+                        ? `<button class="btn-secondary btn-edit-attendance" data-id="${row._id}" data-checkin="${row.checkIn}" data-checkout="${row.checkOut || ''}">แก้ไข</button> <button class="btn-danger btn-delete-attendance" data-id="${row._id}" data-name="${this.escapeHtml(row.userName || '-')}">ลบ</button>`
+                        : `<button class="btn-danger btn-delete-attendance" data-id="${row._id}" data-name="${this.escapeHtml(row.userName || '-')}">ลบ</button>`}</td>
                 </tr>
             `;
         }).join('');
@@ -788,7 +788,7 @@ const AttendancePage = {
         if (!tbody) return;
 
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">ไม่มีข้อมูล</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">ไม่มีข้อมูล</td></tr>';
             return;
         }
 
@@ -798,6 +798,7 @@ const AttendancePage = {
                 <td>${this.escapeHtml(row.userName || '-')}</td>
                 <td><span class="status-absent">ขาดงาน</span></td>
                 <td>${this.escapeHtml(row.note || '-')}</td>
+                <td><button class="btn-danger btn-delete-attendance" data-id="${row._id}" data-name="${this.escapeHtml(row.userName || '-')}">ลบ</button></td>
             </tr>
         `).join('');
     },
@@ -827,6 +828,17 @@ const AttendancePage = {
             id: selector.value,
             name: name.replace(/\s*\(.+\)$/, '')
         };
+    },
+
+    getActorPayload() {
+        if (this.currentUser?.id) return this.currentUser;
+
+        try {
+            const fromSession = JSON.parse(sessionStorage.getItem('user') || 'null');
+            return fromSession || null;
+        } catch (error) {
+            return null;
+        }
     },
 
     async openDayDetailModal(dateStr) {
@@ -933,7 +945,7 @@ const AttendancePage = {
             openModal('dayDetailModal');
         } catch (error) {
             console.error('Failed to open day detail modal:', error);
-            alert(error.message || 'ไม่สามารถโหลดรายละเอียดของวันได้');
+            alert(this.getErrorMessage(error, 'ไม่สามารถโหลดรายละเอียดของวันได้'));
         }
     },
 
@@ -945,40 +957,53 @@ const AttendancePage = {
             return;
         }
 
-        if (action === 'in' && serverNow.getHours() < 7) {
-            alert('ระบบเปิดให้เข้างานตอน 07:00 น.');
+        const employee = this.getSelectedEmployee();
+        if (!employee) {
+            alert('กรุณาเลือกพนักงานก่อนทำรายการ');
             return;
         }
 
-        if (action === 'out') {
+        if (action === 'in') {
+            const selectedIsToday = this.selectedDate === this.getDateKey(serverNow);
             const hours = serverNow.getHours();
             const minutes = serverNow.getMinutes();
-            const currentTimeValue = hours + (minutes / 60);
+            const afterWindow = hours > this.CHECK_IN_CLOSE_HOUR
+                || (hours === this.CHECK_IN_CLOSE_HOUR && minutes > this.CHECK_IN_CLOSE_MINUTE);
+            const openRecord = this.getOpenAttendanceRecord(employee.id);
 
-            if (currentTimeValue < 15.0) {
-                alert('ไม่อนุญาตให้เช็กเอาต์ก่อน 15:00 น.');
+            if (openRecord) {
+                alert('พนักงานที่เลือกกำลังทำงานอยู่แล้ว');
                 return;
             }
 
-            if (!this.lastCheckInTime) {
-                alert('ต้องเช็กอินก่อน');
+            if (!selectedIsToday) {
+                alert('อนุญาตให้ลงเวลาเฉพาะวันนี้เท่านั้น');
                 return;
             }
 
-            const minGapMinutes = 15;
-            const timeSinceCheckIn = (serverNow - this.lastCheckInTime) / (1000 * 60);
+            if (hours < this.CHECK_IN_START_HOUR) {
+                alert('ระบบเปิดให้เข้างานตอน 07:00 น.');
+                return;
+            }
 
-            if (timeSinceCheckIn < minGapMinutes) {
-                const minutesRemaining = Math.ceil(minGapMinutes - timeSinceCheckIn);
-                alert(`โปรดรอ ${minutesRemaining} นาที ก่อนเช็กเอาต์`);
+            if (afterWindow) {
+                alert('ปิดรับลงเวลาเข้างานหลัง 08:00 น.');
+                return;
+            }
+        }
+
+        if (action === 'out') {
+            const openRecord = this.getOpenAttendanceRecord(employee.id);
+            if (!openRecord) {
+                alert('พนักงานที่เลือกยังไม่ได้เช็กอิน หรือเช็กเอาต์แล้ว');
                 return;
             }
         }
 
         const title = action === 'in' ? 'ยืนยันการเข้างาน' : 'ยืนยันการออกงาน';
         const message = action === 'in'
-            ? 'คุณต้องการบันทึกเวลาเข้างานใช่หรือไม่?'
-            : 'คุณต้องการบันทึกเวลาออกงานใช่หรือไม่?';
+            ? `ยืนยันบันทึกเวลาเข้างานให้ ${employee.name} ใช่หรือไม่?`
+            : `ยืนยันบันทึกเวลาออกงานให้ ${employee.name} ใช่หรือไม่?`;
 
         const titleEl = document.getElementById('attendanceModalTitle');
         const messageEl = document.getElementById('attendanceModalMessage');
@@ -993,15 +1018,21 @@ const AttendancePage = {
         openModal('attendanceModal');
     },
 
-    openEditModal(recordId, checkInTime) {
+    openEditModal(recordId, checkInTime, checkOutTime) {
         this.editRecordId = recordId;
+        this.editCheckInTime = checkInTime ? new Date(checkInTime) : null;
+        const checkInInput = document.getElementById('editCheckinTime');
         const input = document.getElementById('editCheckoutTime');
         const note = document.getElementById('editAttendanceNote');
 
-        const base = new Date(checkInTime);
-        base.setHours(17, 0, 0, 0);
+        const checkInBase = checkInTime ? new Date(checkInTime) : new Date();
+        const checkOutBase = checkOutTime ? new Date(checkOutTime) : new Date(checkInBase);
+        if (!checkOutTime) {
+            checkOutBase.setHours(17, 0, 0, 0);
+        }
 
-        if (input) input.value = this.formatDateTimeLocal(base);
+        if (checkInInput) checkInInput.value = this.formatDateTimeLocal(checkInBase);
+        if (input) input.value = checkOutTime ? this.formatDateTimeLocal(checkOutBase) : '';
         if (note) note.value = '';
         openModal('editAttendanceModal');
     },
@@ -1020,11 +1051,9 @@ const AttendancePage = {
 
             if (this.currentAction === 'in') {
                 await api.attendance.checkIn(employee.id, employee.name, note, this.selectedDate, this.currentUser);
-                this.setCheckInTime(this.getServerNow());
                 alert('บันทึกเข้างานสำเร็จ');
             } else {
                 await api.attendance.checkOut(employee.id, note, this.selectedDate, this.currentUser);
-                this.clearCheckInTime();
                 alert('บันทึกออกงานสำเร็จ');
             }
 
@@ -1033,7 +1062,7 @@ const AttendancePage = {
             if (noteEl) noteEl.value = '';
             await this.loadDayData();
         } catch (error) {
-            alert(error.message || 'บันทึกข้อมูลไม่สำเร็จ');
+            alert(this.getErrorMessage(error, 'บันทึกข้อมูลไม่สำเร็จ'));
         } finally {
             this.setButtonLoading(confirmBtn, false);
         }
@@ -1042,26 +1071,91 @@ const AttendancePage = {
     async submitEditCheckout() {
         if (!this.editRecordId) return;
 
+        const checkInInput = document.getElementById('editCheckinTime');
         const checkoutInput = document.getElementById('editCheckoutTime');
         const noteInput = document.getElementById('editAttendanceNote');
         const confirmBtn = document.getElementById('confirmEditAttendance');
+        const checkInTime = checkInInput?.value;
         const checkOutTime = checkoutInput?.value;
         const note = noteInput?.value || '';
 
-        if (!checkOutTime) {
-            alert('กรุณาระบุเวลาเช็กเอาต์');
+        if (!checkInTime) {
+            alert('กรุณาระบุเวลาเช็กอิน');
+            return;
+        }
+
+        const parsedIn = new Date(checkInTime);
+        if (Number.isNaN(parsedIn.getTime())) {
+            alert('รูปแบบเวลาเช็กอินไม่ถูกต้อง');
+            return;
+        }
+
+        if (checkOutTime) {
+            const parsedOut = new Date(checkOutTime);
+            if (Number.isNaN(parsedOut.getTime())) {
+                alert('รูปแบบเวลาเช็กเอาต์ไม่ถูกต้อง');
+                return;
+            }
+
+            if (parsedOut <= parsedIn) {
+                alert('เวลาเช็กเอาต์ต้องมากกว่าเวลาเช็กอิน');
+                return;
+            }
+        }
+
+        if (!note.trim()) {
+            alert('กรุณาระบุหมายเหตุการแก้ไข');
+            return;
+        }
+
+        const actor = this.getActorPayload();
+        if (!actor?.id) {
+            alert('ไม่พบข้อมูลผู้ใช้งาน กรุณาเข้าสู่ระบบใหม่');
             return;
         }
 
         try {
             this.setButtonLoading(confirmBtn, true, 'กำลังบันทึก...');
-            await api.attendance.updateCheckout(this.editRecordId, checkOutTime, note, this.currentUser);
+            await api.attendance.updateTimes(this.editRecordId, {
+                checkInTime,
+                checkOutTime,
+                note,
+                actor
+            });
             closeModal('editAttendanceModal');
+            if (this.calendarInstance) {
+                this.calendarInstance.refetchEvents();
+            }
             await this.loadDayData();
         } catch (error) {
-            alert(error.message || 'แก้ไขข้อมูลไม่สำเร็จ');
+            alert(this.getErrorMessage(error, 'แก้ไขข้อมูลไม่สำเร็จ'));
         } finally {
             this.setButtonLoading(confirmBtn, false);
+        }
+    },
+
+    async deleteAttendanceRecord(recordId, employeeName) {
+        if (!recordId) return;
+
+        const actor = this.getActorPayload();
+        if (!actor?.id) {
+            alert('ไม่พบข้อมูลผู้ใช้งาน กรุณาเข้าสู่ระบบใหม่');
+            return;
+        }
+
+        const safeName = employeeName || 'พนักงานที่เลือก';
+        const confirmDelete = window.confirm(`ยืนยันลบรายการบันทึกเวลาของ ${safeName} ทั้งรายการใช่หรือไม่?`);
+        if (!confirmDelete) return;
+
+        try {
+            await api.attendance.deleteRecord(recordId, actor);
+            alert('ลบรายการบันทึกเวลาเรียบร้อยแล้ว');
+            if (this.calendarInstance) {
+                this.calendarInstance.refetchEvents();
+            }
+            await this.loadDayData();
+        } catch (error) {
+            alert(this.getErrorMessage(error, 'ลบรายการไม่สำเร็จ'));
         }
     },
 
@@ -1102,6 +1196,7 @@ const AttendancePage = {
             const option = e.target.options[e.target.selectedIndex];
             this.selectedEmployeeId = e.target.value;
             this.selectedEmployeeName = (option?.text || '').replace(/\s*\(.+\)$/, '');
+            this.checkBusinessRules(this.getServerNow());
         });
 
         document.getElementById('closeDayDetailModal')?.addEventListener('click', () => closeModal('dayDetailModal'));
@@ -1112,8 +1207,17 @@ const AttendancePage = {
             if (target instanceof HTMLElement && target.classList.contains('btn-edit-attendance')) {
                 const id = target.getAttribute('data-id');
                 const checkIn = target.getAttribute('data-checkin');
+                const checkOut = target.getAttribute('data-checkout');
                 if (id && checkIn) {
-                    this.openEditModal(id, checkIn);
+                    this.openEditModal(id, checkIn, checkOut);
+                }
+            }
+
+            if (target instanceof HTMLElement && target.classList.contains('btn-delete-attendance')) {
+                const id = target.getAttribute('data-id');
+                const name = target.getAttribute('data-name') || '';
+                if (id) {
+                    this.deleteAttendanceRecord(id, name);
                 }
             }
 
