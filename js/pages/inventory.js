@@ -317,8 +317,15 @@ const InventoryPage = {
         const stock = document.getElementById('filterStock')?.value || 'all';
 
         const filtered = this.items.filter(item => {
-            const matchSearch = item.name.toLowerCase().includes(search) ||
-                                (item.specification || '').toLowerCase().includes(search);
+            const materialCode = String(
+                item.materialCode || item.code || item.itemCode || (item._id ? String(item._id).slice(-6).toUpperCase() : '')
+            ).toLowerCase();
+            const itemName = String(item.name || '').toLowerCase();
+            const specification = String(item.specification || item.spec || '').toLowerCase();
+
+            const matchSearch = materialCode.includes(search)
+                || itemName.includes(search)
+                || specification.includes(search);
             const matchType = type === 'all' || item.type === type;
             const isLow = item.quantity <= (item.minimumThreshold || 10);
             const matchStock = stock === 'all' ||
