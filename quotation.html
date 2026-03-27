@@ -440,29 +440,13 @@
                 <div class="footer-section-container">
                     <div class="quotation-summary" style="background: rgba(243, 244, 246, 0.5); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                         <div class="summary-row" style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: bold;">ราคาทั้งหมด</span>
+                            <span style="font-weight: bold;">ราคาต้นทุน</span>
                             <span id="totalAmount" style="font-size: 1.5rem; font-weight: bold; color: #1e40af;">0</span>
                         </div>
-                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #d1d5db; display: none;" id="profitBreakdownSection">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem;">
-                                <span>ราคา/หน่วย:</span>
-                                <span id="unitPrice" style="font-weight: 600;">0</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem;">
-                                <span>กำไร/หน่วย:</span>
-                                <span id="profitPerUnitDisplay" style="font-weight: 600;">0</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem;">
-                                <span>ราคาสุทธิ/หน่วย:</span>
-                                <span id="netPricePerUnit" style="font-weight: 600;">0</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem;">
-                                <span>จำนวน:</span>
-                                <span id="quantityDisplay" style="font-weight: 600;">0</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 10px; background: #dbeafe; border-radius: 4px;">
-                                <span style="font-weight: bold;">ราคาสุทธิรวม:</span>
-                                <span id="netPrice" style="font-size: 1.2rem; font-weight: bold; color: #0369a1;">0</span>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #d1d5db; display: none;" id="itemProfitBreakdownSection">
+                            <div style="font-weight: 600; margin-bottom: 10px; font-size: 0.95rem;">รายละเอียดกำไรต่อวัสดุ:</div>
+                            <div id="itemBreakdownList" style="display: flex; flex-direction: column; gap: 8px;">
+                                <!-- จะถูกเติมด้วย JS -->
                             </div>
                         </div>
                     </div>

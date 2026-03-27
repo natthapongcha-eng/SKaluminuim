@@ -8,7 +8,6 @@ const QuotationPage = {
     pendingQuotationItems: [],
     filteredInventoryItems: [],
     selectedInventoryItem: null,
-    additionalProfit: 0,
 
     // Initialize quotation page
     async init() {
@@ -129,7 +128,6 @@ const QuotationPage = {
     async initNewQuotation() {
         this.quotationItems = [];
         this.pendingQuotationItems = [];
-        this.additionalProfit = 0;
         
         // Reset additional profit input in modal
         const addItemProfitPerUnitInput = document.getElementById('addItemProfitPerUnit');
@@ -366,6 +364,7 @@ const QuotationPage = {
                 existingItem.quantity = mergedQuantity;
                 existingItem.total = mergedTotal;
                 existingItem.unitPrice = mergedQuantity > 0 ? (mergedTotal / mergedQuantity) : 0;
+                existingItem.profitPerUnit = pendingItem.profitPerUnit || existingItem.profitPerUnit;
             } else {
                 this.quotationItems.push({ ...pendingItem });
             }
@@ -489,30 +488,37 @@ const QuotationPage = {
         
         document.getElementById('totalAmount').textContent = total.toLocaleString('th-TH');
         
-        // Calculate total profit and average values from all items
-        const totalQuantity = this.quotationItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
-        const totalProfitPerUnit = this.quotationItems.reduce((sum, item) => sum + ((item.profitPerUnit || 0) * (item.quantity || 0)), 0);
-        this.additionalProfit = totalProfitPerUnit;
-        
-        // Update profit breakdown section (per-unit detail)
-        const profitBreakdown = document.getElementById('profitBreakdownSection');
-        if (profitBreakdown) {
-            if (this.additionalProfit > 0 && totalQuantity > 0) {
-                profitBreakdown.style.display = 'block';
+        // Update item-by-item profit breakdown
+        const itemBreakdownSection = document.getElementById('itemProfitBreakdownSection');
+        if (itemBreakdownSection) {
+            const hasProfit = this.quotationItems.some(item => (item.profitPerUnit || 0) > 0);
+            
+            if (hasProfit) {
+                itemBreakdownSection.style.display = 'block';
                 
-                // Get average unit price from quotation
-                const avgUnitPrice = totalQuantity > 0 ? total / totalQuantity : 0;
-                const avgProfitPerUnit = totalQuantity > 0 ? totalProfitPerUnit / totalQuantity : 0;
-                const netPricePerUnit = avgUnitPrice + avgProfitPerUnit;
-                const netPriceTotal = netPricePerUnit * totalQuantity;
-                
-                document.getElementById('unitPrice').textContent = avgUnitPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
-                document.getElementById('profitPerUnitDisplay').textContent = avgProfitPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 });
-                document.getElementById('netPricePerUnit').textContent = netPricePerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 });
-                document.getElementById('quantityDisplay').textContent = totalQuantity.toLocaleString('th-TH');
-                document.getElementById('netPrice').textContent = netPriceTotal.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+                const breakdownList = document.getElementById('itemBreakdownList');
+                breakdownList.innerHTML = this.quotationItems.map(item => {
+                    const quantity = item.quantity || 1;
+                    const costPerUnit = item.unitPrice || 0;
+                    const profitPerUnit = item.profitPerUnit || 0;
+                    const netPricePerUnit = costPerUnit + profitPerUnit;
+                    const itemName = `${item.name || '-'}`;
+                    const profitTotal = profitPerUnit * quantity;
+                    
+                    return `
+                        <div style="padding: 8px; background: #f9fafb; border-radius: 4px; font-size: 0.9rem;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>${itemName}:</span>
+                                <span style="font-weight: 600;">${costPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} + ${profitPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} = ${netPricePerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} บาท</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #666; text-align: right; margin-top: 4px;">
+                                <span>(เพิ่ม ${profitTotal.toLocaleString('th-TH', { maximumFractionDigits: 2 })} บาท)</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
             } else {
-                profitBreakdown.style.display = 'none';
+                itemBreakdownSection.style.display = 'none';
             }
         }
 
