@@ -9,6 +9,8 @@ const QuotationPage = {
     filteredInventoryItems: [],
     selectedInventoryItem: null,
     additionalProfit: 0,
+    lastProfitPerUnit: 0,
+    lastQuantity: 0,
 
     // Initialize quotation page
     async init() {
@@ -130,6 +132,8 @@ const QuotationPage = {
         this.quotationItems = [];
         this.pendingQuotationItems = [];
         this.additionalProfit = 0;
+        this.lastProfitPerUnit = 0;
+        this.lastQuantity = 0;
         
         // Reset additional profit input in modal
         const addItemProfitPerUnitInput = document.getElementById('addItemProfitPerUnit');
@@ -243,6 +247,8 @@ const QuotationPage = {
         const profitPerUnit = parseFloat(profitPerUnitInput?.value ?? 0) || 0;
         const totalProfit = profitPerUnit * quantity;
         this.additionalProfit = totalProfit;
+        this.lastProfitPerUnit = profitPerUnit;
+        this.lastQuantity = quantity;
 
         if (!this.selectedInventoryItem) {
             alert('กรุณาเลือกวัสดุจากรายการวัสดุจากคลัง');
@@ -489,15 +495,22 @@ const QuotationPage = {
         
         document.getElementById('totalAmount').textContent = total.toLocaleString('th-TH');
         
-        // Update profit breakdown section
+        // Update profit breakdown section (per-unit detail)
         const profitBreakdown = document.getElementById('profitBreakdownSection');
         if (profitBreakdown) {
-            if (this.additionalProfit > 0) {
+            if (this.additionalProfit > 0 && this.lastQuantity > 0) {
                 profitBreakdown.style.display = 'block';
-                document.getElementById('originalPrice').textContent = total.toLocaleString('th-TH');
-                document.getElementById('profitDisplay').textContent = this.additionalProfit.toLocaleString('th-TH', { maximumFractionDigits: 2 });
-                const netPrice = total + this.additionalProfit;
-                document.getElementById('netPrice').textContent = netPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+                
+                // Get average unit price from quotation
+                const avgUnitPrice = this.lastQuantity > 0 ? total / this.lastQuantity : 0;
+                const netPricePerUnit = avgUnitPrice + this.lastProfitPerUnit;
+                const netPriceTotal = netPricePerUnit * this.lastQuantity;
+                
+                document.getElementById('unitPrice').textContent = avgUnitPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+                document.getElementById('profitPerUnitDisplay').textContent = this.lastProfitPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+                document.getElementById('netPricePerUnit').textContent = netPricePerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+                document.getElementById('quantityDisplay').textContent = this.lastQuantity.toLocaleString('th-TH');
+                document.getElementById('netPrice').textContent = netPriceTotal.toLocaleString('th-TH', { maximumFractionDigits: 2 });
             } else {
                 profitBreakdown.style.display = 'none';
             }
