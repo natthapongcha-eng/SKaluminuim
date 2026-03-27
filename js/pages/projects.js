@@ -116,6 +116,21 @@ const ProjectsPage = {
         return currentUser.id || currentUser._id || null;
     },
 
+    getCurrentUserActor() {
+        if (typeof currentUser === 'undefined') {
+            return { id: null, name: '' };
+        }
+
+        const firstName = String(currentUser.firstName || '').trim();
+        const lastName = String(currentUser.lastName || '').trim();
+        const fullName = `${firstName} ${lastName}`.trim();
+
+        return {
+            id: currentUser.id || currentUser._id || null,
+            name: fullName || currentUser.name || currentUser.email || ''
+        };
+    },
+
     resolveMaterialCode(item) {
         if (!item || typeof item !== 'object') return '-';
 
@@ -160,6 +175,7 @@ const ProjectsPage = {
     },
 
     async applyManualStockOut(project) {
+        const actor = this.getCurrentUserActor();
         const materials = Array.isArray(project?.materials) ? project.materials : [];
         for (const item of materials) {
             const materialId = item.materialId || item.id;
@@ -171,7 +187,8 @@ const ProjectsPage = {
                     quantity: qty,
                     reason: 'Auto stock-out from project status update (fallback mode)',
                     projectId: project._id,
-                    userId: this.getCurrentUserId()
+                    userId: actor.id,
+                    createdByName: actor.name
                 });
             } catch (error) {
                 const itemName = item.name || materialId;
@@ -181,6 +198,7 @@ const ProjectsPage = {
     },
 
     async applyManualStockRestore(project) {
+        const actor = this.getCurrentUserActor();
         const materials = Array.isArray(project?.materials) ? project.materials : [];
         for (const item of materials) {
             const materialId = item.materialId || item.id;
@@ -191,7 +209,8 @@ const ProjectsPage = {
                 await api.inventory.stockIn(materialId, {
                     quantity: qty,
                     reason: 'Auto stock-restore from project cancel (fallback mode)',
-                    userId: this.getCurrentUserId()
+                    userId: actor.id,
+                    createdByName: actor.name
                 });
             } catch (error) {
                 const itemName = item.name || materialId;
@@ -1150,10 +1169,12 @@ const ProjectsPage = {
 
         await this.withActionLock(`status:${this.currentStatusProjectId}`, this.currentStatusProjectId, async () => {
             try {
+                const actor = this.getCurrentUserActor();
                 const updated = await api.projects.updateStatus(this.currentStatusProjectId, {
                     status,
                     paymentStatus,
-                    userId: this.getCurrentUserId()
+                    userId: actor.id,
+                    createdByName: actor.name
                 });
 
                 // If backend is old and status endpoint fell back to PUT, sync inventory manually.
@@ -1200,7 +1221,11 @@ const ProjectsPage = {
 
         await this.withActionLock(`cancel:${id}`, id, async () => {
             try {
-                const updated = await api.projects.cancel(id, { userId: this.getCurrentUserId() });
+                const actor = this.getCurrentUserActor();
+                const updated = await api.projects.cancel(id, {
+                    userId: actor.id,
+                    createdByName: actor.name
+                });
 
                 if (updated?.__fallbackUsed) {
                     await this.applyManualStockRestore(project);
