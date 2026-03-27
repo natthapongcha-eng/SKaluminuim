@@ -422,13 +422,14 @@
                             <th>จำนวน</th>
                             <th>หน่วย</th>
                             <th>ราคา/หน่วย</th>
+                            <th>กำไร/หน่วย</th>
                             <th>ราคารวม</th>
                         </tr>
                     </thead>
                     <tbody id="quotationItems"></tbody>
                     <tfoot>
                         <tr class="add-item-row no-print">
-                            <td colspan="6" style="padding-top: 15px;">
+                            <td colspan="7" style="padding-top: 15px;">
                                 <button class="btn-add-item" id="addItemBtn" style="width: 100%; padding: 10px; border: 2px dashed #ccc; cursor: pointer;">+ เพิ่มรายการ</button>
                             </td>
                         </tr>
@@ -455,7 +456,7 @@
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 10px; background: #dbeafe; border-radius: 4px;" id="totalNetPriceRow">
                                     <span style="font-weight: bold;">ราคาสุทธิรวม:</span>
-                                    <span id="totalNetPrice" style="font-size: 1.1rem; font-weight: bold; color: #0369a1;">0</span>
+                                    <span id="totalNetPrice" style="font-size: 1.95rem; font-weight: 800; color: #0369a1; line-height: 1;">0</span>
                                 </div>
                             </div>
                         </div>
@@ -464,15 +465,12 @@
                     <div class="payment-status" style="border: 2px solid #e5e7eb; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                         <label style="font-weight: bold;">สถานะการชำระเงิน</label>
                         <div class="checkbox-group" style="margin: 10px 0;">
-                            <label><input type="radio" name="paymentStatus" value="paid"> ชำระเงินแล้ว ✓</label>
-                            <label style="margin-left: 15px;"><input type="radio" name="paymentStatus" value="unpaid" checked> ค้างชำระ</label>
+                            <label><input type="radio" name="paymentStatus" value="paid"> ชำระเงินแล้ว</label>
+                            <label style="margin-left: 15px;"><input type="radio" name="paymentStatus" value="unpaid"> ค้างชำระ</label>
                         </div>
                         <div class="payment-date">
-                            <div class="date-select-group">
+                            <div class="date-input-group">
                                 <span>ชำระเมื่อวันที่:</span>
-                                <select id="p_day" class="select-date-part"></select>
-                                <select id="p_month" class="select-date-part"></select>
-                                <select id="p_year" class="select-date-part"></select>
                             </div>
                             <p style="margin-top: 10px;">หมายเหตุ: <input type="text" id="paymentNote" placeholder="ระบุหมายเหตุ..." class="input-note-line"></p>
                         </div>
@@ -543,11 +541,6 @@
                         <label style="display: block; font-weight: 700; margin-bottom: 6px;">ราคา/หน่วย</label>
                         <input type="number" id="cartUnitPrice" required min="0" step="any" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
                     </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="display: block; font-weight: 700; margin-bottom: 6px;">กำไร/หน่วย (บาท)</label>
-                    <input type="number" id="addItemProfitPerUnit" value="0" min="0" step="0.01" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;">
                 </div>
 
                 <div class="modal-actions" style="text-align: right; margin-bottom: 14px;">

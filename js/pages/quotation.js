@@ -71,6 +71,22 @@ const QuotationPage = {
         return type || '-';
     },
 
+    roundMoney(value) {
+        const numeric = Number(value || 0);
+        return Math.round(numeric * 100) / 100;
+    },
+
+    getCustomerUnitPrice(item) {
+        const unitPrice = Number(item?.unitPrice ?? item?.pricePerUnit ?? 0);
+        const profitPerUnit = Number(item?.profitPerUnit || 0);
+        return this.roundMoney(unitPrice + profitPerUnit);
+    },
+
+    getItemNetTotal(item) {
+        const quantity = Number(item?.quantity || 0);
+        return this.roundMoney(quantity * this.getCustomerUnitPrice(item));
+    },
+
     renderInventoryCatalog(query) {
         const tbody = document.getElementById('inventoryCatalogBody');
         if (!tbody) return;
@@ -130,10 +146,7 @@ const QuotationPage = {
         this.pendingQuotationItems = [];
         
         // Reset additional profit input in modal
-        const addItemProfitPerUnitInput = document.getElementById('addItemProfitPerUnit');
-        if (addItemProfitPerUnitInput) {
-            addItemProfitPerUnitInput.value = 0;
-        }
+
         
         // Get next quotation number
         try {
@@ -159,6 +172,19 @@ const QuotationPage = {
 
         this.renderQuotationItems();
         this.updateQuotationTotal();
+        this.resetPaymentFields();
+    },
+
+    resetPaymentFields() {
+        document.querySelectorAll('input[name="paymentStatus"]').forEach((radio) => {
+            radio.checked = false;
+        });
+
+        const paymentDateInput = document.getElementById('paymentDate');
+        if (paymentDateInput) paymentDateInput.value = '';
+
+        const paymentNoteInput = document.getElementById('paymentNote');
+        if (paymentNoteInput) paymentNoteInput.value = '';
     },
 
     // Setup event listeners
@@ -242,12 +268,8 @@ const QuotationPage = {
     addItemToQuotation() {
         const quantityInput = document.getElementById('cartQuantity');
         const priceInput = document.getElementById('cartUnitPrice');
-        const profitPerUnitInput = document.getElementById('addItemProfitPerUnit');
         const quantity = parseFloat(quantityInput?.value ?? '') || 0;
         const unitPrice = parseFloat(priceInput?.value ?? '') || 0;
-        
-        // Capture the profit per unit from modal
-        const profitPerUnit = parseFloat(profitPerUnitInput?.value ?? 0) || 0;
 
         if (!this.selectedInventoryItem) {
             alert('กรุณาเลือกวัสดุจากรายการวัสดุจากคลัง');
@@ -274,7 +296,6 @@ const QuotationPage = {
             existingPendingItem.quantity = mergedQuantity;
             existingPendingItem.total = mergedTotal;
             existingPendingItem.unitPrice = mergedQuantity > 0 ? (mergedTotal / mergedQuantity) : 0;
-            existingPendingItem.profitPerUnit = profitPerUnit;
         } else {
             this.pendingQuotationItems.push({
                 sku,
@@ -284,7 +305,7 @@ const QuotationPage = {
                 unit,
                 unitPrice,
                 total: incomingTotal,
-                profitPerUnit: profitPerUnit
+                profitPerUnit: 0
             });
         }
 
@@ -311,12 +332,10 @@ const QuotationPage = {
         const searchInput = document.getElementById('inventorySearchInput');
         const quantityInput = document.getElementById('cartQuantity');
         const priceInput = document.getElementById('cartUnitPrice');
-        const profitPerUnitInput = document.getElementById('addItemProfitPerUnit');
 
         if (searchInput) searchInput.value = '';
         if (quantityInput) quantityInput.value = '';
         if (priceInput) priceInput.value = '';
-        if (profitPerUnitInput) profitPerUnitInput.value = 0;
         this.selectedInventoryItem = null;
         this.renderInventoryCatalog('');
     },
@@ -373,7 +392,6 @@ const QuotationPage = {
                 existingItem.quantity = mergedQuantity;
                 existingItem.total = mergedTotal;
                 existingItem.unitPrice = mergedQuantity > 0 ? (mergedTotal / mergedQuantity) : 0;
-                existingItem.profitPerUnit = pendingItem.profitPerUnit || existingItem.profitPerUnit;
             } else {
                 this.quotationItems.push({ ...pendingItem });
             }
@@ -416,15 +434,25 @@ const QuotationPage = {
                     <input
                         type="text"
                         inputmode="decimal"
+                        class="quotation-item-edit quotation-item-edit-number quotation-unit-price-field"
+                        data-index="${index}"
+                        data-field="netUnitPrice"
+                        value="${this.getCustomerUnitPrice(item)}"
+                    >
+                </td>
+                <td>
+                    <input
+                        type="text"
+                        inputmode="decimal"
                         class="quotation-item-edit quotation-item-edit-number"
                         data-index="${index}"
-                        data-field="unitPrice"
-                        value="${item.unitPrice}"
+                        data-field="profitPerUnit"
+                        value="${item.profitPerUnit || 0}"
                     >
                 </td>
                 <td class="item-total-cell" data-index="${index}">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                        <span class="item-total-value" data-index="${index}">${item.total.toLocaleString('th-TH')}</span>
+                        <span class="item-total-value" data-index="${index}">${this.getItemNetTotal(item).toLocaleString('th-TH')}</span>
                         <button
                             type="button"
                             class="item-remove-btn no-print"
@@ -458,10 +486,20 @@ const QuotationPage = {
                     const quantity = numericValue;
                     item.quantity = Number.isFinite(quantity) && quantity >= 0 ? quantity : 0;
                     e.target.value = item.quantity;
-                } else if (field === 'unitPrice') {
-                    const unitPrice = numericValue;
-                    item.unitPrice = Number.isFinite(unitPrice) && unitPrice >= 0 ? unitPrice : 0;
-                    e.target.value = item.unitPrice;
+                } else if (field === 'netUnitPrice') {
+                    const netUnitPrice = numericValue;
+                    const normalizedNetPrice = Number.isFinite(netUnitPrice) && netUnitPrice >= 0 ? this.roundMoney(netUnitPrice) : 0;
+                    const currentProfitPerUnit = Number(item.profitPerUnit || 0);
+                    item.unitPrice = this.roundMoney(Math.max(0, normalizedNetPrice - currentProfitPerUnit));
+                    e.target.value = normalizedNetPrice;
+                } else if (field === 'profitPerUnit') {
+                    const profitPerUnit = numericValue;
+                    item.profitPerUnit = Number.isFinite(profitPerUnit) && profitPerUnit >= 0 ? this.roundMoney(profitPerUnit) : 0;
+                    e.target.value = item.profitPerUnit;
+                    const netPriceInput = document.querySelector(`.quotation-item-edit[data-index="${index}"][data-field="netUnitPrice"]`);
+                    if (netPriceInput) {
+                        netPriceInput.value = this.getCustomerUnitPrice(item);
+                    }
                 } else if (field === 'unit') {
                     item.unit = (e.target.value || '').trim();
                 }
@@ -469,7 +507,7 @@ const QuotationPage = {
                 item.total = (item.quantity || 0) * (item.unitPrice || 0);
                 const totalCell = document.querySelector(`.item-total-value[data-index="${index}"]`);
                 if (totalCell) {
-                    totalCell.textContent = item.total.toLocaleString('th-TH');
+                    totalCell.textContent = this.getItemNetTotal(item).toLocaleString('th-TH');
                 }
                 this.updateQuotationTotal();
             });
