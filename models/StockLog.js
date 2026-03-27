@@ -10,6 +10,7 @@ const stockLogSchema = new mongoose.Schema({
     projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
     reason: { type: String },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdByName: { type: String },
     createdAt: { type: Date, default: Date.now }
 });
 
