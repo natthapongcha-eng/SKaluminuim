@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SK Aluminium - Reports</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body class="dashboard-page">
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -16,7 +18,7 @@
                 <span>CEO</span>
             </p>
         </div>
-        
+
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item">
                 <span class="icon">📊</span>
@@ -51,27 +53,18 @@
                 <span>Reports</span>
             </a>
         </nav>
-        
+
         <div class="sidebar-footer">
             <button id="logoutBtn" class="btn-logout">Logout</button>
         </div>
     </aside>
-    
+
     <!-- Main Content -->
     <main class="main-content">
         <div class="content-header">
             <h1>รายงานและวิเคราะห์ (Reports & Analytics) - CEO Only</h1>
-            <div class="header-actions">
-                <select id="reportPeriod">
-                    <option value="month">เดือนนี้</option>
-                    <option value="quarter">ไตรมาสนี้</option>
-                    <option value="year">ปีนี้</option>
-                    <option value="custom">กำหนดเอง</option>
-                </select>
-                <button class="btn-primary" id="exportReportBtn">📊 Export รายงาน</button>
-            </div>
         </div>
-        
+
         <!-- Summary Cards -->
         <div class="reports-summary">
             <div class="summary-card revenue">
@@ -107,42 +100,29 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Charts Section -->
-        <div class="charts-grid">
+        <div class="charts-grid charts-grid--single">
             <!-- Revenue Chart -->
             <div class="chart-card">
                 <div class="chart-header">
                     <h3>รายได้รายเดือน</h3>
-                    <select class="chart-filter">
-                        <option>6 เดือนล่าสุด</option>
-                        <option>12 เดือนล่าสุด</option>
-                    </select>
+                    <div class="month-nav" id="monthNav">
+                        <button class="month-nav-btn" id="prevMonthBtn" title="เดือนก่อนหน้า">&#8249;</button>
+                        <span class="month-nav-label" id="currentMonthLabel">กำลังโหลด...</span>
+                        <button class="month-nav-btn" id="nextMonthBtn" title="เดือนถัดไป">&#8250;</button>
+                    </div>
                 </div>
                 <div class="chart-placeholder">
                     <canvas id="revenueChart"></canvas>
                     <div class="chart-mock">
                         <p>📊 กราฟแสดงรายได้รายเดือน</p>
-                        <small>ต.ค. 65: ฿650K | พ.ย. 65: ฿720K | ธ.ค. 65: ฿850K</small>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Profit Chart -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h3>เปรียบเทียบรายได้และกำไร</h3>
-                </div>
-                <div class="chart-placeholder">
-                    <canvas id="profitChart"></canvas>
-                    <div class="chart-mock">
-                        <p>📈 กราฟเปรียบเทียบรายได้และกำไร</p>
-                        <small>รายได้: ฿850K | กำไร: ฿285K | อัตรา: 33.5%</small>
+                        <small>กำลังโหลดข้อมูล...</small>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <!-- Reports Table -->
         <div class="reports-tabs">
             <button class="tab-btn active" data-report="revenue">รายงานรายได้</button>
@@ -150,31 +130,33 @@
             <button class="tab-btn" data-report="inventory">รายงานวัสดุ</button>
             <button class="tab-btn" data-report="attendance">รายงานการทำงาน</button>
         </div>
-        
+
         <!-- Revenue Report -->
         <div id="revenueReport" class="report-section active">
             <p style="text-align:center;padding:40px;color:#6b7280;">กำลังโหลดข้อมูล...</p>
         </div>
-        
+
         <!-- Projects Report -->
         <div id="projectsReport" class="report-section">
             <p style="text-align:center;padding:40px;color:#6b7280;">กำลังโหลดข้อมูล...</p>
         </div>
-        
+
         <!-- Inventory Report -->
         <div id="inventoryReport" class="report-section">
             <p style="text-align:center;padding:40px;color:#6b7280;">กำลังโหลดข้อมูล...</p>
         </div>
-        
+
         <!-- Attendance Report -->
         <div id="attendanceReport" class="report-section">
             <p style="text-align:center;padding:40px;color:#6b7280;">กำลังโหลดข้อมูล...</p>
         </div>
     </main>
-    
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="js/api.js"></script>
     <script src="js/utils/export.js"></script>
     <script src="js/main.js"></script>
     <script src="js/pages/reports.js"></script>
 </body>
+
 </html>
