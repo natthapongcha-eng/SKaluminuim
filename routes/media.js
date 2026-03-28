@@ -234,6 +234,10 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
             media: mediaFiles
         });
     } catch (err) {
+        console.error('Media upload error:', err);
+        if (err && err.stack) {
+            console.error(err.stack);
+        }
         res.status(500).json({ message: err.message });
     }
 });

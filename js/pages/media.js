@@ -669,22 +669,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         try {
-            const response = await fetch('/api/media/upload', {
+            const result = await api.request('/media/upload', {
                 method: 'POST',
                 body: formData
             });
 
-            const result = await response.json();
-
-            if (response.ok) {
-                uploadMediaModal.classList.remove('active');
-                resetUploadForm();
-                await loadMediaStats();
-                await loadAllMedia();
-                showUploadSuccessModal(result.message || 'อัปโหลดสำเร็จ');
-            } else {
-                throw new Error(result.message || 'Upload failed');
-            }
+            uploadMediaModal.classList.remove('active');
+            resetUploadForm();
+            await loadMediaStats();
+            await loadAllMedia();
+            showUploadSuccessModal(result.message || 'อัปโหลดสำเร็จ');
         } catch (error) {
             console.error('Upload error:', error);
             showToast('เกิดข้อผิดพลาดในการอัปโหลด: ' + error.message, 'error');
