@@ -5,6 +5,47 @@
 
 ---
 
+## ⚠️ สิ่งสำคัญก่อนอ่าน — Model Name vs Collection Name
+
+Script ใน Node.js ใช้ชื่อ **Model (PascalCase)** แต่ใน MongoDB Compass / mongosh shell ใช้ชื่อ **Collection (lowercase)**
+
+```
+Node.js (routes/*.js)           mongosh / MongoDB Compass Shell
+──────────────────────          ────────────────────────────────
+Material.find(...)         →    db.materials.find(...)
+StockLog.find(...)         →    db.stocklogs.find(...)
+Project.find(...)          →    db.projects.find(...)
+Quotation.find(...)        →    db.quotations.find(...)
+Customer.find(...)         →    db.customers.find(...)
+Attendance.find(...)       →    db.attendances.find(...)
+User.find(...)             →    db.users.find(...)
+```
+
+### แผนที่ Model → Collection (ดูได้จากไฟล์ models/)
+
+| ชื่อ Model ใน Code | ชื่อ Collection ใน DB | ไฟล์ที่กำหนด |
+|-------------------|----------------------|-------------|
+| `Material` | **`materials`** | `models/Inventory.js` บรรทัด 18 |
+| `StockLog` | **`stocklogs`** | `models/StockLog.js` บรรทัด 20 |
+| `Project` | **`projects`** | `models/Project.js` บรรทัด 65 |
+| `Quotation` | **`quotations`** | `models/Quotation.js` |
+| `Customer` | **`customers`** | `models/Customer.js` |
+| `Attendance` | **`attendances`** | `models/Attendance.js` |
+| `User` | **`users`** | `models/User.js` |
+
+### วิธีแปลง Mongoose → mongosh อย่างรวดเร็ว
+
+| กฎ | Mongoose (code) | mongosh (shell) |
+|----|----------------|-----------------|
+| ชื่อนำหน้า | `Material.` | `db.materials.` |
+| ค้นหาด้วย ID | `findById('abc123')` | `findOne({ _id: ObjectId('abc123') })` |
+| ลบ method ที่ไม่มีใน shell | `.lean()` `.select()` | ลบออกได้เลย หรือใช้ projection แทน |
+| aggregate / find / countDocuments | **เหมือนกันทุกอย่าง** ✅ | **เหมือนกันทุกอย่าง** ✅ |
+
+> 💡 **สรุปสั้น:** ดู Query ใน code แล้วอยากรันใน shell → เปลี่ยนแค่ `ModelName.` เป็น `db.collectionname.` แค่นั้นพอ
+
+---
+
 ## 📁 โครงสร้างไฟล์ที่เกี่ยวข้อง
 
 | ไฟล์ | บทบาท |
