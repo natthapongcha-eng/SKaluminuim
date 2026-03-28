@@ -98,6 +98,7 @@ const InventoryPage = {
         });
     },
 
+    // ฟังชัน แสดง จำนวนรายการวัสดุ ทั้งหมด / ใกล้หมด / ปกติ ที่ card
     updateStats() {
         const totalItems = this.items.length;
         const lowStock = this.items.filter(i => i.quantity <= (i.minimumThreshold || 10)).length;
