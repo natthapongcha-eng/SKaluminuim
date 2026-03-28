@@ -321,7 +321,6 @@ router.get('/', async (req, res) => {
         let projects = await Project.find(query)
             .populate('customerId', 'name phone address')
             .populate('quotationId', 'quotationNumber totalAmount status')
-            .populate('assignedTeam', 'username role')
             .sort({ createdAt: -1 });
 
         if (search) {
@@ -381,8 +380,7 @@ router.get('/:id', async (req, res) => {
     try {
         const project = await Project.findById(req.params.id)
             .populate('customerId', 'name phone address email')
-            .populate('quotationId', 'quotationNumber totalAmount status')
-            .populate('assignedTeam', 'username role');
+            .populate('quotationId', 'quotationNumber totalAmount status');
 
         if (!project) return res.status(404).json({ message: 'Project not found' });
         res.json(project);
@@ -430,8 +428,7 @@ router.post('/', async (req, res) => {
 
         const populated = await Project.findById(project._id)
             .populate('customerId', 'name phone address')
-            .populate('quotationId', 'quotationNumber totalAmount status')
-            .populate('assignedTeam', 'username role');
+            .populate('quotationId', 'quotationNumber totalAmount status');
 
         res.status(201).json(populated);
     } catch (error) {
@@ -518,8 +515,7 @@ router.put('/:id', async (req, res) => {
 
         const updated = await Project.findById(project._id)
             .populate('customerId', 'name phone address')
-            .populate('quotationId', 'quotationNumber totalAmount status')
-            .populate('assignedTeam', 'username role');
+            .populate('quotationId', 'quotationNumber totalAmount status');
 
         res.json(updated);
     } catch (error) {
@@ -564,8 +560,7 @@ router.patch('/:id/status', async (req, res) => {
 
         const updated = await Project.findById(project._id)
             .populate('customerId', 'name phone address')
-            .populate('quotationId', 'quotationNumber totalAmount status')
-            .populate('assignedTeam', 'username role');
+            .populate('quotationId', 'quotationNumber totalAmount status');
 
         res.json(updated);
     } catch (error) {
@@ -606,8 +601,7 @@ router.patch('/:id/cancel', async (req, res) => {
 
         const updated = await Project.findById(project._id)
             .populate('customerId', 'name phone address')
-            .populate('quotationId', 'quotationNumber totalAmount status')
-            .populate('assignedTeam', 'username role');
+            .populate('quotationId', 'quotationNumber totalAmount status');
 
         res.json(updated);
     } catch (error) {
