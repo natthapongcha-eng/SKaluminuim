@@ -17,11 +17,10 @@ const mediaSchema = new mongoose.Schema({
         enum: ['database', 'filesystem'],
         default: 'database'
     },
-    // stage: ขั้นตอนการติดตั้ง (before=ก่อนติดตั้ง, during=ระหว่างติดตั้ง, after=หลังติดตั้ง)
     stage: { 
         type: String, 
         enum: ['before', 'during', 'after'], 
-        required: function requiredStage() {
+        required: function () {
             return this.mediaType !== 'quotation';
         },
         default: 'after'
@@ -29,14 +28,14 @@ const mediaSchema = new mongoose.Schema({
     projectId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Project',
-        required: function requiredProjectId() {
+        required: function () {
             return this.mediaType !== 'quotation';
         }
     },
     quotationId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Quotation',
-        required: function requiredQuotationId() {
+        required: function () {
             return this.mediaType === 'quotation';
         }
     },
@@ -45,16 +44,16 @@ const mediaSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-mediaSchema.pre('validate', function enforceStageByMediaType(next) {
+// ✅ แก้ conflict ตรงนี้
+mediaSchema.pre('validate', function () {
     if (this.mediaType === 'quotation') {
         this.stage = undefined;
     } else if (!this.stage) {
         this.stage = 'after';
     }
-    next();
 });
 
-// Index for faster queries by project and stage
+// Index
 mediaSchema.index({ projectId: 1, stage: 1 });
 mediaSchema.index({ quotationId: 1, createdAt: -1 });
 

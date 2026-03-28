@@ -304,7 +304,21 @@ const InventoryPage = {
     },
 
     async deleteItem(id) {
-        if (!confirm('ต้องการลบวัสดุนี้หรือไม่?')) return;
+        let shouldDelete = false;
+
+        if (typeof showStyledConfirm === 'function') {
+            shouldDelete = await showStyledConfirm({
+                title: 'ยืนยันการลบวัสดุ',
+                message: 'ต้องการลบวัสดุนี้หรือไม่?',
+                confirmText: 'ลบวัสดุ',
+                cancelText: 'ยกเลิก',
+                variant: 'danger'
+            });
+        } else {
+            shouldDelete = window.confirm('ต้องการลบวัสดุนี้หรือไม่?');
+        }
+
+        if (!shouldDelete) return;
 
         try {
             await api.inventory.delete(id);
