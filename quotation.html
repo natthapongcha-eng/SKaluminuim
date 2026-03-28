@@ -59,6 +59,105 @@
             font-size: 14px;
         }
 
+        /* Lock payment section layout to match requested design */
+        .quotation-paper .payment-status {
+            border: 2px solid #d1d5db;
+            border-radius: 14px;
+            background: #f9fafb;
+            padding: 24px 22px;
+            margin-bottom: 20px;
+            display: block !important;
+        }
+
+        .quotation-paper .payment-status-title-inline {
+            font-size: 18px;
+            font-weight: 700;
+            color: #374151;
+            white-space: nowrap;
+            display: block;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+
+        .quotation-paper .payment-status-radio-row {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+
+        .quotation-paper .payment-status-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+
+        .quotation-paper .payment-status-option input[type="radio"] {
+            width: 17px;
+            height: 17px;
+        }
+
+        .quotation-paper .payment-date-inline {
+            font-size: 16px;
+            font-weight: 600;
+            color: #4b5563;
+            white-space: nowrap;
+            margin-left: 0;
+        }
+
+        .quotation-paper .payment-status-date-row {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .quotation-paper .payment-note-inline {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+
+        .quotation-paper .payment-note-inline #paymentNote {
+            width: 260px;
+            border: 1px solid #c5c9d1;
+            border-radius: 12px;
+            padding: 6px 10px;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        /* Hard lock: prevent inherited/global flex rules from collapsing lines */
+        .quotation-paper .payment-status > .payment-status-title-inline {
+            display: block !important;
+        }
+
+        .quotation-paper .payment-status > .payment-status-radio-row {
+            display: flex !important;
+        }
+
+        .quotation-paper .payment-status > .payment-status-date-row {
+            display: flex !important;
+        }
+
+        @media (max-width: 1024px) {
+            .quotation-paper .payment-note-inline {
+                margin-left: 0;
+            }
+        }
+
         /* Hide number spinner in add-item unit price input */
         #cartUnitPrice::-webkit-outer-spin-button,
         #cartUnitPrice::-webkit-inner-spin-button {
@@ -462,17 +561,15 @@
                         </div>
                     </div>
                     
-                    <div class="payment-status" style="border: 2px solid #e5e7eb; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                        <label style="font-weight: bold;">สถานะการชำระเงิน</label>
-                        <div class="checkbox-group" style="margin: 10px 0;">
-                            <label><input type="radio" name="paymentStatus" value="paid"> ชำระเงินแล้ว</label>
-                            <label style="margin-left: 15px;"><input type="radio" name="paymentStatus" value="unpaid"> ค้างชำระ</label>
+                    <div class="payment-status">
+                        <div class="payment-status-title-inline">สถานะการชำระเงิน</div>
+                        <div class="payment-status-radio-row">
+                            <label class="payment-status-option"><input type="radio" name="paymentStatus" value="paid"> ชำระเงินแล้ว</label>
+                            <label class="payment-status-option"><input type="radio" name="paymentStatus" value="unpaid"> ค้างชำระ</label>
                         </div>
-                        <div class="payment-date">
-                            <div class="date-input-group">
-                                <span>ชำระเมื่อวันที่:</span>
-                            </div>
-                            <p style="margin-top: 10px;">หมายเหตุ: <input type="text" id="paymentNote" placeholder="ระบุหมายเหตุ..." class="input-note-line"></p>
+                        <div class="payment-status-date-row">
+                            <span class="payment-date-inline">ชำระเมื่อวันที่:</span>
+                            <span class="payment-note-inline">หมายเหตุ: <input type="text" id="paymentNote" placeholder="ระบุหมายเหตุ..." class="input-note-line"></span>
                         </div>
                     </div>
                     
