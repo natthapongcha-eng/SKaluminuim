@@ -768,6 +768,48 @@ body.profile-ready #userRole {
     transform: scale(1.1);
 }
 
+.inventory-action-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    margin-right: 4px;
+    border: 1px solid transparent;
+    transform: none;
+}
+
+.inventory-action-btn i {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.inventory-action-btn:hover {
+    transform: translateY(-1px);
+}
+
+.inventory-action-in {
+    color: #1d4ed8;
+    background: linear-gradient(145deg, #dbeafe, #bfdbfe);
+    border-color: #93c5fd;
+}
+
+.inventory-action-out {
+    color: #b45309;
+    background: linear-gradient(145deg, #ffedd5, #fed7aa);
+    border-color: #fdba74;
+}
+
+.inventory-action-edit {
+    color: #0f766e;
+    background: linear-gradient(145deg, #ccfbf1, #99f6e4);
+    border-color: #5eead4;
+}
+
+.inventory-action-delete {
+    color: #b91c1c;
+    background: linear-gradient(145deg, #fee2e2, #fecaca);
+    border-color: #fca5a5;
+}
+
 /* ===== Announcement Styles ===== */
 .announcement-banner {
     display: none;
@@ -1159,6 +1201,56 @@ body.profile-ready #userRole {
 
 .stat-icon {
     font-size: 2.5rem;
+}
+
+.stat-icon-chip {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 6px 14px rgba(15, 23, 42, 0.08);
+    border: 1px solid transparent;
+}
+
+.stat-icon-chip i {
+    line-height: 1;
+}
+
+.stat-icon-plain {
+    width: auto;
+    height: auto;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 1.85rem;
+}
+
+.stat-icon-plain.stat-icon-primary,
+.stat-icon-plain.stat-icon-warning,
+.stat-icon-plain.stat-icon-success {
+    border: 0;
+    background: transparent;
+}
+
+.stat-icon-primary {
+    color: #1d4ed8;
+    background: linear-gradient(145deg, #dbeafe, #bfdbfe);
+    border-color: #93c5fd;
+}
+
+.stat-icon-warning {
+    color: #b45309;
+    background: linear-gradient(145deg, #ffedd5, #fed7aa);
+    border-color: #fdba74;
+}
+
+.stat-icon-success {
+    color: #047857;
+    background: linear-gradient(145deg, #dcfce7, #bbf7d0);
+    border-color: #86efac;
 }
 
 .stat-info h3 {
