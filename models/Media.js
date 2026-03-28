@@ -45,13 +45,12 @@ const mediaSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-mediaSchema.pre('validate', function enforceStageByMediaType(next) {
+mediaSchema.pre('validate', function enforceStageByMediaType() {
     if (this.mediaType === 'quotation') {
         this.stage = undefined;
     } else if (!this.stage) {
         this.stage = 'after';
     }
-    next();
 });
 
 // Index for faster queries by project and stage
