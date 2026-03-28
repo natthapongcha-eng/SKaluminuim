@@ -42,7 +42,6 @@ const projectSchema = new mongoose.Schema({
     team: { type: String, default: '' },
     startDate: { type: Date },
     endDate: { type: Date },
-    assignedTeam: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     description: { type: String },
     materials: { type: [projectMaterialSchema], default: [] },
     stockDeducted: { type: Boolean, default: false },
