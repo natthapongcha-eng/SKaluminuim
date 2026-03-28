@@ -10,6 +10,6 @@ const userSchema = new mongoose.Schema({
     name: { type: String }, // ไม่บังคับให้ต้องมีค่า
     role: { type: String, enum: ['CEO', 'ADMIN', 'EMPLOYEE'], default: 'EMPLOYEE' },
     createdAt: { type: Date, default: Date.now }
-});
+}, { versionKey: false });
 
 module.exports = mongoose.model('User', userSchema, 'users');

@@ -59,7 +59,7 @@ projectSchema.virtual('customer', {
     justOne: true
 });
 
-projectSchema.set('toJSON', { virtuals: true });
-projectSchema.set('toObject', { virtuals: true });
+projectSchema.set('toJSON', { virtuals: true, versionKey: false });
+projectSchema.set('toObject', { virtuals: true, versionKey: false });
 
 module.exports = mongoose.model('Project', projectSchema, 'projects');
