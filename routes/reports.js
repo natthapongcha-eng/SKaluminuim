@@ -10,22 +10,49 @@ const StockLog = require('../models/StockLog');
 // Dashboard summary
 router.get('/dashboard', async (req, res) => {
     try {
-        const projectsInProgress = await Project.countDocuments({ status: 'กำลังดำเนินการ' });
-        const projectsCompleted = await Project.countDocuments({ status: 'เสร็จสิ้น' });
+        // Projects completed AND paid → used for revenue/profit cards
+        const completedPaidProjects = await Project.find({
+            status: 'completed',
+            paymentStatus: 'paid'
+        }).lean();
+
+        const totalRevenue = completedPaidProjects.reduce((sum, p) => sum + Number(p.totalPrice || 0), 0);
+        const totalCost = completedPaidProjects.reduce((sum, p) => sum + Number(p.totalCost || 0), 0);
+        const totalProfit = totalRevenue - totalCost;
+        const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+        const completedProjectsCount = completedPaidProjects.length;
+
+        // All projects for the breakdown table
+        const allProjects = await Project.find()
+            .populate('customerId', 'name phone')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Status counts
+        const statusCounts = {
+            planning: 0,
+            'in-progress': 0,
+            completed: 0,
+            cancelled: 0
+        };
+        allProjects.forEach(p => {
+            if (statusCounts[p.status] !== undefined) statusCounts[p.status]++;
+        });
+
+        // Low stock
+        const lowStockItems = await Inventory.countDocuments({ $expr: { $lte: ['$quantity', '$minimumThreshold'] } });
         const totalCustomers = await Customer.countDocuments();
-        const lowStockItems = await Inventory.countDocuments({ $expr: { $lte: ['$quantity', '$minStock'] } });
-        
-        const monthlyRevenue = await Quotation.aggregate([
-            { $match: { status: 'approved' } },
-            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-        ]);
-        
+
         res.json({
-            projectsInProgress,
-            projectsCompleted,
-            totalCustomers,
+            totalRevenue,
+            totalCost,
+            totalProfit,
+            profitMargin,
+            completedProjects: completedProjectsCount,
+            statusCounts,
             lowStockItems,
-            monthlyRevenue: monthlyRevenue[0]?.total || 0
+            totalCustomers,
+            projects: allProjects
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -70,25 +97,26 @@ router.get('/sales', async (req, res) => {
     }
 });
 
-// Inventory report
+// Inventory report - low stock items only
 router.get('/inventory', async (req, res) => {
     try {
-        const items = await Inventory.find().sort({ category: 1, name: 1 });
+        // Only get low-stock items: quantity < minimumThreshold (strictly less than)
+        const lowStockItems = await Inventory.find({
+            $expr: { $lt: ['$quantity', '$minimumThreshold'] }
+        }).sort({ quantity: 1, name: 1 });
         
         const categoryStats = await Inventory.aggregate([
             {
                 $group: {
-                    _id: '$category',
+                    _id: '$type',
                     count: { $sum: 1 },
-                    totalValue: { $sum: { $multiply: ['$quantity', '$pricePerUnit'] } },
+                    totalValue: { $sum: { $multiply: ['$quantity', '$unitPrice'] } },
                     totalQuantity: { $sum: '$quantity' }
                 }
             }
         ]);
         
-        const lowStockItems = await Inventory.find({ $expr: { $lte: ['$quantity', '$minStock'] } });
-        
-        res.json({ items, categoryStats, lowStockItems });
+        res.json({ items: lowStockItems, categoryStats, lowStockCount: lowStockItems.length });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
