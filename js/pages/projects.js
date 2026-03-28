@@ -1,4 +1,4 @@
-﻿// ===== Projects Page Controller =====
+// ===== Projects Page Controller =====
 const ProjectsPage = {
     projects: [],
     customers: [],
@@ -700,6 +700,9 @@ const ProjectsPage = {
                             <button class="project-menu-item view-btn" data-id="${project._id}" data-tooltip="ดูรายการวัสดุและจำนวนที่ใช้" title="ดูวัสดุ">
                                 <span class="icon-char">\u{1F441}</span><span>ดูวัสดุ</span>
                             </button>
+                            <button class="project-menu-item view-quotation-btn" data-id="${project._id}" data-quotation-id="${project.quotationId && typeof project.quotationId === 'object' ? project.quotationId._id : (project.quotationId || '')}" data-tooltip="ดูใบเสนอราคาที่ผูกกับโครงการนี้" title="ดูใบเสนอราคา" ${!project.quotationId ? 'disabled' : ''}>
+                                <span class="icon-char">\u{1F4C4}</span><span>ดูใบเสนอราคา</span>
+                            </button>
                             <button class="project-menu-item edit-btn" data-id="${project._id}" data-tooltip="แก้ไขข้อมูลพื้นฐานของโครงการ" title="แก้ไขข้อมูลโครงการ">
                                 <span class="icon-char">\u270E</span><span>แก้ไข</span>
                             </button>
@@ -798,6 +801,17 @@ const ProjectsPage = {
             btn.addEventListener('click', (e) => this.deleteProject(e.currentTarget.dataset.id));
         });
 
+        document.querySelectorAll('.project-card .view-quotation-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const quotationId = e.currentTarget.dataset.quotationId;
+                if (quotationId) {
+                    this.viewQuotation(quotationId);
+                } else {
+                    this.notify('โครงการนี้ไม่ได้ผูกกับใบเสนอราคา', 'info');
+                }
+            });
+        });
+
         document.querySelectorAll('.project-action-menu .project-menu-item').forEach(btn => {
             btn.addEventListener('click', () => this.closeAllActionMenus());
         });
@@ -848,6 +862,14 @@ const ProjectsPage = {
 
         document.getElementById('closeProjectDetailsBtn')?.addEventListener('click', () => {
             closeModal('projectDetailsModal');
+        });
+
+        document.querySelector('#viewQuotationModal .close')?.addEventListener('click', () => {
+            closeModal('viewQuotationModal');
+        });
+
+        document.getElementById('closeViewQuotationBtn')?.addEventListener('click', () => {
+            closeModal('viewQuotationModal');
         });
 
         document.getElementById('cancelStatusUpdate')?.addEventListener('click', () => {
@@ -1129,6 +1151,179 @@ const ProjectsPage = {
         }
 
         openModal('projectDetailsModal');
+    },
+
+    async viewQuotation(quotationId) {
+        if (!quotationId) {
+            this.notify('ไม่พบข้อมูลใบเสนอราคา', 'error');
+            return;
+        }
+
+        try {
+            const quotation = await api.quotations.getById(quotationId);
+            if (!quotation) {
+                this.notify('ไม่พบใบเสนอราคาในระบบ', 'error');
+                return;
+            }
+            this.renderQuotationViewModal(quotation);
+        } catch (error) {
+            console.error('Error loading quotation:', error);
+            this.notify('ไม่สามารถโหลดใบเสนอราคาได้', 'error');
+        }
+    },
+
+    renderQuotationViewModal(quotation) {
+        const modal = document.getElementById('viewQuotationModal');
+        if (!modal) return;
+
+        const customerName = quotation.customerName || (typeof quotation.customerId === 'object' ? quotation.customerId?.name : '') || '-';
+        const customerAddress = quotation.customerAddress || (typeof quotation.customerId === 'object' ? quotation.customerId?.address : '') || '-';
+        const customerPhone = quotation.customerPhone || (typeof quotation.customerId === 'object' ? quotation.customerId?.phone : '') || '-';
+        const quotationNumber = quotation.quotationNumber || '-';
+        const createdDate = quotation.createdAt ? new Date(quotation.createdAt) : new Date();
+        const monthsThai = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+        const dateThaiStr = `วันที่ ${createdDate.getDate()} ${monthsThai[createdDate.getMonth()]} ${createdDate.getFullYear() + 543}`;
+
+        const items = Array.isArray(quotation.items) ? quotation.items : [];
+        const subtotal = Number(quotation.subtotal || 0);
+        const totalProfit = Number(quotation.totalProfit || 0);
+        const totalNetPrice = Number(quotation.totalNetPrice || quotation.totalAmount || 0);
+
+        const hasProfit = items.some(item => (Number(item.profitPerUnit) || 0) > 0);
+
+        let itemsHtml = items.map((item, index) => {
+            const qty = Number(item.quantity || 0);
+            const unitPrice = Number(item.pricePerUnit || item.unitPrice || 0);
+            const profitPerUnit = Number(item.profitPerUnit || 0);
+            const customerUnitPrice = unitPrice + profitPerUnit;
+            const netTotal = qty * customerUnitPrice;
+            return `
+                <tr>
+                    <td style="text-align:center;">${index + 1}</td>
+                    <td>${item.name || '-'}</td>
+                    <td style="text-align:center;">${qty.toLocaleString('th-TH')}</td>
+                    <td style="text-align:center;">${item.unit || 'ชิ้น'}</td>
+                    <td style="text-align:right;">${customerUnitPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 })}</td>
+                    <td style="text-align:right;">${profitPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })}</td>
+                    <td style="text-align:right;">${netTotal.toLocaleString('th-TH', { maximumFractionDigits: 2 })}</td>
+                </tr>
+            `;
+        }).join('');
+
+        if (items.length === 0) {
+            itemsHtml = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#6b7280;">ไม่มีรายการสินค้า</td></tr>';
+        }
+
+        let profitBreakdownHtml = '';
+        if (hasProfit) {
+            const breakdownItems = items.map(item => {
+                const qty = Number(item.quantity || 0);
+                const costPerUnit = Number(item.pricePerUnit || item.unitPrice || 0);
+                const profitPerUnit = Number(item.profitPerUnit || 0);
+                const netPricePerUnit = costPerUnit + profitPerUnit;
+                const profitTotal = profitPerUnit * qty;
+                return `
+                    <div style="padding: 8px; background: #f9fafb; border-radius: 4px; font-size: 0.9rem;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>${item.name || '-'}:</span>
+                            <span style="font-weight: 600;">${costPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} + ${profitPerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} = ${netPricePerUnit.toLocaleString('th-TH', { maximumFractionDigits: 2 })} บาท</span>
+                        </div>
+                        <div style="font-size: 0.85rem; color: #666; text-align: right; margin-top: 4px;">
+                            <span>(เพิ่ม ${profitTotal.toLocaleString('th-TH', { maximumFractionDigits: 2 })} บาท)</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            profitBreakdownHtml = `
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #d1d5db;">
+                    <div style="font-weight: 600; margin-bottom: 10px; font-size: 0.95rem;">รายละเอียดกำไรต่อวัสดุ:</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        ${breakdownItems}
+                    </div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                        <div style="display: flex; justify-content: space-between; padding: 8px; background: #f0f9ff; border-radius: 4px; margin-bottom: 8px;">
+                            <span style="font-weight: 600;">กำไรรวม:</span>
+                            <span style="font-weight: 600; color: #0369a1;">${totalProfit.toLocaleString('th-TH', { maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: #dbeafe; border-radius: 4px;">
+                            <span style="font-weight: bold;">ราคาสุทธิรวม:</span>
+                            <span style="font-size: 1.5rem; font-weight: 800; color: #0369a1; line-height: 1;">${totalNetPrice.toLocaleString('th-TH', { maximumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const content = modal.querySelector('.quotation-view-body');
+        if (!content) return;
+
+        content.innerHTML = `
+            <div class="quotation-paper" style="padding: 40px; background: #fff; position: relative;">
+                <div class="quotation-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                    <div class="company-info">
+                        <h2 style="margin: 0 0 5px;">บริษัท SK Aluminium</h2>
+                        <p style="margin: 0; font-size: 0.9rem; color: #555;">ที่อยู่: KU SRC University | Tax ID: 1234567890</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h1 style="color: #1e40af; margin: 0; font-size: 1.8rem;">ใบเสนอราคา</h1>
+                        <p style="margin: 5px 0 0; color: #555;">โทร: +123-456-7890</p>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin: 20px 0; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa;">
+                    <div>
+                        <h3 style="margin: 0 0 5px;">ชื่อลูกค้า: <span>${customerName}</span></h3>
+                        <p style="margin: 3px 0;">ที่อยู่: <span>${customerAddress}</span></p>
+                        <p style="margin: 3px 0;">เบอร์โทร: <span>${customerPhone}</span></p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="margin: 3px 0;">เลขที่เอกสาร: <strong>${quotationNumber}</strong></p>
+                        <p style="margin: 3px 0;">${dateThaiStr}</p>
+                    </div>
+                </div>
+
+                <table class="quotation-table" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead style="background: #1e40af; color: #fff;">
+                        <tr>
+                            <th style="padding: 10px; width: 8%;">ลำดับ</th>
+                            <th style="padding: 10px; width: 28%; text-align: left;">รายการ</th>
+                            <th style="padding: 10px; width: 12%;">จำนวน</th>
+                            <th style="padding: 10px; width: 12%;">หน่วย</th>
+                            <th style="padding: 10px; width: 16%; text-align: right;">ราคา/หน่วย</th>
+                            <th style="padding: 10px; width: 14%; text-align: right;">กำไร/หน่วย</th>
+                            <th style="padding: 10px; width: 16%; text-align: right;">ราคารวม</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+
+                <div style="background: rgba(243, 244, 246, 0.5); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold;">ราคาต้นทุน</span>
+                        <span style="font-size: 1.5rem; font-weight: bold; color: #1e40af;">${subtotal.toLocaleString('th-TH', { maximumFractionDigits: 2 })}</span>
+                    </div>
+                    ${profitBreakdownHtml}
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 30px; text-align: center;">
+                    <div>
+                        <h4 style="margin: 0;">ผู้เสนอราคา</h4>
+                        <div style="border-top: 1px solid #000; width: 180px; margin: 40px auto 10px;"></div>
+                        <p style="margin: 0;">${dateThaiStr}</p>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0;">ลูกค้า</h4>
+                        <div style="border-top: 1px solid #000; width: 180px; margin: 40px auto 10px;"></div>
+                        <p style="margin: 0;">วันที่ ................................. </p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        openModal('viewQuotationModal');
     },
 
     openStatusModal(id) {

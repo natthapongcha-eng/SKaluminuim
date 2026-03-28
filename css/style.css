@@ -1901,6 +1901,34 @@ body.profile-ready #userRole {
     padding: 18px 0;
 }
 
+/* ===== Quotation View Modal ===== */
+.quotation-view-modal-content {
+    background: #f8fafc;
+    border-radius: 16px;
+    padding: 28px;
+}
+
+.quotation-view-modal-content h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.quotation-view-body .quotation-paper {
+    border-radius: 12px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    font-family: 'Sarabun', 'Noto Sans Thai', 'Segoe UI', Tahoma, sans-serif;
+}
+
+.quotation-view-body .quotation-table td {
+    font-size: 0.9rem;
+    padding: 10px;
+}
+
+.quotation-view-body .quotation-table th {
+    font-size: 0.85rem;
+    padding: 10px;
+}
+
 @media (max-width: 768px) {
     .project-action-menu {
         right: 0;
@@ -1914,6 +1942,15 @@ body.profile-ready #userRole {
 
     .project-detail-summary {
         grid-template-columns: 1fr;
+    }
+
+    .quotation-view-modal-content {
+        padding: 16px;
+        margin: 10px !important;
+    }
+
+    .quotation-view-body .quotation-paper {
+        padding: 20px !important;
     }
 }
 
