@@ -1579,6 +1579,7 @@ body.profile-ready #userRole {
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 20px;
     margin-bottom: 30px;
+    align-items: start;
 }
 
 .project-card {
@@ -1643,22 +1644,45 @@ body.profile-ready #userRole {
 }
 
 .project-payment {
-    margin-bottom: 15px;
+    margin: 12px 0 0;
+    display: flex;
+    align-items: center;
+}
+
+.payment-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    border: 1.5px solid transparent;
+    transition: all 0.2s ease;
 }
 
 .payment-status.paid {
-    color: var(--success);
-    font-weight: 600;
+    color: #065f46;
+    background: #dcfce7;
+    border-color: #86efac;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
 }
 
 .payment-status.unpaid {
-    color: var(--warning);
-    font-weight: 600;
+    color: #9a3412;
+    background: #ffedd5;
+    border-color: #fdba74;
+    box-shadow: 0 2px 8px rgba(251, 146, 60, 0.12);
 }
 
 .payment-status.partial {
-    color: #b45309;
-    font-weight: 600;
+    color: #92400e;
+    background: #fef3c7;
+    border-color: #fcd34d;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
 }
 
 .project-actions {
