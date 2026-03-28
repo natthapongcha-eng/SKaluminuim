@@ -360,8 +360,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     : `<img src="${item.imageUrl || item.path}" alt="${item.originalName}" loading="lazy">`
                 }
                 <div class="media-overlay">
-                    <button class="btn-icon view-btn" data-id="${item._id}">${item.mimetype === 'application/pdf' ? '📄' : '👁️'}</button>
-                    <button class="btn-icon delete-btn" data-id="${item._id}">🗑️</button>
+                    <button class="btn-icon view-btn" data-id="${item._id}">${item.mimetype === 'application/pdf' ? '<i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>' : '<i class="bi bi-eye" aria-hidden="true"></i>'}</button>
+                    <button class="btn-icon delete-btn" data-id="${item._id}"><i class="bi bi-trash" aria-hidden="true"></i></button>
                 </div>
                 <p class="media-date">${formatDate(item.createdAt)}</p>
                 ${item.description ? `<p class="media-description">${escapeHtml(item.description)}</p>` : ''}
@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return `
             <div class="media-item upload-placeholder">
                 <button class="btn-upload" data-project="${projectId}" data-stage="${stage}">
-                    <span>➕</span>
+                    <span><i class="bi bi-plus-circle" aria-hidden="true"></i></span>
                     <p>เพิ่มรูปภาพ</p>
                 </button>
             </div>
@@ -384,7 +384,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return `
             <div class="media-item upload-placeholder">
                 <button class="btn-upload" data-quotation="${quotationId}">
-                    <span>➕</span>
+                    <span><i class="bi bi-plus-circle" aria-hidden="true"></i></span>
                     <p>เพิ่มรูปใบเสนอราคา</p>
                 </button>
             </div>
