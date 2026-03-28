@@ -1440,10 +1440,10 @@ const ProjectsPage = {
         if (!project) return;
 
         const confirmed = await this.confirm({
-            title: 'Delete Project',
-            message: `Do you want to delete "${project.name || 'this project'}"?`,
-            confirmText: 'Delete',
-            cancelText: 'Cancel',
+            title: 'ลบโครงการ',
+            message: `ต้องการลบโครงการ "${project.name || 'โครงการนี้'}" ใช่หรือไม่?`,
+            confirmText: 'ลบ',
+            cancelText: 'ยกเลิก',
             variant: 'danger'
         });
         if (!confirmed) return;
@@ -1451,11 +1451,11 @@ const ProjectsPage = {
         await this.withActionLock(`delete:${id}`, id, async () => {
             try {
                 await api.projects.delete(id);
-                this.notify('Project deleted');
+                this.notify('ลบโครงการเรียบร้อย');
                 await this.loadProjects();
             } catch (error) {
                 console.error('Error deleting project:', error);
-                this.notify(error.message || 'Unable to delete project', 'error');
+                this.notify(error.message || 'ไม่สามารถลบโครงการได้', 'error');
             }
         });
     },
