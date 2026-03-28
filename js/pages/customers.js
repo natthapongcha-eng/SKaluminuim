@@ -53,9 +53,9 @@ const CustomersPage = {
                     <td>${customer.address || '-'}</td>
                     <td>${customer.totalProjects || 0}</td>
                     <td>
-                        <button class="btn-icon edit-btn" title="แก้ไข" data-id="${customer._id}">✏️</button>
-                        <button class="btn-icon delete-btn" title="ลบ" data-id="${customer._id}">🗑️</button>
-                        <button class="btn-icon view-btn" title="ดูรายละเอียด" data-id="${customer._id}">👁️</button>
+                        <button class="btn-icon edit-btn" title="แก้ไข" data-id="${customer._id}"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>
+                        <button class="btn-icon delete-btn" title="ลบ" data-id="${customer._id}"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                        <button class="btn-icon view-btn" title="ดูรายละเอียด" data-id="${customer._id}"><i class="bi bi-eye" aria-hidden="true"></i></button>
                     </td>
                 </tr>
             `;
