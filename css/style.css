@@ -1253,6 +1253,12 @@ body.profile-ready #userRole {
     border-color: #86efac;
 }
 
+.stat-icon-danger {
+    color: #b91c1c;
+    background: linear-gradient(145deg, #fee2e2, #fecaca);
+    border-color: #fca5a5;
+}
+
 .stat-info h3 {
     font-size: 1.875rem;
     font-weight: 700;
