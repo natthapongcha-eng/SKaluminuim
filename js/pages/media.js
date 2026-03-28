@@ -530,11 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Close modal on outside click
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
-                if (e.target.id === 'deleteSuccessModal' || e.target.id === 'uploadSuccessModal') {
-                    e.target.classList.remove('active');
-                    return;
-                }
-                e.target.style.display = 'none';
+                e.target.classList.remove('active');
             }
         });
 
