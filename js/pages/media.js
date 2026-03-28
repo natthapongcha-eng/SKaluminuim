@@ -572,6 +572,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function openUploadModal(projectId = '', stage = '', quotationId = '') {
+        // main.js may set inline display:none when closing modals; clear it before reopening.
+        uploadMediaModal.style.removeProperty('display');
         uploadMediaModal.classList.add('active');
 
         if (quotationId) {
