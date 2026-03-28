@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SK Aluminium - Reports</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 
 <body class="dashboard-page">
@@ -21,35 +22,35 @@
 
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item">
-                <span class="icon">📊</span>
+                <span class="icon"><i class="bi bi-speedometer2" aria-hidden="true"></i></span>
                 <span>Dashboard</span>
             </a>
             <a href="inventory.html" class="nav-item">
-                <span class="icon">📦</span>
+                <span class="icon"><i class="bi bi-box-seam" aria-hidden="true"></i></span>
                 <span>Inventory</span>
             </a>
             <a href="projects.html" class="nav-item">
-                <span class="icon">🏗️</span>
+                <span class="icon"><i class="bi bi-building" aria-hidden="true"></i></span>
                 <span>Projects</span>
             </a>
             <a href="quotation.html" class="nav-item">
-                <span class="icon">📄</span>
+                <span class="icon"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
                 <span>Quotation</span>
             </a>
             <a href="customers.html" class="nav-item ceo-only">
-                <span class="icon">👥</span>
+                <span class="icon"><i class="bi bi-people" aria-hidden="true"></i></span>
                 <span>Customers</span>
             </a>
             <a href="attendance.html" class="nav-item">
-                <span class="icon">⏰</span>
+                <span class="icon"><i class="bi bi-clock-history" aria-hidden="true"></i></span>
                 <span>Attendance</span>
             </a>
             <a href="media.html" class="nav-item">
-                <span class="icon">🖼️</span>
+                <span class="icon"><i class="bi bi-images" aria-hidden="true"></i></span>
                 <span>Media</span>
             </a>
             <a href="reports.html" class="nav-item active ceo-only">
-                <span class="icon">📈</span>
+                <span class="icon"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i></span>
                 <span>Reports</span>
             </a>
         </nav>
@@ -62,13 +63,13 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="content-header">
-            <h1>รายงานและวิเคราะห์ (Reports & Analytics) - CEO Only</h1>
+            <h1>รายงานและวิเคราะห์</h1>
         </div>
 
         <!-- Summary Cards -->
         <div class="reports-summary">
             <div class="summary-card revenue">
-                <div class="summary-icon">💰</div>
+                <div class="summary-icon"><i class="bi bi-cash-stack" aria-hidden="true"></i></div>
                 <div class="summary-info">
                     <h3>รายได้รวม</h3>
                     <p class="amount">฿0</p>
@@ -76,7 +77,7 @@
                 </div>
             </div>
             <div class="summary-card profit">
-                <div class="summary-icon">📈</div>
+                <div class="summary-icon"><i class="bi bi-graph-up" aria-hidden="true"></i></div>
                 <div class="summary-info">
                     <h3>กำไรรวม</h3>
                     <p class="amount">฿0</p>
@@ -84,7 +85,7 @@
                 </div>
             </div>
             <div class="summary-card projects">
-                <div class="summary-icon">🏗️</div>
+                <div class="summary-icon"><i class="bi bi-buildings" aria-hidden="true"></i></div>
                 <div class="summary-info">
                     <h3>โครงการเสร็จ</h3>
                     <p class="amount">0</p>
@@ -92,7 +93,7 @@
                 </div>
             </div>
             <div class="summary-card margin">
-                <div class="summary-icon">📊</div>
+                <div class="summary-icon"><i class="bi bi-pie-chart" aria-hidden="true"></i></div>
                 <div class="summary-info">
                     <h3>อัตรากำไร</h3>
                     <p class="amount">0.0%</p>
@@ -116,7 +117,7 @@
                 <div class="chart-placeholder">
                     <canvas id="revenueChart"></canvas>
                     <div class="chart-mock">
-                        <p>📊 กราฟแสดงรายได้รายเดือน</p>
+                        <p><i class="bi bi-bar-chart-line" aria-hidden="true"></i> กราฟแสดงรายได้รายเดือน</p>
                         <small>กำลังโหลดข้อมูล...</small>
                     </div>
                 </div>
@@ -125,7 +126,7 @@
 
         <!-- Reports Table -->
         <div class="reports-tabs">
-            <button class="tab-btn active" data-report="revenue">รายงานรายได้</button>
+            <button class="tab-btn active" data-report="revenue">รายงานค้างชำระ</button>
             <button class="tab-btn" data-report="projects">รายงานโครงการ</button>
             <button class="tab-btn" data-report="inventory">รายงานวัสดุ</button>
             <button class="tab-btn" data-report="attendance">รายงานการทำงาน</button>
