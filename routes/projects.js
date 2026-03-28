@@ -253,17 +253,6 @@ async function deductStockForProject(project, actor = {}) {
             projectId: project._id,
             projectName: project.name || '',
             reason: `Auto stock-out: project moved to in-progress (${project.name || project._id})`,
-            movementSource: 'project-status-deduct',
-            movementDetail: {
-                projectStatus: 'in-progress',
-                materialId: stockItem._id,
-                materialName: stockItem.name,
-                specification: used.specification || '',
-                unit: used.unit || stockItem.unit || '',
-                qty,
-                unitPrice: Number(used.unitPrice || stockItem.unitPrice || 0),
-                lineTotal: Number(used.total || 0)
-            },
             createdBy: resolvedActor.userId,
             createdByName: resolvedActor.createdByName
         });
@@ -311,17 +300,6 @@ async function restoreStockForProject(project, actor = {}) {
             projectId: project._id,
             projectName: project.name || '',
             reason: `Auto stock-restore: project cancelled (${project.name || project._id})`,
-            movementSource: 'project-status-restore',
-            movementDetail: {
-                projectStatus: 'cancelled',
-                materialId: stockItem._id,
-                materialName: stockItem.name,
-                specification: used.specification || '',
-                unit: used.unit || stockItem.unit || '',
-                qty,
-                unitPrice: Number(used.unitPrice || stockItem.unitPrice || 0),
-                lineTotal: Number(used.total || 0)
-            },
             createdBy: resolvedActor.userId,
             createdByName: resolvedActor.createdByName
         });
