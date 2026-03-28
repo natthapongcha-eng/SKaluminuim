@@ -32,7 +32,7 @@ const announcementSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     }
-});
+}, { versionKey: false });
 
 announcementSchema.index({ isActive: 1, startAt: 1, endAt: 1, updatedAt: -1 });
 

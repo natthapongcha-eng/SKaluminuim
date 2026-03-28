@@ -26,6 +26,6 @@ const quotationSchema = new mongoose.Schema({
     validUntil: { type: Date },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdAt: { type: Date, default: Date.now }
-});
+}, { versionKey: false });
 
 module.exports = mongoose.model('Quotation', quotationSchema, 'quotations');
