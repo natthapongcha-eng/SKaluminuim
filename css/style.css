@@ -184,7 +184,7 @@ body {
 }
 
 .sidebar-header h2 {
-    font-size: 1.5rem;
+    font-size: 1.7rem;
     font-weight: 700;
     margin-bottom: 5px;
 }
@@ -353,10 +353,32 @@ body.profile-ready #userRole {
 }
 
 .nav-item .icon {
-    font-size: 1.25rem;
-    margin-right: 12px;
-    width: 24px;
-    text-align: center;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.95);
+    transition: all 0.2s ease;
+}
+
+.nav-item .icon i {
+    font-size: 0.98rem;
+    line-height: 1;
+}
+
+.nav-item:hover .icon {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.nav-item.active .icon {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.34);
 }
 
 .sidebar-footer {
@@ -3379,6 +3401,16 @@ body.profile-ready #userRole {
     
     .nav-item span:not(.icon) {
         display: none;
+    }
+
+    .nav-item .icon {
+        width: 25px;
+        height: 25px;
+        margin-right: 0;
+    }
+
+    .nav-item .icon i {
+        font-size: 0.9rem;
     }
     
     .main-content {
