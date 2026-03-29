@@ -56,10 +56,10 @@ const InventoryPage = {
                     <td><span class="${isLow ? 'status-low' : 'status-normal'}">${isLow ? 'ใกล้หมด' : 'ปกติ'}</span></td>
                     <td>${(item.generalUseQuantity || 0).toLocaleString('th-TH')}</td>
                     <td>
-                        <button class="btn-icon stock-in-btn" title="รับเข้า" data-id="${item._id}">📥</button>
-                        <button class="btn-icon stock-out-btn" title="เบิกออก" data-id="${item._id}">📤</button>
-                        <button class="btn-icon edit-btn" title="แก้ไข" data-id="${item._id}">✏️</button>
-                        <button class="btn-icon delete-btn" title="ลบ" data-id="${item._id}">🗑️</button>
+                        <button class="btn-icon inventory-action-btn inventory-action-in stock-in-btn" title="รับเข้า" data-id="${item._id}"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i></button>
+                        <button class="btn-icon inventory-action-btn inventory-action-out stock-out-btn" title="เบิกออก" data-id="${item._id}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></button>
+                        <button class="btn-icon inventory-action-btn inventory-action-edit edit-btn" title="แก้ไข" data-id="${item._id}"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>
+                        <button class="btn-icon inventory-action-btn inventory-action-delete delete-btn" title="ลบ" data-id="${item._id}"><i class="bi bi-trash3" aria-hidden="true"></i></button>
                     </td>
                 </tr>
             `;
@@ -71,28 +71,28 @@ const InventoryPage = {
     attachRowEventListeners() {
         document.querySelectorAll('.stock-in-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const id = e.target.dataset.id;
+                const id = e.currentTarget.dataset.id;
                 this.openStockModal(id, 'in');
             });
         });
 
         document.querySelectorAll('.stock-out-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const id = e.target.dataset.id;
+                const id = e.currentTarget.dataset.id;
                 this.openStockModal(id, 'out');
             });
         });
 
         document.querySelectorAll('.edit-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const id = e.target.dataset.id;
+                const id = e.currentTarget.dataset.id;
                 this.editItem(id);
             });
         });
 
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const id = e.target.dataset.id;
+                const id = e.currentTarget.dataset.id;
                 this.deleteItem(id);
             });
         });
@@ -305,7 +305,21 @@ const InventoryPage = {
     },
 
     async deleteItem(id) {
-        if (!confirm('ต้องการลบวัสดุนี้หรือไม่?')) return;
+        let shouldDelete = false;
+
+        if (typeof showStyledConfirm === 'function') {
+            shouldDelete = await showStyledConfirm({
+                title: 'ยืนยันการลบวัสดุ',
+                message: 'ต้องการลบวัสดุนี้หรือไม่?',
+                confirmText: 'ลบวัสดุ',
+                cancelText: 'ยกเลิก',
+                variant: 'danger'
+            });
+        } else {
+            shouldDelete = window.confirm('ต้องการลบวัสดุนี้หรือไม่?');
+        }
+
+        if (!shouldDelete) return;
 
         try {
             await api.inventory.delete(id);

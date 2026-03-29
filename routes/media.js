@@ -55,7 +55,11 @@ function decodePotentiallyMojibakeName(value) {
 
 function toApiMedia(doc) {
     const item = doc.toObject ? doc.toObject() : doc;
-    item.stage = normalizeStage(item.stage, 'before');
+    if (item.mediaType === 'quotation') {
+        delete item.stage;
+    } else {
+        item.stage = normalizeStage(item.stage, 'before');
+    }
     item.originalName = decodePotentiallyMojibakeName(item.originalName || item.filename || '');
     item.imageUrl = `/api/media/${item._id}/file`;
     return item;
@@ -169,7 +173,7 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
         const { projectId, stage, description, quotationId } = req.body;
         const mediaType = normalizeMediaType(req.body.mediaType);
         const uploadedBy = req.body.uploadedBy; // In real app, get from auth token
-        const normalizedStage = mediaType === 'quotation' ? 'after' : normalizeStage(stage);
+        const normalizedStage = mediaType === 'project' ? normalizeStage(stage) : undefined;
 
         if (mediaType === 'project' && (!projectId || !normalizedStage)) {
             return res.status(400).json({ message: 'projectId and stage are required' });
@@ -214,7 +218,7 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
                 imageData: file.buffer,
                 storageType: 'database',
                 path: '',
-                stage: normalizedStage,
+                ...(mediaType === 'project' ? { stage: normalizedStage } : {}),
                 projectId: mediaType === 'project' ? projectId : undefined,
                 quotationId: mediaType === 'quotation' ? quotationId : undefined,
                 description: description,
@@ -230,6 +234,10 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
             media: mediaFiles
         });
     } catch (err) {
+        console.error('Media upload error:', err);
+        if (err && err.stack) {
+            console.error(err.stack);
+        }
         res.status(500).json({ message: err.message });
     }
 });

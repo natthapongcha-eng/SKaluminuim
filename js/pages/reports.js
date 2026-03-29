@@ -322,80 +322,68 @@ const ReportsPage = {
         }
     },
 
-    // ===== Revenue Table =====
+    // ===== Outstanding Payment Table =====
 
     renderRevenueTable() {
         const section = document.getElementById('revenueReport');
         if (!section) return;
 
-        // Filter by selected month
-        const completedPaid = this.allProjects.filter(p => {
-            if (p.status !== 'completed' || p.paymentStatus !== 'paid') return false;
-            const d = new Date(p.endDate || p.createdAt);
-            return d.getFullYear() === this.viewYear && d.getMonth() === this.viewMonth;
-        });
+        // Show only projects that still have outstanding payment.
+        const outstandingProjects = this.allProjects.filter(p => ['unpaid', 'partial'].includes(p.paymentStatus));
 
-        let totalCost = 0, totalSell = 0, totalProfit = 0;
+        let totalOutstandingValue = 0;
         let rowsHtml = '';
 
-        if (completedPaid.length === 0) {
-            rowsHtml = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#6b7280;">ยังไม่มีโครงการที่เสร็จสิ้นและชำระแล้วในเดือนนี้</td></tr>`;
+        if (outstandingProjects.length === 0) {
+            rowsHtml = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#6b7280;">ไม่มีรายการค้างชำระในขณะนี้</td></tr>`;
         } else {
-            completedPaid.forEach(p => {
-                const cost   = Number(p.totalCost  || 0);
-                const sell   = Number(p.totalPrice || 0);
-                const profit = sell - cost;
-                const margin = sell > 0 ? ((profit / sell) * 100).toFixed(1) : '0.0';
+            outstandingProjects.forEach(p => {
+                const totalValue = Number(p.totalPrice || 0);
                 const customerName = typeof p.customerId === 'object' ? (p.customerId?.name || '-') : '-';
-                const endDate = p.endDate ? new Date(p.endDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+                const createdDate = p.createdAt ? new Date(p.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+                const paymentStatus = p.paymentStatus || 'unpaid';
+                const paymentLabel = this.PAYMENT_LABELS[paymentStatus] || 'ค้างชำระ';
+                const paymentBadge = this.PAYMENT_BADGE[paymentStatus] || 'badge-danger';
+                const projectStatus = p.status || 'planning';
+                const projectLabel = this.STATUS_LABELS[projectStatus] || projectStatus;
+                const projectBadge = this.STATUS_BADGE[projectStatus] || 'badge-info';
 
-                totalCost   += cost;
-                totalSell   += sell;
-                totalProfit += profit;
+                totalOutstandingValue += totalValue;
 
                 rowsHtml += `
                     <tr>
-                        <td>${p.name || '-'}</td>
                         <td>${customerName}</td>
-                        <td>${endDate}</td>
-                        <td>฿${cost.toLocaleString('th-TH')}</td>
-                        <td>฿${sell.toLocaleString('th-TH')}</td>
-                        <td class="${profit >= 0 ? 'profit' : 'loss'}">฿${profit.toLocaleString('th-TH')}</td>
-                        <td>${margin}%</td>
-                        <td><span class="badge badge-success">ชำระแล้ว</span></td>
+                        <td>${p.name || '-'}</td>
+                        <td>${createdDate}</td>
+                        <td>฿${totalValue.toLocaleString('th-TH')}</td>
+                        <td><span class="badge ${paymentBadge}">${paymentLabel}</span></td>
+                        <td><span class="badge ${projectBadge}">${projectLabel}</span></td>
                     </tr>
                 `;
             });
         }
 
-        const overallMargin = totalSell > 0 ? ((totalProfit / totalSell) * 100).toFixed(1) : '0.0';
-        const monthLabel = `${this.MONTH_NAMES[this.viewMonth]} ${this.viewYear + 543}`;
-
         section.innerHTML = `
-            <h2>รายงานรายได้และกำไร — ${monthLabel}</h2>
+            <h2>รายงานลูกค้าค้างชำระ</h2>
             <div class="table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>โครงการ</th>
                             <th>ลูกค้า</th>
-                            <th>วันที่เสร็จ</th>
-                            <th>ต้นทุน</th>
-                            <th>ราคาขาย</th>
-                            <th>กำไร</th>
-                            <th>อัตรากำไร</th>
+                            <th>โครงการ</th>
+                            <th>วันที่สร้าง</th>
+                            <th>มูลค่าโครงการ</th>
                             <th>สถานะชำระ</th>
+                            <th>สถานะโครงการ</th>
                         </tr>
                     </thead>
                     <tbody>${rowsHtml}</tbody>
-                    ${completedPaid.length > 0 ? `
+                    ${outstandingProjects.length > 0 ? `
                     <tfoot>
                         <tr class="total-row">
-                            <td colspan="3"><strong>รวมทั้งหมด</strong></td>
-                            <td><strong>฿${totalCost.toLocaleString('th-TH')}</strong></td>
-                            <td><strong>฿${totalSell.toLocaleString('th-TH')}</strong></td>
-                            <td class="${totalProfit >= 0 ? 'profit' : 'loss'}"><strong>฿${totalProfit.toLocaleString('th-TH')}</strong></td>
-                            <td><strong>${overallMargin}%</strong></td>
+                            <td colspan="3"><strong>รวมมูลค่าค้างชำระ</strong></td>
+                            <td><strong>฿${totalOutstandingValue.toLocaleString('th-TH')}</strong></td>
+                            <td>-</td>
                             <td>-</td>
                         </tr>
                     </tfoot>
@@ -633,26 +621,20 @@ const ReportsPage = {
 
             switch (this.currentReportType) {
                 case 'revenue': {
-                    const monthProjects = this.allProjects.filter(p => {
-                        if (p.status !== 'completed' || p.paymentStatus !== 'paid') return false;
-                        const d = new Date(p.endDate || p.createdAt);
-                        return d.getFullYear() === this.viewYear && d.getMonth() === this.viewMonth;
-                    });
-                    exportData = monthProjects.map(p => {
-                        const cost   = Number(p.totalCost  || 0);
-                        const sell   = Number(p.totalPrice || 0);
-                        const profit = sell - cost;
+                    const outstandingProjects = this.allProjects.filter(p => ['unpaid', 'partial'].includes(p.paymentStatus));
+                    exportData = outstandingProjects.map(p => {
+                        const projectStatus = p.status || 'planning';
+                        const paymentStatus = p.paymentStatus || 'unpaid';
                         return {
-                            'โครงการ':    p.name || '-',
-                            'ลูกค้า':     typeof p.customerId === 'object' ? (p.customerId?.name || '-') : '-',
-                            'ต้นทุน':     cost,
-                            'ราคาขาย':    sell,
-                            'กำไร':       profit,
-                            'อัตรากำไร':  sell > 0 ? `${((profit / sell) * 100).toFixed(1)}%` : '0.0%',
-                            'สถานะชำระ': 'ชำระแล้ว'
+                            'ลูกค้า': typeof p.customerId === 'object' ? (p.customerId?.name || '-') : '-',
+                            'โครงการ': p.name || '-',
+                            'วันที่สร้าง': p.createdAt ? new Date(p.createdAt).toLocaleDateString('th-TH') : '-',
+                            'มูลค่าโครงการ': Number(p.totalPrice || 0),
+                            'สถานะชำระ': this.PAYMENT_LABELS[paymentStatus] || paymentStatus,
+                            'สถานะโครงการ': this.STATUS_LABELS[projectStatus] || projectStatus
                         };
                     });
-                    filename = 'revenue_report';
+                    filename = 'outstanding_payment_report';
                     break;
                 }
                 case 'projects': {

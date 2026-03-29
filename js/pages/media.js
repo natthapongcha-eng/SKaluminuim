@@ -47,6 +47,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function extractRefId(refValue) {
+        if (!refValue) return '';
+        if (typeof refValue === 'string') return refValue.trim();
+        if (typeof refValue === 'object') {
+            const objectId = refValue._id || refValue.id;
+            if (typeof objectId === 'string') return objectId.trim();
+            if (objectId && typeof objectId.toString === 'function') {
+                const text = objectId.toString().trim();
+                return text === '[object Object]' ? '' : text;
+            }
+        }
+        if (typeof refValue.toString === 'function') {
+            const text = refValue.toString().trim();
+            return text === '[object Object]' ? '' : text;
+        }
+        return '';
+    }
+
     // State
     let projects = [];
     let quotations = [];
@@ -90,7 +108,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function init() {
         await Promise.all([loadProjects(), loadQuotations()]);
-        await loadMediaStats();
         await loadAllMedia();
         setupEventListeners();
     }
@@ -142,21 +159,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Load media statistics
-    async function loadMediaStats() {
-        try {
-            const stats = await api.request('/media/stats');
-            
-            // Update stat cards
-            document.querySelectorAll('.stat-card')[0].querySelector('h3').textContent = stats.totalMedia || 0;
-            document.querySelectorAll('.stat-card')[1].querySelector('h3').textContent = stats.projectsWithMedia || 0;
-            
-            // Format size
-            const sizeInMB = ((stats.totalSize || 0) / (1024 * 1024)).toFixed(2);
-            document.querySelectorAll('.stat-card')[2].querySelector('h3').textContent = `${sizeInMB} MB`;
-        } catch (error) {
-            console.error('Error loading media stats:', error);
-        }
+    function formatStorageSize(bytes) {
+        const safeBytes = Number(bytes) || 0;
+        const mb = safeBytes / (1024 * 1024);
+        if (mb < 1024) return `${mb.toFixed(2)} MB`;
+        const gb = mb / 1024;
+        return `${gb.toFixed(2)} GB`;
+    }
+
+    // Update media statistics from currently loaded list (matches filters on screen)
+    function loadMediaStats(mediaItems = []) {
+        const renderableProjectMedia = mediaItems.filter(item => {
+            const mediaType = String(item.mediaType || 'project');
+            return mediaType !== 'quotation' && Boolean(extractRefId(item.projectId));
+        });
+
+        const renderableQuotationMedia = mediaItems.filter(item => {
+            const mediaType = String(item.mediaType || 'project');
+            return mediaType === 'quotation' && Boolean(extractRefId(item.quotationId));
+        });
+
+        const renderableMedia = [...renderableProjectMedia, ...renderableQuotationMedia];
+
+        const totalMedia = renderableMedia.length;
+
+        const projectSet = new Set(
+            renderableProjectMedia
+                .map(item => extractRefId(item.projectId))
+                .filter(Boolean)
+        );
+
+        const totalSize = renderableMedia.reduce((sum, item) => sum + (Number(item.size) || 0), 0);
+
+        const statCards = document.querySelectorAll('.stat-card');
+        if (statCards[0]) statCards[0].querySelector('h3').textContent = String(totalMedia);
+        if (statCards[1]) statCards[1].querySelector('h3').textContent = String(projectSet.size);
+        if (statCards[2]) statCards[2].querySelector('h3').textContent = formatStorageSize(totalSize);
     }
 
     // Load all media grouped by project
@@ -183,6 +221,8 @@ document.addEventListener('DOMContentLoaded', function() {
             media.forEach(item => {
                 item.originalName = decodePotentiallyMojibakeName(item.originalName || item.filename || '');
             });
+
+            loadMediaStats(media);
             
             // Group media by project
             mediaByProject = {};
@@ -191,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const mediaType = String(item.mediaType || 'project');
 
                 if (mediaType === 'quotation') {
-                    const quotationId = String(item.quotationId?._id || item.quotationId || '');
+                    const quotationId = extractRefId(item.quotationId);
                     if (!quotationId) return;
 
                     if (!mediaByQuotation[quotationId]) {
@@ -205,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                const projectId = String(item.projectId?._id || item.projectId || '');
+                const projectId = extractRefId(item.projectId);
                 if (!projectId) {
                     return;
                 }
@@ -226,6 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error loading media:', error);
             projectsGallery.innerHTML = '<p class="no-data">ไม่สามารถโหลดข้อมูลได้</p>';
+            loadMediaStats([]);
         }
     }
 
@@ -360,8 +401,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     : `<img src="${item.imageUrl || item.path}" alt="${item.originalName}" loading="lazy">`
                 }
                 <div class="media-overlay">
-                    <button class="btn-icon view-btn" data-id="${item._id}">${item.mimetype === 'application/pdf' ? '📄' : '👁️'}</button>
-                    <button class="btn-icon delete-btn" data-id="${item._id}">🗑️</button>
+                    <button class="btn-icon view-btn" data-id="${item._id}">${item.mimetype === 'application/pdf' ? '<i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>' : '<i class="bi bi-eye" aria-hidden="true"></i>'}</button>
+                    <button class="btn-icon delete-btn" data-id="${item._id}"><i class="bi bi-trash" aria-hidden="true"></i></button>
                 </div>
                 <p class="media-date">${formatDate(item.createdAt)}</p>
                 ${item.description ? `<p class="media-description">${escapeHtml(item.description)}</p>` : ''}
@@ -373,7 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return `
             <div class="media-item upload-placeholder">
                 <button class="btn-upload" data-project="${projectId}" data-stage="${stage}">
-                    <span>➕</span>
+                    <span><i class="bi bi-plus-circle" aria-hidden="true"></i></span>
                     <p>เพิ่มรูปภาพ</p>
                 </button>
             </div>
@@ -384,7 +425,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return `
             <div class="media-item upload-placeholder">
                 <button class="btn-upload" data-quotation="${quotationId}">
-                    <span>➕</span>
+                    <span><i class="bi bi-plus-circle" aria-hidden="true"></i></span>
                     <p>เพิ่มรูปใบเสนอราคา</p>
                 </button>
             </div>
@@ -572,6 +613,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function openUploadModal(projectId = '', stage = '', quotationId = '') {
+        // main.js may set inline display:none when closing modals; clear it before reopening.
+        uploadMediaModal.style.removeProperty('display');
         uploadMediaModal.classList.add('active');
 
         if (quotationId) {
@@ -667,22 +710,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         try {
-            const response = await fetch('/api/media/upload', {
+            const result = await api.request('/media/upload', {
                 method: 'POST',
                 body: formData
             });
 
-            const result = await response.json();
-
-            if (response.ok) {
-                uploadMediaModal.classList.remove('active');
-                resetUploadForm();
-                await loadMediaStats();
-                await loadAllMedia();
-                showUploadSuccessModal(result.message || 'อัปโหลดสำเร็จ');
-            } else {
-                throw new Error(result.message || 'Upload failed');
-            }
+            uploadMediaModal.classList.remove('active');
+            resetUploadForm();
+            await loadMediaStats();
+            await loadAllMedia();
+            showUploadSuccessModal(result.message || 'อัปโหลดสำเร็จ');
         } catch (error) {
             console.error('Upload error:', error);
             showToast('เกิดข้อผิดพลาดในการอัปโหลด: ' + error.message, 'error');

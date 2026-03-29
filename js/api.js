@@ -6,11 +6,18 @@ const api = {
     // Generic fetch wrapper
     async request(endpoint, options = {}) {
         const url = `${API_BASE_URL}${endpoint}`;
+        const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+        const headers = {
+            ...(options.headers || {})
+        };
+
+        if (!isFormData && !Object.prototype.hasOwnProperty.call(headers, 'Content-Type')) {
+            headers['Content-Type'] = 'application/json';
+        }
+
         const config = {
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            ...options
+            ...options,
+            headers
         };
         
         try {

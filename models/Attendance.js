@@ -14,7 +14,7 @@ const attendanceSchema = new mongoose.Schema({
     adjustedAt: { type: Date },
     adjustedReason: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now }
-});
+}, { versionKey: false });
 
 // Compound index for unique user per day
 attendanceSchema.index({ userId: 1, date: 1 }, { unique: true });

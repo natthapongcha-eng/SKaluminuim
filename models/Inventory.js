@@ -12,7 +12,7 @@ const materialSchema = new mongoose.Schema({
     unitPrice: { type: Number, default: 0 },
     location: { type: String },
     lastUpdated: { type: Date, default: Date.now }
-});
+}, { versionKey: false });
 
 // ใช้ collection 'materials' ที่มีอยู่แล้ว
 module.exports = mongoose.model('Material', materialSchema, 'materials');

@@ -12,6 +12,6 @@ const customerSchema = new mongoose.Schema({
     totalProjects: { type: Number, default: 0 },
     totalSpent: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now }
-});
+}, { versionKey: false });
 
 module.exports = mongoose.model('Customer', customerSchema, 'customers');
