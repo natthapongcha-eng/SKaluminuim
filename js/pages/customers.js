@@ -128,14 +128,6 @@ const CustomersPage = {
             });
         }
 
-        // Customer Type toggle
-        const customerType = document.getElementById('customerType');
-        const companyFields = document.getElementById('companyFields');
-        if (customerType && companyFields) {
-            customerType.addEventListener('change', function() {
-                companyFields.style.display = this.value === 'company' ? 'block' : 'none';
-            });
-        }
 
         // Search and Filter
         const searchInput = document.getElementById('searchCustomer');
@@ -156,10 +148,6 @@ const CustomersPage = {
 
     resetForm() {
         document.getElementById('addCustomerForm')?.reset();
-        const companyFields = document.getElementById('companyFields');
-        if (companyFields) {
-            companyFields.style.display = 'none';
-        }
     },
 
     openAddModal() {
@@ -175,8 +163,6 @@ const CustomersPage = {
         const formData = {
             customerType: document.getElementById('customerType')?.value || 'individual',
             name: document.getElementById('customerName')?.value,
-            companyName: document.getElementById('companyName')?.value,
-            taxId: document.getElementById('taxId')?.value,
             phone: document.getElementById('customerPhone')?.value,
             email: document.getElementById('customerEmail')?.value,
             address: document.getElementById('customerAddress')?.value,
@@ -216,18 +202,11 @@ const CustomersPage = {
         // Fill form with customer data
         document.getElementById('customerType').value = customer.customerType || 'individual';
         document.getElementById('customerName').value = customer.name || '';
-        document.getElementById('companyName').value = customer.companyName || '';
-        document.getElementById('taxId').value = customer.taxId || '';
         document.getElementById('customerPhone').value = customer.phone || '';
         document.getElementById('customerEmail').value = customer.email || '';
         document.getElementById('customerAddress').value = customer.address || '';
         document.getElementById('customerNotes').value = customer.notes || '';
 
-        // Show company fields if company type
-        const companyFields = document.getElementById('companyFields');
-        if (companyFields) {
-            companyFields.style.display = customer.customerType === 'company' ? 'block' : 'none';
-        }
 
         openModal('addCustomerModal');
     },
@@ -277,18 +256,6 @@ const CustomersPage = {
                     <strong style="color: #1e40af;">ประเภท:</strong>
                     <p style="margin: 4px 0 0 0; color: #374151;">${typeLabel}</p>
                 </div>
-                ${customer.companyName ? `
-                <div style="margin-bottom: 16px;">
-                    <strong style="color: #1e40af;">ชื่อบริษัท:</strong>
-                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.companyName}</p>
-                </div>
-                ` : ''}
-                ${customer.taxId ? `
-                <div style="margin-bottom: 16px;">
-                    <strong style="color: #1e40af;">เลขประจำตัวผู้เสียภาษี:</strong>
-                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.taxId}</p>
-                </div>
-                ` : ''}
                 <div style="margin-bottom: 16px;">
                     <strong style="color: #1e40af;">เบอร์โทร:</strong>
                     <p style="margin: 4px 0 0 0; color: #374151;">${customer.phone || '-'}</p>
@@ -358,8 +325,6 @@ const CustomersPage = {
             'รหัสลูกค้า': c._id.slice(-6).toUpperCase(),
             'ชื่อ': c.name,
             'ประเภท': c.customerType === 'company' ? 'นิติบุคคล' : 'บุคคลทั่วไป',
-            'บริษัท': c.companyName || '-',
-            'เลขผู้เสียภาษี': c.taxId || '-',
             'โทรศัพท์': c.phone || '-',
             'อีเมล': c.email || '-',
             'ที่อยู่': c.address || '-',

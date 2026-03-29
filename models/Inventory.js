@@ -16,3 +16,8 @@ const materialSchema = new mongoose.Schema({
 
 // ใช้ collection 'materials' ที่มีอยู่แล้ว
 module.exports = mongoose.model('Material', materialSchema, 'materials');
+/*
+Model Name: Customer
+Collection Name: customers
+module.exports = ส่งออก Model นี้ให้ไฟล์อื่น import ไปใช้ได้
+*/
