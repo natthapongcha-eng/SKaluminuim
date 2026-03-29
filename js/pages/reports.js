@@ -125,8 +125,8 @@ const ReportsPage = {
         });
 
         const totalRevenue = monthProjects.reduce((sum, p) => sum + Number(p.totalPrice || 0), 0);
-        const totalCost    = monthProjects.reduce((sum, p) => sum + Number(p.totalCost   || 0), 0);
-        const totalProfit  = totalRevenue - totalCost;
+        const totalCost = monthProjects.reduce((sum, p) => sum + Number(p.totalCost || 0), 0);
+        const totalProfit = totalRevenue - totalCost;
         const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
         const cards = document.querySelectorAll('.summary-card');
@@ -135,7 +135,7 @@ const ReportsPage = {
 
             // Revenue
             const revenueAmount = cards[0].querySelector('.amount');
-            const revenueTrend  = cards[0].querySelector('.trend');
+            const revenueTrend = cards[0].querySelector('.trend');
             if (revenueAmount) revenueAmount.textContent = `฿${totalRevenue.toLocaleString('th-TH')}`;
             if (revenueTrend) {
                 revenueTrend.className = 'trend neutral';
@@ -144,7 +144,7 @@ const ReportsPage = {
 
             // Profit
             const profitAmount = cards[1].querySelector('.amount');
-            const profitTrend  = cards[1].querySelector('.trend');
+            const profitTrend = cards[1].querySelector('.trend');
             if (profitAmount) profitAmount.textContent = `฿${totalProfit.toLocaleString('th-TH')}`;
             if (profitTrend) {
                 profitTrend.className = totalProfit >= 0 ? 'trend up' : 'trend down';
@@ -153,7 +153,7 @@ const ReportsPage = {
 
             // Completed Projects
             const projectsAmount = cards[2].querySelector('.amount');
-            const projectsTrend  = cards[2].querySelector('.trend');
+            const projectsTrend = cards[2].querySelector('.trend');
             if (projectsAmount) projectsAmount.textContent = monthProjects.length;
             if (projectsTrend) {
                 projectsTrend.className = 'trend neutral';
@@ -162,7 +162,7 @@ const ReportsPage = {
 
             // Margin
             const marginAmount = cards[3].querySelector('.amount');
-            const marginTrend  = cards[3].querySelector('.trend');
+            const marginTrend = cards[3].querySelector('.trend');
             if (marginAmount) marginAmount.textContent = `${profitMargin.toFixed(1)}%`;
             if (marginTrend) {
                 marginTrend.className = profitMargin >= 20 ? 'trend up' : (profitMargin > 0 ? 'trend neutral' : 'trend down');
@@ -199,14 +199,14 @@ const ReportsPage = {
             const slot = months.find(s => s.year === d.getFullYear() && s.month === d.getMonth());
             if (slot) {
                 slot.revenue += Number(p.totalPrice || 0);
-                slot.profit  += Number(p.totalPrice || 0) - Number(p.totalCost || 0);
+                slot.profit += Number(p.totalPrice || 0) - Number(p.totalCost || 0);
             }
         });
 
-        const labels       = months.map(s => s.label);
-        const revenueData  = months.map(s => s.revenue);
-        const profitData   = months.map(s => s.profit);
-        const hasData      = revenueData.some(v => v > 0);
+        const labels = months.map(s => s.label);
+        const revenueData = months.map(s => s.revenue);
+        const profitData = months.map(s => s.profit);
+        const hasData = revenueData.some(v => v > 0);
 
         if (!hasData) {
             if (mockEl) {
@@ -404,7 +404,7 @@ const ReportsPage = {
             const status = p.status || 'planning';
             if (!statusGroups[status]) statusGroups[status] = { count: 0, totalPrice: 0, totalProfit: 0 };
             statusGroups[status].count++;
-            statusGroups[status].totalPrice  += Number(p.totalPrice || 0);
+            statusGroups[status].totalPrice += Number(p.totalPrice || 0);
             statusGroups[status].totalProfit += Number(p.totalPrice || 0) - Number(p.totalCost || 0);
         });
 
@@ -526,7 +526,7 @@ const ReportsPage = {
             const lateMap = new Map();
             lateRecords.forEach(r => {
                 const name = r.employeeName || r.userName || (r.userId?.name) || '-';
-                const key  = r.employeeId  || r.userId?._id || name;
+                const key = r.employeeId || r.userId?._id || name;
                 if (!lateMap.has(key)) {
                     lateMap.set(key, { name, lateDates: [] });
                 }
@@ -545,8 +545,8 @@ const ReportsPage = {
                         rowsHtml += `
                             <tr>
                                 ${idx === 0
-                                    ? `<td rowspan="${emp.lateDates.length}" style="vertical-align:middle;font-weight:600;">${emp.name}</td>`
-                                    : ''}
+                                ? `<td rowspan="${emp.lateDates.length}" style="vertical-align:middle;font-weight:600;">${emp.name}</td>`
+                                : ''}
                                 <td>${dateStr}</td>
                                 <td><span class="badge badge-warning">มาสาย</span></td>
                             </tr>
@@ -640,11 +640,11 @@ const ReportsPage = {
                 case 'projects': {
                     exportData = this.allProjects.map(p => ({
                         'โครงการ': p.name || '-',
-                        'ลูกค้า':  typeof p.customerId === 'object' ? (p.customerId?.name || '-') : '-',
-                        'สถานะ':   this.STATUS_LABELS[p.status] || p.status || '-',
+                        'ลูกค้า': typeof p.customerId === 'object' ? (p.customerId?.name || '-') : '-',
+                        'สถานะ': this.STATUS_LABELS[p.status] || p.status || '-',
                         'ราคาขาย': Number(p.totalPrice || 0),
-                        'ต้นทุน':  Number(p.totalCost  || 0),
-                        'กำไร':    Number(p.totalPrice || 0) - Number(p.totalCost || 0),
+                        'ต้นทุน': Number(p.totalCost || 0),
+                        'กำไร': Number(p.totalPrice || 0) - Number(p.totalCost || 0),
                         'การชำระ': this.PAYMENT_LABELS[p.paymentStatus] || p.paymentStatus || '-'
                     }));
                     filename = 'projects_report';
@@ -653,13 +653,13 @@ const ReportsPage = {
                 case 'inventory': {
                     const data = await api.reports.getInventory();
                     exportData = (data?.items || []).map(item => ({
-                        'รหัสวัสดุ':    item._id ? String(item._id).slice(-6).toUpperCase() : '-',
-                        'ชื่อวัสดุ':    item.name || '-',
-                        'รายละเอียด':   item.specification || '-',
-                        'คงเหลือ':      item.quantity,
-                        'หน่วย':        item.unit || '',
+                        'รหัสวัสดุ': item._id ? String(item._id).slice(-6).toUpperCase() : '-',
+                        'ชื่อวัสดุ': item.name || '-',
+                        'รายละเอียด': item.specification || '-',
+                        'คงเหลือ': item.quantity,
+                        'หน่วย': item.unit || '',
                         'จำนวนขั้นต่ำ': item.minimumThreshold || 0,
-                        'สถานะ':        'ใกล้หมด',
+                        'สถานะ': 'ใกล้หมด',
                         'แนะนำสั่งซื้อ': Math.max(0, (item.minimumThreshold || 0) * 2 - item.quantity)
                     }));
                     filename = 'low_stock_report';
@@ -669,9 +669,9 @@ const ReportsPage = {
                     const data = await api.reports.getAttendance();
                     const lateOnly = (data?.records || []).filter(r => r.status === 'late');
                     exportData = lateOnly.map(r => ({
-                        'พนักงาน':    r.employeeName || r.userName || '-',
+                        'พนักงาน': r.employeeName || r.userName || '-',
                         'วันที่มาสาย': r.date ? new Date(r.date).toLocaleDateString('th-TH') : '-',
-                        'สถานะ':      'มาสาย'
+                        'สถานะ': 'มาสาย'
                     }));
                     filename = 'late_attendance_report';
                     break;
@@ -691,6 +691,8 @@ const ReportsPage = {
 };
 
 // Initialize when DOM is ready
+
+// หลังผู้ใช้กดปุ่มมาหน้า reportts จะไปทำ function init() ก่อน
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('revenueReport')) {
         ReportsPage.init();
