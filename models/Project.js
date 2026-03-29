@@ -6,7 +6,7 @@ const projectMaterialSchema = new mongoose.Schema({
         ref: 'Material',
         required: true
     },
-    name: { type: String, required: true },
+    name: { type: String, required: true }, // required: true ห้ามปล่อยว่าง
     specification: { type: String, default: '' },
     unit: { type: String, default: '' },
     qty: { type: Number, required: true, min: 0 },
