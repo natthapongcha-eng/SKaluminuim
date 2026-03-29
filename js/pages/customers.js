@@ -176,7 +176,6 @@ const CustomersPage = {
             customerType: document.getElementById('customerType')?.value || 'individual',
             name: document.getElementById('customerName')?.value,
             companyName: document.getElementById('companyName')?.value,
-            taxId: document.getElementById('taxId')?.value,
             phone: document.getElementById('customerPhone')?.value,
             email: document.getElementById('customerEmail')?.value,
             address: document.getElementById('customerAddress')?.value,
@@ -217,7 +216,6 @@ const CustomersPage = {
         document.getElementById('customerType').value = customer.customerType || 'individual';
         document.getElementById('customerName').value = customer.name || '';
         document.getElementById('companyName').value = customer.companyName || '';
-        document.getElementById('taxId').value = customer.taxId || '';
         document.getElementById('customerPhone').value = customer.phone || '';
         document.getElementById('customerEmail').value = customer.email || '';
         document.getElementById('customerAddress').value = customer.address || '';
@@ -281,12 +279,6 @@ const CustomersPage = {
                 <div style="margin-bottom: 16px;">
                     <strong style="color: #1e40af;">ชื่อบริษัท:</strong>
                     <p style="margin: 4px 0 0 0; color: #374151;">${customer.companyName}</p>
-                </div>
-                ` : ''}
-                ${customer.taxId ? `
-                <div style="margin-bottom: 16px;">
-                    <strong style="color: #1e40af;">เลขประจำตัวผู้เสียภาษี:</strong>
-                    <p style="margin: 4px 0 0 0; color: #374151;">${customer.taxId}</p>
                 </div>
                 ` : ''}
                 <div style="margin-bottom: 16px;">
@@ -359,7 +351,6 @@ const CustomersPage = {
             'ชื่อ': c.name,
             'ประเภท': c.customerType === 'company' ? 'นิติบุคคล' : 'บุคคลทั่วไป',
             'บริษัท': c.companyName || '-',
-            'เลขผู้เสียภาษี': c.taxId || '-',
             'โทรศัพท์': c.phone || '-',
             'อีเมล': c.email || '-',
             'ที่อยู่': c.address || '-',
