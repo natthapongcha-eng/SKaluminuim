@@ -621,6 +621,11 @@ router.delete('/:id', async (req, res) => {
             });
         }
 
+        // Delete associated quotation if it exists
+        if (project.quotationId) {
+            await Quotation.findByIdAndDelete(project.quotationId);
+        }
+
         await Project.findByIdAndDelete(req.params.id);
         res.json({ message: 'Project deleted' });
     } catch (error) {
