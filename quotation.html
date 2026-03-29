@@ -570,7 +570,6 @@
                         </div>
                         <div class="payment-status-date-row">
                             <span class="payment-date-inline">ชำระเมื่อวันที่:</span>
-                            <span class="payment-note-inline">หมายเหตุ: <input type="text" id="paymentNote" placeholder="ระบุหมายเหตุ..." class="input-note-line"></span>
                         </div>
                     </div>
                     
@@ -728,7 +727,6 @@
             const footerSection = document.querySelector('.footer-section-container');
             const quotationTable = document.querySelector('.quotation-table');
             const signatureSection = document.querySelector('.signature-section');
-            const paymentNoteInput = document.getElementById('paymentNote');
             const spacerElement = printableArea?.querySelector('.spacer');
 
             function mmToPx(mm) {
@@ -770,18 +768,6 @@
                 });
             }
 
-            function preparePaymentNoteForPrint() {
-                if (!paymentNoteInput) return;
-
-                const currentValue = (paymentNoteInput.value || '').trim();
-                if (currentValue !== '') return;
-
-                const originalPlaceholder = paymentNoteInput.getAttribute('placeholder') || '';
-                paymentNoteInput.setAttribute('data-original-placeholder', originalPlaceholder);
-                paymentNoteInput.setAttribute('data-print-note-placeholder-cleared', 'true');
-                paymentNoteInput.setAttribute('placeholder', '');
-            }
-
             function resetPrintFooterPosition() {
                 if (!printableArea) return;
                 printableArea.classList.remove('print-footer-new-page');
@@ -809,16 +795,9 @@
                     });
                 }
 
-                if (paymentNoteInput && paymentNoteInput.getAttribute('data-print-note-placeholder-cleared') === 'true') {
-                    const originalPlaceholder = paymentNoteInput.getAttribute('data-original-placeholder') || '';
-                    paymentNoteInput.setAttribute('placeholder', originalPlaceholder);
-                    paymentNoteInput.removeAttribute('data-original-placeholder');
-                    paymentNoteInput.removeAttribute('data-print-note-placeholder-cleared');
-                }
             }
 
             window.addEventListener('beforeprint', () => {
-                preparePaymentNoteForPrint();
                 simplifyEditableFieldsForPrint();
                 placeFooterForPrint();
                 requestAnimationFrame(() => {
