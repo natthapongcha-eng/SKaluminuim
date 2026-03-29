@@ -10,7 +10,6 @@ const materialSchema = new mongoose.Schema({
     unit: { type: String, default: 'ชิ้น' },
     minimumThreshold: { type: Number, default: 10 },
     unitPrice: { type: Number, default: 0 },
-    location: { type: String },
     lastUpdated: { type: Date, default: Date.now }
 }, { versionKey: false });
 

@@ -23,7 +23,6 @@ const quotationSchema = new mongoose.Schema({
     totalAmount: { type: Number, default: 0 },
     status: { type: String, enum: ['draft', 'sent', 'approved', 'rejected'], default: 'draft' },
     notes: { type: String },
-    validUntil: { type: Date },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdAt: { type: Date, default: Date.now }
 }, { versionKey: false });
