@@ -408,7 +408,7 @@ router.post('/', async (req, res) => {
             fallbackTotalPrice: req.body.totalPrice
         });
 
-        const project = await Project.create({
+        const project = await Project.create({ //วิ่งไปที่ models Projects.js เพื่อสร้างข้อมูล   
             name,
             customerId: req.body.customerId,
             quotationId: pricing.quotationId,
@@ -426,7 +426,7 @@ router.post('/', async (req, res) => {
             stockRestored: false
         });
 
-        const populated = await Project.findById(project._id)
+        const populated = await Project.findById(project._id)  //วิ่งไปที่ models Projects.js เพื่อดึงข้อมูลมาแสดง
             .populate('customerId', 'name phone address')
             .populate('quotationId', 'quotationNumber totalAmount status');
 
