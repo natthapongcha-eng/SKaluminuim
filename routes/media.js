@@ -111,7 +111,6 @@ router.get('/', async (req, res) => {
             .select('-imageData')
             .populate('projectId', 'name customerId')
             .populate('quotationId', 'quotationNumber customerName')
-            .populate('uploadedBy', 'username')
             .sort({ createdAt: -1 });
 
         res.json(media.map(toApiMedia));
@@ -172,7 +171,6 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
     try {
         const { projectId, stage, description, quotationId } = req.body;
         const mediaType = normalizeMediaType(req.body.mediaType);
-        const uploadedBy = req.body.uploadedBy; // In real app, get from auth token
         const normalizedStage = mediaType === 'project' ? normalizeStage(stage) : undefined;
 
         if (mediaType === 'project' && (!projectId || !normalizedStage)) {
@@ -221,8 +219,7 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
                 ...(mediaType === 'project' ? { stage: normalizedStage } : {}),
                 projectId: mediaType === 'project' ? projectId : undefined,
                 quotationId: mediaType === 'quotation' ? quotationId : undefined,
-                description: description,
-                uploadedBy: uploadedBy
+                description: description
             });
 
             await media.save();
@@ -301,8 +298,7 @@ router.get('/:id', async (req, res) => {
     try {
         const media = await Media.findById(req.params.id)
             .select('-imageData')
-            .populate('projectId', 'name customerId')
-            .populate('uploadedBy', 'username');
+            .populate('projectId', 'name customerId');
 
         if (!media) {
             return res.status(404).json({ message: 'Media not found' });
