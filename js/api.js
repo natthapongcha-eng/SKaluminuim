@@ -362,6 +362,7 @@ const api = {
                     checkOut: payload.checkOutTime,
                     checkInTime: payload.checkInTime,
                     checkOutTime: payload.checkOutTime,
+                    overrideStatus: payload.overrideStatus || null,
                     note: payload.note || '',
                     actorId: actor.id,
                     actorRole: actor.role,

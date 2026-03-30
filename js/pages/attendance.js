@@ -10,6 +10,7 @@ const AttendancePage = {
     currentAction: 'in',
     editRecordId: '',
     editCheckInTime: null,
+    editSuggestedStatus: '',
     serverTimeOffset: 0,
     hasServerTimeSync: false,
     clockTimerId: null,
@@ -163,6 +164,43 @@ const AttendancePage = {
         const hh = String(date.getHours()).padStart(2, '0');
         const mm = String(date.getMinutes()).padStart(2, '0');
         return `${y}-${m}-${d}T${hh}:${mm}`;
+    },
+
+    getStatusLabel(status) {
+        if (status === 'present') return 'ปกติ';
+        if (status === 'late') return 'มาสาย';
+        if (status === 'absent') return 'ขาดงาน';
+        if (status === 'leave') return 'ลา';
+        return '-';
+    },
+
+    suggestStatus(timeString) {
+        const raw = String(timeString || '').trim();
+        if (!raw) return '';
+
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) return '';
+
+        const totalMinutes = parsed.getHours() * 60 + parsed.getMinutes();
+        if (totalMinutes <= 480) return 'present';
+        if (totalMinutes <= 660) return 'late';
+        return 'absent';
+    },
+
+    updateEditStatusSuggestion() {
+        const checkInInput = document.getElementById('editCheckinTime');
+        const suggestedEl = document.getElementById('suggestedStatusText');
+        if (!checkInInput || !suggestedEl) return;
+
+        const suggestedStatus = this.suggestStatus(checkInInput.value);
+        this.editSuggestedStatus = suggestedStatus;
+
+        suggestedEl.className = 'status-working';
+        if (suggestedStatus === 'present') suggestedEl.className = 'status-present';
+        if (suggestedStatus === 'late') suggestedEl.className = 'status-late';
+        if (suggestedStatus === 'absent') suggestedEl.className = 'status-absent';
+
+        suggestedEl.textContent = `สถานะจะเป็น: ${this.getStatusLabel(suggestedStatus)}`;
     },
 
     getDateKey(date) {
@@ -776,7 +814,7 @@ const AttendancePage = {
                     <td>${statusHtml}</td>
                     <td>${this.escapeHtml(row.note || '-')}</td>
                     <td>${showEdit
-                        ? `<button class="btn-secondary btn-edit-attendance" data-id="${row._id}" data-checkin="${row.checkIn}" data-checkout="${row.checkOut || ''}">แก้ไข</button> <button class="btn-danger btn-delete-attendance" data-id="${row._id}" data-name="${this.escapeHtml(row.userName || '-')}">ลบ</button>`
+                        ? `<button class="btn-secondary btn-edit-attendance" data-id="${row._id}" data-checkin="${row.checkIn}" data-checkout="${row.checkOut || ''}" data-status="${row.status || ''}">แก้ไข</button> <button class="btn-danger btn-delete-attendance" data-id="${row._id}" data-name="${this.escapeHtml(row.userName || '-')}">ลบ</button>`
                         : `<button class="btn-danger btn-delete-attendance" data-id="${row._id}" data-name="${this.escapeHtml(row.userName || '-')}">ลบ</button>`}</td>
                 </tr>
             `;
@@ -798,7 +836,10 @@ const AttendancePage = {
                 <td>${this.escapeHtml(row.userName || '-')}</td>
                 <td><span class="status-absent">ขาดงาน</span></td>
                 <td>${this.escapeHtml(row.note || '-')}</td>
-                <td><button class="btn-danger btn-delete-attendance" data-id="${row._id}" data-name="${this.escapeHtml(row.userName || '-')}">ลบ</button></td>
+                <td>
+                    <button class="btn-secondary btn-edit-attendance" data-id="${row._id}" data-checkin="" data-checkout="" data-status="absent">แก้ไข</button>
+                    <button class="btn-danger btn-delete-attendance" data-id="${row._id}" data-name="${this.escapeHtml(row.userName || '-')}">ลบ</button>
+                </td>
             </tr>
         `).join('');
     },
@@ -1022,18 +1063,24 @@ const AttendancePage = {
         this.editRecordId = recordId;
         this.editCheckInTime = checkInTime ? new Date(checkInTime) : null;
         const checkInInput = document.getElementById('editCheckinTime');
-        const input = document.getElementById('editCheckoutTime');
+        const checkoutInput = document.getElementById('editCheckoutTime');
         const note = document.getElementById('editAttendanceNote');
+        const overrideSelect = document.getElementById('editOverrideStatus');
 
-        const checkInBase = checkInTime ? new Date(checkInTime) : new Date();
+        const checkInBase = checkInTime
+            ? new Date(checkInTime)
+            : new Date(`${this.selectedDate}T08:00:00`);
         const checkOutBase = checkOutTime ? new Date(checkOutTime) : new Date(checkInBase);
         if (!checkOutTime) {
             checkOutBase.setHours(17, 0, 0, 0);
         }
 
         if (checkInInput) checkInInput.value = this.formatDateTimeLocal(checkInBase);
-        if (input) input.value = checkOutTime ? this.formatDateTimeLocal(checkOutBase) : '';
+        if (checkoutInput) checkoutInput.value = checkOutTime ? this.formatDateTimeLocal(checkOutBase) : '';
         if (note) note.value = '';
+        if (overrideSelect) overrideSelect.value = '';
+
+        this.updateEditStatusSuggestion();
         openModal('editAttendanceModal');
     },
 
@@ -1074,10 +1121,12 @@ const AttendancePage = {
         const checkInInput = document.getElementById('editCheckinTime');
         const checkoutInput = document.getElementById('editCheckoutTime');
         const noteInput = document.getElementById('editAttendanceNote');
+        const overrideSelect = document.getElementById('editOverrideStatus');
         const confirmBtn = document.getElementById('confirmEditAttendance');
         const checkInTime = checkInInput?.value;
         const checkOutTime = checkoutInput?.value;
         const note = noteInput?.value || '';
+        const overrideStatus = String(overrideSelect?.value || '').trim();
 
         if (!checkInTime) {
             alert('กรุณาระบุเวลาเช็กอิน');
@@ -1097,14 +1146,14 @@ const AttendancePage = {
                 return;
             }
 
-            if (parsedOut <= parsedIn) {
+            if (parsedOut.getTime() <= parsedIn.getTime()) {
                 alert('เวลาเช็กเอาต์ต้องมากกว่าเวลาเช็กอิน');
                 return;
             }
         }
 
         if (!note.trim()) {
-            alert('กรุณาระบุหมายเหตุการแก้ไข');
+            alert('กรุณากรอกหมายเหตุในการแก้ไขข้อมูล');
             return;
         }
 
@@ -1120,6 +1169,7 @@ const AttendancePage = {
                 checkInTime,
                 checkOutTime,
                 note,
+                overrideStatus: overrideStatus || null,
                 actor
             });
             closeModal('editAttendanceModal');
@@ -1208,7 +1258,7 @@ const AttendancePage = {
                 const id = target.getAttribute('data-id');
                 const checkIn = target.getAttribute('data-checkin');
                 const checkOut = target.getAttribute('data-checkout');
-                if (id && checkIn) {
+                if (id) {
                     this.openEditModal(id, checkIn, checkOut);
                 }
             }
@@ -1226,6 +1276,7 @@ const AttendancePage = {
         document.getElementById('confirmEditAttendance')?.addEventListener('click', () => this.submitEditCheckout());
         document.getElementById('cancelEditAttendance')?.addEventListener('click', () => closeModal('editAttendanceModal'));
         document.getElementById('closeEditAttendanceModal')?.addEventListener('click', () => closeModal('editAttendanceModal'));
+        document.getElementById('editCheckinTime')?.addEventListener('input', () => this.updateEditStatusSuggestion());
     }
 };
 
