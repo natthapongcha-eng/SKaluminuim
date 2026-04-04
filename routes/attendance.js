@@ -180,39 +180,39 @@ function computeWorkHours(checkIn, checkOut) {
     return hours > 0 ? Number(hours.toFixed(2)) : 0;
 }
 
-function inferStatusFromCheckIn(checkInDate) {
+function calculateStatus(checkInDate, overrideStatus = null) {
+    // ถ้า Admin ระบุสถานะเอง ให้ใช้ค่านั้นทันที
+    if (overrideStatus) {
+        return String(overrideStatus).toLowerCase();
+    }
+
     const h = checkInDate.getHours();
     const m = checkInDate.getMinutes();
-    if (h > ABSENT_CUTOFF_HOUR || (h === ABSENT_CUTOFF_HOUR && m > 0)) {
+    const totalMinutes = h * 60 + m;
+
+    if (totalMinutes > ABSENT_CUTOFF_HOUR * 60) {
         return 'absent';
     }
-    if (h > LATE_THRESHOLD_HOUR || (h === LATE_THRESHOLD_HOUR && m > 0)) {
+    if (totalMinutes > LATE_THRESHOLD_HOUR * 60) {
         return 'late';
     }
     return 'present';
 }
 
-function inferStatusFromEditedTimes(checkInDate, checkOutDate) {
+function inferStatusFromCheckIn(checkInDate) {
+    return calculateStatus(checkInDate);
+}
+
+function inferStatusFromEditedTimes(checkInDate, checkOutDate, overrideStatus = null) {
     if (!checkInDate) return 'absent';
 
-    const h = checkInDate.getHours();
-    const m = checkInDate.getMinutes();
-    const minutesFromMidnight = (h * 60) + m;
-    const lateThresholdMinutes = 8 * 60;
-    const absentThresholdMinutes = 11 * 60;
-
-    let status = 'present';
-    if (minutesFromMidnight > absentThresholdMinutes) {
-        status = 'absent';
-    } else if (minutesFromMidnight > lateThresholdMinutes) {
-        status = 'late';
+    // ถ้ามี override status ให้ใช้เลย
+    if (overrideStatus) {
+        return String(overrideStatus).toLowerCase();
     }
 
-    if (status !== 'absent' && checkInDate && !checkOutDate) {
-        return 'no_checkout';
-    }
-
-    return status;
+    // คำนวณสถานะตามเวลาจริง
+    return calculateStatus(checkInDate);
 }
 
 function isWithinCheckInWindow(now) {
@@ -310,15 +310,17 @@ async function applyDailyAutomation(targetDate) {
         const openRecords = await Attendance.find({
             date: dayStart,
             checkIn: { $ne: null },
-            $or: [{ checkOut: null }, { checkOut: { $exists: false } }]
+            $or: [{ checkOut: null }, { checkOut: { $exists: false } }],
+            isManualCheckout: { $ne: true }
         });
 
         for (const rec of openRecords) {
-            const autoOut = new Date(dayStart);
+            // ✅ FIX 24-HR BUG: ใช้วันที่จาก checkIn ไม่ใช่ dayStart (วันปัจจุบัน)
+            const autoOut = new Date(rec.checkIn);
             autoOut.setHours(AUTO_CHECK_OUT_HOUR, 0, 0, 0);
             rec.checkOut = autoOut;
             rec.workHours = computeWorkHours(rec.checkIn, autoOut);
-            rec.status = 'no_checkout';
+            rec.status = rec.isManualOverride ? rec.manualStatus : 'no_checkout';
             rec.note = [rec.note, 'ระบบปิดเวลาอัตโนมัติ (ไม่เช็กเอาต์)'].filter(Boolean).join(' | ');
             await rec.save();
         }
@@ -480,10 +482,7 @@ router.post('/check-in', async (req, res) => {
         await applyDailyAutomation(dayStart);
 
         const existing = await Attendance.findOne({ userId, date: dayStart });
-        if (existing && existing.status === 'absent') {
-            return res.status(400).json({ success: false, message: 'Cannot check in after absent cutoff' });
-        }
-
+        // ✅ อนุญาตให้ check-in แม้ว่ามีสถานะ absent
         if (existing && existing.checkIn) {
             return res.status(400).json({ success: false, message: 'Already checked in for this date' });
         }
@@ -570,11 +569,17 @@ router.put('/:id/time', async (req, res) => {
             checkOutTime,
             note = '',
             actorId = '',
-            actorName = ''
+            actorName = '',
+            overrideStatus = null
         } = req.body;
 
         if (!String(actorId).trim()) {
             return res.status(400).json({ success: false, message: 'actorId is required in request body' });
+        }
+
+        // ✅ ตรวจสอบ Note (หมายเหตุ) - ต้องมี!
+        if (!String(note).trim()) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกหมายเหตุในการแก้ไขข้อมูล' });
         }
 
         const incomingCheckIn = checkInTime || checkIn;
@@ -601,7 +606,11 @@ router.put('/:id/time', async (req, res) => {
                 return res.status(400).json({ success: false, message: 'Invalid checkOut format' });
             }
 
-            if (parsedOut <= parsedIn) {
+            // ✅ ตรวจสอบเงื่อนไข checkOut > checkIn อย่างถูกต้อง
+            // ให้เปรียบเทียบในหน่วยเดียวกัน (milliseconds) เพื่อป้องกัน cross-day bug
+            const inMs = parsedIn.getTime();
+            const outMs = parsedOut.getTime();
+            if (outMs <= inMs) {
                 return res.status(400).json({ success: false, message: 'checkOut must be after checkIn' });
             }
         }
@@ -609,11 +618,24 @@ router.put('/:id/time', async (req, res) => {
         record.checkIn = parsedIn;
         record.checkOut = parsedOut;
         record.workHours = parsedOut ? computeWorkHours(parsedIn, parsedOut) : 0;
-        record.status = inferStatusFromEditedTimes(parsedIn, parsedOut);
-        record.note = [record.note, note].filter(Boolean).join(' | ');
+        
+        // ✅ ใช้ override status ถ้า Admin ส่งมาด้วย
+        if (overrideStatus) {
+            record.status = String(overrideStatus).toLowerCase();
+            record.isManualOverride = true;
+            record.manualStatus = record.status;
+        } else {
+            record.status = inferStatusFromEditedTimes(parsedIn, parsedOut);
+            record.isManualOverride = false;
+            record.manualStatus = '';
+        }
+        
+        // ✅ ทับหมายเหตุแบบใหม่แทนการต่อท้าย (Overwrite instead of Append)
+        record.note = String(note).trim();
         record.updatedBy = String(actorId).trim();
         record.adjustedBy = `${actorName || actorAccess.name || 'SYSTEM'} (${actorAccess.role})`;
-        record.adjustedReason = note || 'แก้ไขเวลาเช็กอิน/เช็กเอาต์ย้อนหลัง';
+        record.adjustedReason = String(note).trim() || 'แก้ไขเวลาเช็กอิน/เช็กเอาต์ย้อนหลัง';
+        record.isManualCheckout = !!incomingCheckOut;
         record.adjustedAt = new Date();
         await record.save();
 
@@ -629,6 +651,12 @@ router.put('/:id/checkout', async (req, res) => {
         if (!actorAccess) return;
 
         const { checkOutTime, note = '', actorName = '' } = req.body;
+        
+        // ✅ ตรวจสอบ Note - ต้องมี!
+        if (!String(note).trim()) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกหมายเหตุในการแก้ไขข้อมูล' });
+        }
+        
         if (!checkOutTime) {
             return res.status(400).json({ success: false, message: 'checkOutTime is required' });
         }
@@ -643,16 +671,21 @@ router.put('/:id/checkout', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid checkOutTime format' });
         }
 
-        if (parsedOut <= new Date(record.checkIn)) {
+        // ✅ ตรวจเช็คเวลาใช้ milliseconds เพื่อป้องกัน cross-day bug
+        const inMs = new Date(record.checkIn).getTime();
+        const outMs = parsedOut.getTime();
+        if (outMs <= inMs) {
             return res.status(400).json({ success: false, message: 'checkOutTime must be after checkIn' });
         }
 
         record.checkOut = parsedOut;
         record.workHours = computeWorkHours(record.checkIn, parsedOut);
         record.status = inferStatusFromCheckIn(new Date(record.checkIn));
-        record.note = [record.note, note].filter(Boolean).join(' | ');
+        // ✅ ทับหมายเหตุแบบใหม่ ไม่ต่อท้ายเก่า
+        record.note = String(note).trim();
         record.adjustedBy = `${actorName || actorAccess.name || 'SYSTEM'} (${actorAccess.role})`;
-        record.adjustedReason = note || 'แก้ไขเวลาเช็กเอาต์ย้อนหลัง';
+        record.adjustedReason = String(note).trim() || 'แก้ไขเวลาเช็กเอาต์ย้อนหลัง';
+        record.isManualCheckout = true;  // ✅ ทำเครื่องหมายว่า checkout เป็นการกำหนดของ Admin
         record.adjustedAt = new Date();
         await record.save();
 
