@@ -1,5 +1,19 @@
 // ===== API Configuration =====
-const API_BASE_URL = '/api';
+const API_BASE_URL = (() => {
+    const configuredBase = window.SK_API_BASE_URL || '';
+
+    if (configuredBase) {
+        return configuredBase.replace(/\/$/, '');
+    }
+
+    // When the login page is opened directly or from a static preview server,
+    // fall back to the local Express backend that serves this app.
+    if (window.location.protocol === 'file:' || !window.location.hostname) {
+        return 'http://localhost:8080/api';
+    }
+
+    return `${window.location.origin}/api`;
+})();
 
 // ===== API Service =====
 const api = {
